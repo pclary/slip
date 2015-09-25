@@ -6,6 +6,7 @@ classdef SlipGraphics < handle
         Ground = gobjects();
         BodyTrace = gobjects();
         ToeTrace = gobjects();
+        Steps = gobjects();
         BodyPos = [0; 1];
         ToePos = [0; 0];
         BodyRadius = 0.2;
@@ -30,7 +31,8 @@ classdef SlipGraphics < handle
         function r = isAlive(obj)
             r = isvalid(obj) && isvalid(obj.Ground) && ...
                 isvalid(obj.Body) && isvalid(obj.Leg) && ...
-                isvalid(obj.BodyTrace) && isvalid(obj.ToeTrace);
+                isvalid(obj.BodyTrace) && isvalid(obj.ToeTrace) && ...
+                isvalid(obj.Steps);
         end
         function setGround(obj, groundfun, numpts)
             [xb, ~] = obj.BodyTrace.getpoints();
@@ -42,14 +44,17 @@ classdef SlipGraphics < handle
                 maxx + width*0.1, numpts);
             obj.Ground.YData = groundfun(obj.Ground.XData);
         end
+        function setSteps(obj, xsteps, ysteps)
+            obj.Steps.XData = xsteps;
+            obj.Steps.YData = ysteps;
+        end
     end
     
     methods (Access=private)
         function createGeometry(obj)
             fig = figure;
             ax = axes('Parent', fig);
-            ax.DataAspectRatioMode = 'manual';
-            ax.DataAspectRatio = [1 1 1];
+            axis(ax, 'equal');
             
             % Traces
             obj.BodyTrace = animatedline('Parent', ax, 'Color', 'red');
@@ -71,13 +76,21 @@ classdef SlipGraphics < handle
             
             % Ground
             obj.Ground = line('Parent', ax);
+            
+            % Step points
+            obj.Steps = line('Parent', ax');
+            obj.Steps.LineStyle = 'none';
+            obj.Steps.Marker = 'o';
+            obj.Steps.Color = 'magenta';
         end
         function updateTransforms(obj)
             obj.Body.Matrix = makehgtform('translate', [obj.BodyPos; 0]);
             leg = obj.BodyPos - obj.ToePos;
             theta = atan2(-leg(1), leg(2));
             length = norm(leg);
-            obj.Leg.Matrix = makehgtform('zrotate', theta)*makehgtform('scale', [1 length 1]);
+            if ~isnan(theta)
+                obj.Leg.Matrix = makehgtform('zrotate', theta)*makehgtform('scale', [1 length 1]);
+            end
         end
         function addTracePoints(obj)
             obj.BodyTrace.addpoints(obj.BodyPos(1), obj.BodyPos(2));
