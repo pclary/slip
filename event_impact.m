@@ -11,6 +11,12 @@ leg = l*[sin(th); -cos(th)];
 toe = Y(1:2) + leg;
 
 % check if toe is above ground
-value = toe(2) - yground(toe(1));
-isterminal = 1;
-direction = -1;
+if Y(2) < yground(Y(1)) % also stop if COM is below ground
+    value = 0;
+    isterminal = 1;
+    direction = 0;
+else
+    value = toe(2) - yground(toe(1));
+    isterminal = 1;
+    direction = -1;
+end

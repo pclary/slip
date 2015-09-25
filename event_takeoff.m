@@ -1,4 +1,4 @@
-function [value, isterminal, direction] = event_takeoff(~, Y, l, toe)
+function [value, isterminal, direction] = event_takeoff(~, Y, l, toe, yground)
 % t: time (s)
 % Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
 % l: equilibrium leg length (m)
@@ -9,7 +9,13 @@ function [value, isterminal, direction] = event_takeoff(~, Y, l, toe)
 leg = Y(1:2) - toe;
 lc = norm(leg);
 
-% check if toe is above ground
-value = lc - l;
-isterminal = 1;
-direction = 1;
+% check if leg is no longer compressed
+if Y(2) < yground(Y(1)) % also stop if COM is below ground
+    value = 0;
+    isterminal = 1;
+    direction = 0;
+else
+    value = lc - l;
+    isterminal = 1;
+    direction = 1;
+end
