@@ -1,9 +1,9 @@
 %% Setup
 % SLIP parameters
-m = 1;
-k = 10;
+m = 10;
+k = 1000;
 l = 1;
-g = 1;
+g = 9.81;
 
 % Ground height and stiffness functions
 yground = @(x) 0*ones(size(x));
@@ -15,7 +15,7 @@ controller = @(t, Y) 0.3;
 % Initial conditions
 Y0 = [0; 1.1; 0.5; 0];
 
-fopts = odeset('Events', @(t, Y) event_impact(t, Y, l, controller, yground));
+fopts = odeset('Events', @(t, Y) event_touchdown(t, Y, l, controller, yground));
 nsteps = 30;
 timeout = 1e1;
 
@@ -85,7 +85,7 @@ Toe = Toe(ia, :);
 sg = SlipGraphics();
 
 % Resample trajectories with a fixed timestep
-ts = 1e-2;
+ts = 1e-3;
 tr = 0:ts:max(t);
 Yr = interp1(t, Y, tr);
 Toer = interp1(t, Toe, tr);
