@@ -6,14 +6,14 @@ l = 1;
 g = 9.81;
 
 % Ground height and stiffness functions
-yground = @(x) 0*ones(size(x));
+yground = @(x) -0.1*x;
 kground = @(x) 1e6*ones(size(x));
 
 % Swing leg controller
-controller = @(t, Y) 0.093942255593665806301384435527;
+controller = @(t, Y) 0.03;%0.093942255593665806301384435527;
 
 % Initial conditions
-Y0 = [0; 1.1; 0.5; 0];
+Y0 = [0; 1.5; 0.5; 0];
 
 fopts = odeset('Events', @(t, Y) event_touchdown(t, Y, l, controller, yground));
 nsteps = 30;
@@ -94,11 +94,11 @@ end
 %% Analysis
 spring = sqrt((Y(:,1) - Toe(:,1)).^2 + (Y(:,2) - Toe(:,2)).^2);
 kg = kground(Toe(:,1));
-keff = (k.*kg)/(k + kg);
+keff = (k.*kg)./(k + kg);
 
 GPE = m*g*Y(:,2);
 KE = 1/2*m*(Y(:,3).^2 + Y(:,4).^2);
-SPE = 1/2*keff*(l - spring).^2;
+SPE = 1/2*keff.*(l - spring).^2;
 
 if exist('enax', 'var') && isa(enax, 'matlab.graphics.axis.Axes') && enax.isvalid()
     cla(enax);
