@@ -10,7 +10,7 @@ yground = @(x) 0*ones(size(x));
 kground = @(x) 1e6*ones(size(x));
 
 % Swing leg controller
-controller = @(t, Y) 0.1;
+controller = @(t, Y) 0.093942255593665806301384435527;
 
 % Initial conditions
 Y0 = [0; 1.1; 0.5; 0];
@@ -28,7 +28,6 @@ Ystep = [];
 %% Run simulation
 for i = 1:nsteps
     % Flight phase
-    Toe(end, :) = [nan nan];
     [tp, Yp] = ode45(@(t, Y) slip_flight(t, Y, g), [0 timeout], Y0, fopts);
     Y0 = Yp(end, :)';
     t = [t; tp + t(end)];
@@ -72,7 +71,11 @@ Y = Y(ia, :);
 Toe = Toe(ia, :);
 
 %% Display
-sg = SlipGraphics();
+if exist('sg', 'var') && isa(sg, 'SlipGraphics') && sg.isAlive()
+    sg.clearTrace();
+else
+    sg = SlipGraphics();
+end
 
 % Resample trajectories with a fixed timestep
 ts = 1e-2;
@@ -87,3 +90,28 @@ for i = 1:length(tr);
     sg.setSteps(Ystep(1:istep, 1), Ystep(1:istep, 2));
     drawnow;
 end
+
+%% Analysis
+spring = sqrt((Y(:,1) - Toe(:,1)).^2 + (Y(:,2) - Toe(:,2)).^2);
+kg = kground(Toe(:,1));
+keff = (k.*kg)/(k + kg);
+
+GPE = m*g*Y(:,2);
+KE = 1/2*m*(Y(:,3).^2 + Y(:,4).^2);
+SPE = 1/2*keff*(l - spring).^2;
+
+if exist('enax', 'var') && isa(enax, 'matlab.graphics.axis.Axes') && enax.isvalid()
+    cla(enax);
+else
+    energyfig = figure;
+    enax = axes('Parent', energyfig);
+end
+plot(enax, t, GPE, t, KE, t, SPE, t, GPE+KE+SPE);
+legend(enax, 'GPE', 'KE', 'SPE', 'Total');
+
+
+
+
+
+
+
