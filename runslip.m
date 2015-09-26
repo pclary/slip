@@ -10,7 +10,7 @@ yground = @(x) -0.1*x;
 kground = @(x) 1e6*ones(size(x));
 
 % Swing leg controller
-controller = @(t, Y) 0.03;%0.093942255593665806301384435527;
+controller = @(t, Y) 0.07705;
 
 % Initial conditions
 Y0 = [0; 1.5; 0.5; 0];
@@ -92,6 +92,7 @@ for i = 1:length(tr);
 end
 
 %% Analysis
+% Energy
 spring = sqrt((Y(:,1) - Toe(:,1)).^2 + (Y(:,2) - Toe(:,2)).^2);
 kg = kground(Toe(:,1));
 keff = (k.*kg)./(k + kg);
@@ -109,8 +110,21 @@ end
 plot(enax, t, GPE, t, KE, t, SPE, t, GPE+KE+SPE);
 legend(enax, 'GPE', 'KE', 'SPE', 'Total');
 
+% Ground reaction force
+t2 = t(1:end-1) + diff(t)/2;
+ax = diff(Y(:,3))./diff(t);
+ay = diff(Y(:,4))./diff(t);
+grfx = ax*m;
+grfy = (ay + g)*m;
 
-
+if exist('grfax', 'var') && isa(grfax, 'matlab.graphics.axis.Axes') && grfax.isvalid()
+    cla(grfax);
+else
+    grffig = figure;
+    grfax = axes('Parent', grffig);
+end
+plot(grfax, t2, grfx, t2, grfy);
+legend(grfax, 'GRF_x', 'GRF_y');
 
 
 
