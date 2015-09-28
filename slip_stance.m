@@ -1,4 +1,4 @@
-function dY = slip_stance(~, Y, m, k, b, l, g, toe)
+function dY = slip_stance(t, Y, m, k, b, lsctrl, g, toe)
 % t: time (s)
 % Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
 % m: mass (kg)
@@ -8,6 +8,7 @@ function dY = slip_stance(~, Y, m, k, b, l, g, toe)
 % toe: position of toe [x (m); y (m)]
 
 % get leg vector, compressed length, and rate of compression
+l = lsctrl(t, Y);
 leg = Y(1:2) - toe;
 lc = norm(leg);
 dlc = dot(Y(3:4), leg)/l;
