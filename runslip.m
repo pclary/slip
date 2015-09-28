@@ -2,13 +2,12 @@
 % SLIP parameters
 m = 10;
 k = 1000;
-b = 1;
+b = 0;
 l = 1;
 g = 9.81;
 
-% Ground height and stiffness functions
+% Ground height function
 yground = @(x) 0*x;
-kground = @(x) 1e6*ones(size(x));
 
 % Swing leg controller
 controller = @(t, Y) 0.07705;
@@ -53,8 +52,9 @@ for i = 1:nsteps
     % Stance phase
     Ystep = [Ystep; [toe', t(end)]];
     sopts = odeset('Events', @(t, Y) event_takeoff(t, Y, l, toe, yground));
-    ktot = (k*kground(toe(1)))/(k + kground(toe(1)));
-    [tp, Yp] = ode45(@(t, Y) slip_stance(t, Y, m, ktot, b, l, g, toe), [0 timeout], Y0, sopts);
+    keff = k;
+    beff = b;
+    [tp, Yp] = ode45(@(t, Y) slip_stance(t, Y, m, keff, beff, l, g, toe), [0 timeout], Y0, sopts);
     Y0 = Yp(end, :)';
     t = [t; tp + t(end)];
     Y = [Y; Yp];
