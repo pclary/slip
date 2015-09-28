@@ -2,11 +2,12 @@
 % SLIP parameters
 m = 10;
 k = 1000;
+b = 1;
 l = 1;
 g = 9.81;
 
 % Ground height and stiffness functions
-yground = @(x) -0.1*x;
+yground = @(x) 0*x;
 kground = @(x) 1e6*ones(size(x));
 
 % Swing leg controller
@@ -53,7 +54,7 @@ for i = 1:nsteps
     Ystep = [Ystep; [toe', t(end)]];
     sopts = odeset('Events', @(t, Y) event_takeoff(t, Y, l, toe, yground));
     ktot = (k*kground(toe(1)))/(k + kground(toe(1)));
-    [tp, Yp] = ode45(@(t, Y) slip_stance(t, Y, m, ktot, l, g, toe), [0 timeout], Y0, sopts);
+    [tp, Yp] = ode45(@(t, Y) slip_stance(t, Y, m, ktot, b, l, g, toe), [0 timeout], Y0, sopts);
     Y0 = Yp(end, :)';
     t = [t; tp + t(end)];
     Y = [Y; Yp];
@@ -108,6 +109,9 @@ else
     enax = axes('Parent', energyfig);
 end
 plot(enax, t, GPE, t, KE, t, SPE, t, GPE+KE+SPE);
+title(enax, 'Enegry');
+xlabel(enax, 'Time (s)');
+ylabel(enax, 'Energy (J)');
 legend(enax, 'GPE', 'KE', 'SPE', 'Total');
 
 % Ground reaction force
@@ -124,6 +128,9 @@ else
     grfax = axes('Parent', grffig);
 end
 plot(grfax, t2, grfx, t2, grfy);
+title(grfax, 'Ground Reaction force');
+xlabel(grfax, 'Time (s)');
+ylabel(grfax, 'Force (N)');
 legend(grfax, 'GRF_x', 'GRF_y');
 
 
