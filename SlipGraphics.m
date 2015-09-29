@@ -18,9 +18,9 @@ classdef SlipGraphics < handle
             obj.createGeometry();
             obj.updateTransforms();
         end
-        function setState(obj, body, toe)
+        function setState(obj, body, angle, length)
             obj.BodyPos = body(:);
-            obj.ToePos = toe(:);
+            obj.ToePos = body(:) + length*[sin(angle); -cos(angle)];
             obj.addTracePoints();
             obj.updateTransforms();
         end

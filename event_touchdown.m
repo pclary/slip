@@ -1,4 +1,4 @@
-function [value, isterminal, direction] = event_touchdown(t, Y, lfctrl, controller, yground)
+function [value, isterminal, direction] = event_touchdown(t, Y, flight_length, flight_angle, yground)
 % t: time (s)
 % Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
 % l: equilibrium leg length (m)
@@ -6,8 +6,8 @@ function [value, isterminal, direction] = event_touchdown(t, Y, lfctrl, controll
 % yground: function of x that returns y-height of ground
 
 % get toe position
-th = controller(t, Y);
-l = lfctrl(t, Y);
+th = flight_angle(t, Y);
+l = flight_length(t, Y);
 leg = l*[sin(th); -cos(th)];
 toe = Y(1:2) + leg;
 

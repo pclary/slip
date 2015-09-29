@@ -1,4 +1,4 @@
-function [value, isterminal, direction] = event_takeoff(t, Y, lsctrl, toe, yground)
+function [value, isterminal, direction] = event_takeoff(t, Y, stance_length, toe, yground)
 % t: time (s)
 % Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
 % l: equilibrium leg length (m)
@@ -6,7 +6,7 @@ function [value, isterminal, direction] = event_takeoff(t, Y, lsctrl, toe, ygrou
 % yground: function of x that returns y-height of ground
 
 % get leg vector and compressed length
-l = lsctrl(t, Y);
+l = stance_length(t, Y);
 leg = Y(1:2) - toe;
 lc = norm(leg);
 

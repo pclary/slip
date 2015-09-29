@@ -30,11 +30,12 @@ t = 0;
 Y = Y0(:)';
 angle = controllers.flight_angle(t, Y);
 length_eq = controllers.flight_length(t, Y);
+length_comp = length_eq;
 ttdwn = [];
 ttoff = [];
 
 % Time limits for individual steps
-tspan = [0 1e2];
+tspan = [0 1e1];
 
 % Run simulation for up to n steps
 for i = 1:nsteps
@@ -50,8 +51,8 @@ for i = 1:nsteps
     for j = 1:length(angle_f)
         angle_f(j) = controllers.flight_angle(t_f(j), Y_f(j, :)');
         length_eq_f(j) = controllers.flight_length(t_f(j), Y_f(j, :)');
-        
-        if environment.ground_height(Y_f(j, 1) + length_eq_f(j)*sin(angle_f(j))) > Y_f(j, 2) - length_eq_f(j)*cos(angle_f(j))
+        toe = Y_f(j, 1:2)' + length_eq_f(j)*[sin(angle_f(j)); -cos(angle_f(j))];
+        if environment.ground_height(toe(1)) > toe(2)
             fun = @(th) environment.ground_height(Y_f(j, 1) + length_eq_f(j)*sin(th)) - (Y_f(j, 2) - length_eq_f(j)*cos(th));
             fsopts = optimoptions('fsolve', 'Display', 'off');
             angle_f(j) = fsolve(fun, angle_f(j), fsopts);
@@ -66,7 +67,7 @@ for i = 1:nsteps
     length_comp = [length_comp; length_eq_f]; % leg is at equilibrium length during flight
     
     % Stop if hopper crashed (COM below ground)
-    if environment.ground_height(Y0(1)) >= Y0(2)
+    if environment.ground_height(Y(end, 1)) >= Y(end, 2)
         break;
     end
     
@@ -74,15 +75,15 @@ for i = 1:nsteps
     ttdwn = [ttdwn; t(end)];
     
     % Simulate stance dynamics
-    toe = length_eq(end)*[sin(angle(end)); -cos(angle(end))];
+    toe = Y(end, 1:2)' + length_eq(end)*[sin(angle(end)); -cos(angle(end))];
     sopts = odeset('Events', @(t, Y) event_takeoff(t, Y, controllers.stance_length, toe, environment.ground_height));
     keff = model_params.stiffness; % will eventually incorporate ground stiffness 
     beff = model_params.damping; % ^
     [t_s, Y_s] = ode45(@(t, Y) slip_stance(t, Y, model_params.mass, keff, beff, controllers.stance_length, model_params.gravity, toe), tspan, Y(end, :)', sopts);
 
     % Calculate angle and compressed length during stance
-    leg = bsxfun(@minus, toe, Y_s(:, 1:2));
-    angle_s = atan2(leg(:, 1), leg(:, 2));
+    leg = bsxfun(@minus, toe', Y_s(:, 1:2));
+    angle_s = atan2(leg(:, 1), -leg(:, 2));
     length_comp_s = sqrt(leg(:, 1).^2 + leg(:, 2).^2);
     
     % Get controlled equilibrium length during stance
@@ -99,7 +100,7 @@ for i = 1:nsteps
     length_comp = [length_comp; length_comp_s];
     
     % Stop if hopper crashed (COM below ground)
-    if environment.ground_height(Y0(1)) >= Y0(2)
+    if environment.ground_height(Y(end, 1)) >= Y(end, 2)
         break;
     end
     
