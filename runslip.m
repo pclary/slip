@@ -9,14 +9,14 @@ model_params.gravity = 9.81;
 environment.ground_height = @(x) 0*x;
 
 % Flight leg angle and flight/stance leg length controllers
-controllers.flight_angle = @(t, Y) 0.075;
+controllers.flight_angle = @(t, Y) 0.07772098915385;
 controllers.flight_length = @(t, Y) 1;
 controllers.stance_length = @(t, Y) 1;
 
 % Initial conditions
 Y0 = [0; 1.5; 0.5; 0];
 
-nsteps = 10;
+nsteps = 30;
 
 [t, states, itdwn, itoff] = slip_sim(model_params, environment, controllers, Y0, nsteps);
 
@@ -57,17 +57,12 @@ else
     enax = axes('Parent', energyfig);
 end
 plot(enax, t, GPE, t, KE, t, SPE, t, GPE+KE+SPE);
-title(enax, 'Enegry');
+title(enax, 'Energy');
 xlabel(enax, 'Time (s)');
 ylabel(enax, 'Energy (J)');
 legend(enax, 'GPE', 'KE', 'SPE', 'Total');
 
 % Ground reaction force
-t2 = t(1:end-1) + diff(t)/2;
-ax = diff(states(:,3))./diff(t);
-ay = diff(states(:,4))./diff(t);
-grfx = ax*model_params.mass;
-grfy = (ay + model_params.gravity)*model_params.mass;
 
 if exist('grfax', 'var') && isa(grfax, 'matlab.graphics.axis.Axes') && grfax.isvalid()
     cla(grfax);
@@ -75,7 +70,7 @@ else
     grffig = figure;
     grfax = axes('Parent', grffig);
 end
-plot(grfax, t2, grfx, t2, grfy);
+plot(grfax, t, states(:,8), t, states(:,9));
 title(grfax, 'Ground Reaction force');
 xlabel(grfax, 'Time (s)');
 ylabel(grfax, 'Force (N)');
