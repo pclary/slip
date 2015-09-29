@@ -9,16 +9,16 @@ model_params.gravity = 9.81;
 environment.ground_height = @(x) 0*x;
 
 % Flight leg angle and flight/stance leg length controllers
-controllers.flight_angle = @(t, Y) 0.07772098915385;
-controllers.flight_length = @(t, Y) 1;
-controllers.stance_length = @(t, Y) 1;
+controllers.flight_angle = @(t, Y, states0) -states0(5);
+controllers.flight_length = @(t, Y, states0) 1;
+controllers.stance_length = @(t, Y, states0) 1;
 
 % Initial conditions
-Y0 = [0; 1.5; 0.5; 0];
+states0 = [0; 1.5; 0.5; 0; -0.077; 1; 1; 0; 0];
 
 nsteps = 30;
 
-[t, states, itdwn, itoff] = slip_sim(model_params, environment, controllers, Y0, nsteps);
+[t, states, itdwn, itoff] = slip_sim(model_params, environment, controllers, states0, nsteps);
 
 %% Display
 if exist('sg', 'var') && isa(sg, 'SlipGraphics') && sg.isAlive()
@@ -27,16 +27,17 @@ else
     sg = SlipGraphics();
 end
 
-%Resampling doesn't currently keep the toe above the ground correctly
-% % Resample trajectories with a fixed timestep
-% ts = 1e-2;
-% tr = 0:ts:max(t);
-% statesr = interp1(t, states, tr);
+% Resample trajectories with a fixed timestep
+toe = states(:,1:2) + bsxfun(@times, states(:,7), [sin(states(:,5)), -cos(states(:,5))]);
+ts = 1e-2;
+tr = 0:ts:max(t);
+statesr = interp1(t, states, tr);
+toer = interp1(t, toe, tr);
 
-for i = 1:length(t);
-    sg.setState(states(i,1:2), states(i,5), states(i,7));
+for i = 1:length(tr);
+    sg.setState(statesr(i,1:2), toer(i,:));
     sg.setGround(environment.ground_height, 1e3);
-    isteps = itdwn(t(itdwn) <= t(i));
+    isteps = itdwn(t(itdwn) <= tr(i));
     steppts = states(isteps,1:2) + ...
         bsxfun(@times, states(isteps,7), [sin(states(isteps,5)), -cos(states(isteps,5))]);
     sg.setSteps(steppts(:,1), steppts(:,2));

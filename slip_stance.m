@@ -1,14 +1,17 @@
-function dY = slip_stance(t, Y, m, k, b, lsctrl, g, toe)
+function dY = slip_stance(t, Y, m, k, b, g, stance_length, states0)
 % t: time (s)
 % Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
 % m: mass (kg)
 % k: total stiffness (leg + ground) (N/m)
-% l: equilibrium leg length (m)
+% b: total damping (N*s/m)
 % g: gravity (m/s^2)
-% toe: position of toe [x (m); y (m)]
+% stance_length: leg length controller, function of (t, Y, states0)
+% states0: values of [com_x, com_y, com_xdot, com_ydot, angle, length_eq, 
+%   length_compr, grf_x, grf_y] at touchdown
 
 % get leg vector, compressed length, and rate of compression
-l = lsctrl(t, Y);
+l = stance_length(t, Y, states0);
+toe = states0(1:2) + states0(7)*[sin(states0(5)); -cos(states0(5))];
 leg = Y(1:2) - toe;
 lc = norm(leg);
 dlc = dot(Y(3:4), leg)/l;

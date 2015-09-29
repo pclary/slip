@@ -18,9 +18,9 @@ classdef SlipGraphics < handle
             obj.createGeometry();
             obj.updateTransforms();
         end
-        function setState(obj, body, angle, length)
+        function setState(obj, body, toe)
             obj.BodyPos = body(:);
-            obj.ToePos = body(:) + length*[sin(angle); -cos(angle)];
+            obj.ToePos = toe(:);
             obj.addTracePoints();
             obj.updateTransforms();
         end
@@ -55,10 +55,16 @@ classdef SlipGraphics < handle
             fig = figure;
             ax = axes('Parent', fig);
             axis(ax, 'equal');
+            title(ax, 'SLIP');
+            xlabel(ax, 'x (m)');
+            ylabel(ax, 'y (m)');
             
             % Traces
             obj.BodyTrace = animatedline('Parent', ax, 'Color', 'red');
             obj.ToeTrace = animatedline('Parent', ax, 'Color', 'blue');
+            
+            % Ground
+            obj.Ground = line('Parent', ax);
             
             obj.Body = hgtransform('Parent', ax);
             obj.Leg = hgtransform('Parent', obj.Body);
@@ -73,9 +79,6 @@ classdef SlipGraphics < handle
             b.Position = obj.BodyRadius*[-0.5 -0.5 1 1];
             b.Curvature = [1 1];
             b.FaceColor = 'white';
-            
-            % Ground
-            obj.Ground = line('Parent', ax);
             
             % Step points
             obj.Steps = line('Parent', ax');
