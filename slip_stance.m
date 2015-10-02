@@ -1,6 +1,6 @@
 function dY = slip_stance(t, Y, m, k, b, g, stance_length, states0)
 % t: time (s)
-% Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
+% Y: state [com_x (m); com_y (m); com_xdot (m/s); com_ydot (m/s)]
 % m: mass (kg)
 % k: total stiffness (leg + ground) (N/m)
 % b: total damping (N*s/m)

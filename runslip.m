@@ -1,17 +1,21 @@
 %% Setup
 % SLIP parameters
-model_params.mass = 10;
-model_params.stiffness = 1000;
-model_params.damping = 0;
-model_params.gravity = 9.81;
+m = 10;
+k = 1000;
+b = 0;
+g = 9.81;
+model_params.mass = m;
+model_params.stiffness = k;
+model_params.damping = b;
+model_params.gravity = g;
 
 % Ground height function
-environment.ground_height = @(x) 0*x;
+environment.ground_height = @(x) 1*sin(x/2);
 
 % Flight leg angle and flight/stance leg length controllers
-controllers.flight_angle = @(t, Y, states0) -states0(5);
+controllers.flight_angle = @(t, Y, states0) (Y(3)-0.1)*0.2;
 controllers.flight_length = @(t, Y, states0) 1;
-controllers.stance_length = @(t, Y, states0) 1;
+controllers.stance_length = @(t, Y, states0) 1 - 2e-2*t*(energy(states0, model_params) - m*g*(1.5+(states0(2)-states0(6)*cos(states0(5)))));
 
 % Initial conditions
 states0 = [0; 1.5; 0.5; 0; -0.077; 1; 1; 0; 0];

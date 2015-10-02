@@ -46,8 +46,8 @@ for i = 1:nsteps
     
     % Simulate flight dynamics
     states0_f = [Y(end, :)'; angle(end); length_eq(end); length_comp(end); grf_x(end); grf_y(end)];
-    fopts = odeset('Events', @(t, Y) event_touchdown(t, Y, controllers.flight_length, controllers.flight_angle, states0_f, environment.ground_height), ...
-        'Refine', 8, 'RelTol', 1e-5, 'AbsTol', 1e-10);
+    touchdownfun = @(t, Y) event_touchdown(t, Y, controllers.flight_length, controllers.flight_angle, states0_f, environment.ground_height);
+    fopts = odeset('Events', touchdownfun, 'Refine', 8, 'RelTol', 1e-5, 'AbsTol', 1e-10);
     flightfun = @(t, Y) slip_flight(t, Y, model_params.gravity);
     [t_f, Y_f] = ode45(flightfun, tspan, Y(end, :)', fopts);
     
@@ -85,8 +85,8 @@ for i = 1:nsteps
     
     % Simulate stance dynamics
     states0_s = [Y(end, :)'; angle(end); length_eq(end); length_comp(end); grf_x(end); grf_y(end)];
-    sopts = odeset('Events', @(t, Y) event_takeoff(t, Y, controllers.stance_length, states0_s, environment.ground_height), ...
-        'Refine', 8, 'RelTol', 1e-5, 'AbsTol', 1e-10);
+    takeofffun =  @(t, Y) event_takeoff(t, Y, controllers.stance_length, states0_s, environment.ground_height);
+    sopts = odeset('Events', takeofffun, 'Refine', 8, 'RelTol', 1e-5, 'AbsTol', 1e-10);
     keff = model_params.stiffness; % will eventually incorporate ground stiffness 
     beff = model_params.damping; % ^
     stancefun = @(t, Y) slip_stance(t, Y, model_params.mass, keff, beff, model_params.gravity, controllers.stance_length, states0_s);

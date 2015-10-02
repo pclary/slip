@@ -1,6 +1,6 @@
 function [value, isterminal, direction] = event_touchdown(t, Y, flight_length, flight_angle, states0, ground_height)
 % t: time (s)
-% Y: state [x_COM (m); y_COM (m); dxdt_COM (m/s); dydt_COM (m/s)]
+% Y: state [com_x (m); com_y (m); com_xdot (m/s); com_ydot (m/s)]
 % flight_length: leg length controller, function of (t, Y, states0)
 % flight_angle: leg angle controller, function of (t, Y, states0)
 % states0: values of [com_x, com_y, com_xdot, com_ydot, angle, length_eq, 
