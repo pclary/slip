@@ -27,6 +27,8 @@ classdef SlipGraphics < handle
         function clearTrace(obj)
             obj.BodyTrace.clearpoints();
             obj.ToeTrace.clearpoints();
+            obj.Steps.XData = [];
+            obj.Steps.YData = [];
         end
         function r = isAlive(obj)
             r = isvalid(obj) && isvalid(obj.Ground) && ...
@@ -47,6 +49,10 @@ classdef SlipGraphics < handle
         function setSteps(obj, xsteps, ysteps)
             obj.Steps.XData = xsteps;
             obj.Steps.YData = ysteps;
+        end
+        function addStep(obj, step)
+            obj.Steps.XData = [obj.Steps.XData, step(1)];
+            obj.Steps.YData = [obj.Steps.YData, step(2)];
         end
     end
     
@@ -85,6 +91,8 @@ classdef SlipGraphics < handle
             obj.Steps.LineStyle = 'none';
             obj.Steps.Marker = 'o';
             obj.Steps.Color = 'magenta';
+            obj.Steps.XData = [];
+            obj.Steps.YData = [];
         end
         function updateTransforms(obj)
             obj.Body.Matrix = makehgtform('translate', [obj.BodyPos; 0]);

@@ -139,17 +139,14 @@ function Update(block)
 
 switch block.Dwork(1).Data
     case SlipPhase.Flight
-        th = block.InputPort(1).Data;
-        l = block.InputPort(2).Data;
-        leg = l*[sin(th) -cos(th)];
-        toe = block.ContStates.Data(1:2)' + leg;
-        if toe(2) <= ground_height(toe(1))
+        [f2s, toe] = flight_to_stance(block);
+        if f2s
             block.Dwork(1).Data = int32(SlipPhase.Stance);
             block.Dwork(2).Data = toe;
         end
     case SlipPhase.Stance
-        leg = block.Dwork(2).Data - block.ContStates.Data(1:2);
-        if norm(leg) > block.InputPort(2).Data
+        s2f = stance_to_flight(block);
+        if s2f
             block.Dwork(1).Data = int32(SlipPhase.Flight);
         end
     otherwise
@@ -159,7 +156,20 @@ end
 
 function Derivatives(block)
 
-switch block.Dwork(1).Data
+phase = block.Dwork(1).Data;
+
+switch phase
+    case SlipPhase.Flight
+        if flight_to_stance(block)
+            phase = int32(SlipPhase.Stance);
+        end
+    case SlipPhase.Stance
+        if stance_to_flight(block)
+            phase = int32(SlipPhase.Flight);
+        end
+end
+
+switch phase
     case SlipPhase.Flight
         dY = slip_flight(block.ContStates.Data, block.DialogPrm(4).Data);
     case SlipPhase.Stance
@@ -194,4 +204,19 @@ lc = norm(leg);
 dlc = dot(Y(3:4), leg)/l;
 F = -(leg/lc)*(k*(lc - l) + b*dlc);
 dY = [Y(3:4); F/m + [0; -g]];
+
+
+function [out, toe] = flight_to_stance(block)
+
+th = block.InputPort(1).Data;
+l = block.InputPort(2).Data;
+leg = l*[sin(th) -cos(th)];
+toe = block.ContStates.Data(1:2)' + leg;
+out = toe(2) <= ground_height(toe(1));
+
+
+function out = stance_to_flight(block)
+
+leg = block.Dwork(2).Data - block.ContStates.Data(1:2);
+out = norm(leg) > block.InputPort(2).Data;
 
