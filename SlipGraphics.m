@@ -40,9 +40,9 @@ classdef SlipGraphics < handle
             minx = min(min(xb), min(xt));
             maxx = max(max(xb), max(xt));
             width = maxx - minx;
-            obj.Ground.XData = linspace(minx - width*0.1, ...
-                maxx + width*0.1, numpts);
-            obj.Ground.YData = groundfun(obj.Ground.XData);
+            xg = linspace(minx - width*0.1, maxx + width*0.1, numpts);
+            yg = groundfun(xg);
+            set(obj.Ground, 'XData', xg, 'YData', yg);
         end
         function setSteps(obj, xsteps, ysteps)
             obj.Steps.XData = xsteps;
