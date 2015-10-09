@@ -49,7 +49,7 @@ body.gravity_force = gravity*[0; -1];
 % Ground reaction force for body
 nonground_force = body.spring_a_force + body.spring_b_force + body.gravity_force;
 [body.ground_force, body.dpos, body.ground_contact_data] = ...
-    ground_contact_model(body.pos, body.dpos, body.pos + [0; 1], nonground_force, ground);
+    ground_contact_model(body.pos + [0; -0.1], body.dpos, body.pos, nonground_force, ground);
 
 body.force = nonground_force + body.ground_force;
 body.torque = -leg_a.torque + -leg_b.torque;
