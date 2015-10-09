@@ -4,19 +4,26 @@ function dY = bislip(t, Y)
 %     foot_b_x; foot_b_y; foot_b_xdot; foot_b_ydot]
 
 % Physical parameters
-g = 9.81;
-I_com = 1;
-m_com = 10;
+gravity = 9.81;
 m_foot = 1;
 k_leg = 1000;
-k_ground = 1e5;
 b_leg = 10;
-b_ground = 10;
-mu = 1;
+
+com.mass = 10;
+com.inertia = 1;
+leg_a.mass = m_foot;
+leg_b.mass = m_foot;
+leg_a.stiffness = k_leg;
+leg_b.stiffness = k_leg;
+leg_a.damping = b_leg;
+leg_b.damping = b_leg;
 
 % Environment
-ground_x = [-1e3 1e3];
-ground_y = [0 0];
+ground.x = [-1e3 1e3];
+ground.y = [0 0];
+ground.mu = 1;
+ground.stiffness = 1e5;
+ground.damping = 10;
 
 % Control inputs
 leg_a.length_eq = 1;
@@ -34,9 +41,9 @@ leg_a.dfoot = Y(9:10);
 leg_b.foot = Y(11:12);
 leg_b.dfoot = Y(13:14);
 
-    function legcalcs(leg)
+    function leg = legcalcs(leg)
         % Calculate lengths, derivatives, etc
-        leg.vec = foot - com;
+        leg.vec = leg.foot - com.pos;
         leg.length = norm(leg.vec);
         if leg.length ~= 0
             leg.direction = leg.vec/leg.length;
@@ -45,26 +52,27 @@ leg_b.dfoot = Y(13:14);
         end
         leg.angle = atan2(leg.direction(1), -leg.direction(2));
         
-        leg.dvec = dfoot - dcom;
+        leg.dvec = leg.dfoot - com.dpos;
         leg.dlength = dot(leg.dvec, leg.direction);
         
         % Find how far the toe is pushed into the ground
         % Get first intersection of leg with ground, starting at center of mass
-        [xi, yi, ii] = polyxpoly([com(1) leg.foot(1)], [com(2) leg.foot(2)], ...
-            ground_x, ground_y);
+        [xi, yi, ii] = polyxpoly([com.pos(1) leg.foot(1)], [com.pos(2) leg.foot(2)], ...
+            ground.x, ground.y);
         if length(xi) < 1
             leg.depth = 0;
             leg.ddepth = 0;
+            leg.ground_tangent = [1; 0];
             leg.ground_normal = [0; 1];
         else
-            depths = sqrt((xi - foot(1)).^2 + (yi - foot(2)).^2);
+            depths = sqrt((xi - leg.foot(1)).^2 + (yi - leg.foot(2)).^2);
             [leg.depth, imax] = max(depths);
             leg.ddepth = dot(leg.dfoot, leg.direction);
             igs = ii(imax, 2);
-            ground_tangent = [diff(xground(igs:igs+1)), diff(yground(igs:igs+1))];
+            ground_tangent = [diff(ground.x(igs:igs+1)); diff(ground.y(igs:igs+1))];
             leg.ground_tangent = ground_tangent/norm(ground_tangent);
-            leg.ground_normal = [-ground_tangent(2); ground_tangent(1)];
-            if dot(-leg.direction, ground.normal) < 0
+            leg.ground_normal = ccw90(leg.ground_tangent);
+            if dot(-leg.direction, leg.ground_normal) < 0
                 leg.ground_tangent = -leg.ground_tangent;
                 leg.ground_normal = -leg.ground_normal;
             end
@@ -72,22 +80,45 @@ leg_b.dfoot = Y(13:14);
         
         % Forces
         % Compression positive
-        leg.force = k_leg*(leg.length_eq - leg.length) - b_leg*leg.dlength;
-        leg.ground_force = max(k_ground*leg.depth + b_ground*leg.ddepth, 0);
-        friction_force = mu*leg.ground_force*dot(-leg.direction, leg.ground_normal);
-        foot_net_force = leg.direction*leg.force - leg.direction*leg.ground_force;
-        foot_net_force_tf = [dot(foot_net_force, leg.ground_tangent);
-            dot(foot_net_force, leg.ground_normal)];
+        leg.spring_force = leg.stiffness*(leg.length_eq - leg.length) - leg.damping*leg.dlength;
+        if leg.length ~=0
+            leg.motor_force = leg.torque/leg.length;
+        else
+            leg.motor_force = 0;
+        end
+        leg.ground_force = max(ground.stiffness*leg.depth + ground.damping*leg.ddepth, 0);
+        leg.gravity_force = leg.mass*gravity;
+        
+        % Add friction
+        friction_force = ground.mu*leg.ground_force*dot(-leg.direction, leg.ground_normal);
+        foot_net_forces = leg.spring_force*leg.direction ...
+            + leg.ground_force*(-leg.direction) ...
+            + leg.motor_force*ccw90(leg.direction) ...
+            + leg.gravity_force*[0; -1];
+        foot_net_force_tf = [dot(foot_net_forces, leg.ground_tangent);
+            dot(foot_net_forces, leg.ground_normal)];
         friction_force = min(abs(foot_net_force_tf(1)), friction_force);
-        leg.friction_force = -sign(foot_net_force_tf(1))*friction_force*leg.ground_tangent;
-        leg.foot_force_vec = foot_net_force + friction_force;
+        leg.friction_forces = -sign(foot_net_force_tf(1))*friction_force*leg.ground_tangent;
+        leg.foot_forces = foot_net_forces + leg.friction_forces;
     end
 
 % Compute quantities for each leg
 leg_a = legcalcs(leg_a);
 leg_b = legcalcs(leg_b);
 
+com.forces = -leg_a.spring_force*leg_a.direction ...
+    - leg_b.spring_force*leg_b.direction ...
+    + [0; -1]*gravity;
+com.torque = -leg_a.torque + -leg_b.torque;
+
+dY = [com.dpos; com.dth; com.forces/com.mass; com.torque/com.inertia; 
+    leg_a.dfoot; leg_a.foot_forces/leg_a.mass;
+    leg_b.dfoot; leg_b.foot_forces/leg_b.mass];
+
+end
 
 
+function out = ccw90(v)
+out = [-v(2); v(1)];
 end
 
