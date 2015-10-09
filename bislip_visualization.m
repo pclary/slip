@@ -16,6 +16,8 @@ block.InputPort(1).DatatypeID = 0;  % double
 block.InputPort(1).Complexity = 'Real';
 block.InputPort(1).DirectFeedthrough = true;
 
+block.NumDialogPrms = 1;
+
 block.RegBlockMethod('Start',                @Start);
 block.RegBlockMethod('Outputs',              @Output);
 
@@ -59,6 +61,21 @@ if block.IsMajorTimeStep
     toeB = block.InputPort(1).Data(11:12);
     
     vis.setState(body, angle, toeA, toeB);
-    %vis.setGround(@ground_height, 100);
+    vis.setGround(@(x) ground_height_interp(x, block.DialogPrm(1).Data), 100);
 end
+
+
+function y = ground_height_interp(x, ground_data)
+
+y = zeros(size(x));
+
+for i = 1:length(x)
+    [~, yi] = polyxpoly([x(i) x(i)], [-1e3 1e3], ground_data(:, 1), ground_data(:, 2));
+    if ~isempty(yi)
+        y(i) = max(yi);
+    else
+        y(i) = NaN;
+    end
+end
+
 

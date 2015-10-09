@@ -81,7 +81,7 @@ classdef BiSLIPGraphics < handle
             fig = figure;
             ax = axes('Parent', fig);
             axis(ax, 'equal');
-            title(ax, 'SLIP');
+            title(ax, 'BiSLIP');
             xlabel(ax, 'x (m)');
             ylabel(ax, 'y (m)');
             
