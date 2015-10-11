@@ -20,8 +20,7 @@ gcla = [leg_a.ground_contact_data];
 gclb = [leg_b.ground_contact_data];
 
 %%
-plot(t, [gcla.friction_force]/1e3, t, [gcla.ground_slip], t, [gcla.tangential_force]/1e1, t, [gcla.p2])
-plot(t, [gclb.ground_slip], t, [leg_b.foot_force]*1e-3)
+plot(t, [gclb.ground_slip])
 
 %%
 tic;

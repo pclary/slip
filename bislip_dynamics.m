@@ -155,7 +155,7 @@ gc.friction_mag = gc.ground_friction*dot(gc.spring_force, gc.ground_normal);
 % function with a continuous ramp
 gc.tangential_force = dot(external_force, gc.ground_tangent);
 gc.ground_slip = dot(vel, gc.ground_tangent);
-slip_ramp_width = gc.friction_mag*1e-3;
+slip_ramp_width = gc.friction_mag*1e-8;
 gc.p = min(max(abs(gc.ground_slip)/slip_ramp_width, 0), 1);
 gc.friction_force = -sign(gc.ground_slip)*gc.p*gc.friction_mag*gc.ground_tangent;
 
