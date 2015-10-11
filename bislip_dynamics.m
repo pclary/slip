@@ -44,7 +44,7 @@ leg_b = legcalcs(leg_b, body, ground, gravity);
 % Calculate forces on body (other than ground reaction)
 body.spring_a_force = -leg_a.spring_force;
 body.spring_b_force = -leg_b.spring_force;
-body.gravity_force = gravity*[0; -1];
+body.gravity_force = gravity*body.mass*[0; -1];
 
 % Ground reaction force for body
 nonground_force = body.spring_a_force + body.spring_b_force + body.gravity_force;
@@ -80,7 +80,7 @@ if leg.length ~=0
 else
     leg.motor_force = [0; 0];
 end
-leg.gravity_force = leg.mass*gravity*[0; -1];
+leg.gravity_force = gravity*leg.mass*[0; -1];
 
 % Get ground forces from ground contact model
 nonground_force = leg.spring_force + leg.motor_force + leg.gravity_force;
@@ -139,7 +139,7 @@ else
     end
     
     % Ramp up damping with depth
-    damping_threshold = 1e-4;
+    damping_threshold = 1e-5;
     gc.ground_damping = gc.ground_damping*gc.depth/(gc.depth + damping_threshold);
 end
 
@@ -151,28 +151,13 @@ gc.spring_force = gc.ground_normal*max(gc.depth*gc.ground_stiffness + gc.ddepth*
 % normal to ground
 gc.friction_mag = gc.ground_friction*dot(gc.spring_force, gc.ground_normal);
 
-% Used for friction calculations
-tangential_force = dot(external_force, gc.ground_tangent);
+% Calculate friction, replacing the jump discontinuity due to the sign
+% function with a continuous ramp
+gc.tangential_force = dot(external_force, gc.ground_tangent);
 gc.ground_slip = dot(vel, gc.ground_tangent);
-lock_threshold = gc.friction_mag*1e-3;
-ramp_threshold = gc.friction_mag*2e-3;
-
-% Special handling for friction when velocity is near zero
-if abs(gc.ground_slip) < ramp_threshold && abs(tangential_force) < gc.friction_mag
-    if abs(gc.ground_slip) < lock_threshold
-        % Null the tangential force and velocity
-        p = 0;
-    else
-        % Smoothly reduce the tangential force and velocity
-        p = (abs(gc.ground_slip) - lock_threshold)/(ramp_threshold - lock_threshold);
-    end
-    vel = vel - (1 - p)*gc.ground_slip*gc.ground_tangent;
-    gc.friction_force = (p*(tangential_force - sign(gc.ground_slip)*gc.friction_mag) ...
-        - tangential_force)*gc.ground_tangent;
-else
-    % Full frigtion magnitude in direction opposite the
-    gc.friction_force = -sign(gc.ground_slip)*gc.friction_mag*gc.ground_tangent;
-end
+slip_ramp_width = gc.friction_mag*1e-3;
+gc.p = min(max(abs(gc.ground_slip)/slip_ramp_width, 0), 1);
+gc.friction_force = -sign(gc.ground_slip)*gc.p*gc.friction_mag*gc.ground_tangent;
 
 % Total ground force
 ground_force = gc.spring_force + gc.friction_force;
