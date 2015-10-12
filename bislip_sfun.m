@@ -68,6 +68,10 @@ block.OutputPort(1).Data = block.ContStates.Data;
 
 function Derivatives(block)
 
+if block.CurrentTime > 1
+    0;
+end
+
 block.Derivatives.Data = bislip_dynamics(block.ContStates.Data, block.InputPort(1).Data, ...
     [block.DialogPrm(2).Data; block.DialogPrm(3).Data; block.DialogPrm(4).Data; ...
      block.DialogPrm(5).Data; block.DialogPrm(6).Data; block.DialogPrm(7).Data], ...

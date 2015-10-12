@@ -1,5 +1,5 @@
 function [dY, body, leg_a, leg_b] = bislip_dynamics(Y, u, params, ground_data)
-% Y: [body_x; body_y; body_th; com_xdot; body_ydot; body_thdot;
+% Y: [body_x;   body_y;   body_xdot;   body_ydot;   body_th; body_thdot;
 %     foot_a_x; foot_a_y; foot_a_xdot; foot_a_ydot;
 %     foot_b_x; foot_b_y; foot_b_xdot; foot_b_ydot]
 
@@ -8,6 +8,10 @@ assert(isa(Y, 'double') && all(size(Y) == [14 1]) && isreal(Y));
 assert(isa(u, 'double') && all(size(u) == [4 1]) && isreal(u));
 assert(isa(params, 'double') && all(size(params) == [6 1]) && isreal(params));
 assert(isa(ground_data, 'double') && size(ground_data, 2) == 5 && isreal(ground_data));
+
+% Physical parameters
+body_params = params(1:2); % mass; inertia
+leg_params = params(3:5); % mass, stiffness, damping
 
 % Environment
 gravity =          params(6);
@@ -18,56 +22,56 @@ ground.damping =   ground_data(:, 4);
 ground.friction =  ground_data(:, 5);
 
 % Kinematics
-[body, leg_a, leg_b] = bislip_kinematics(Y, params);
+[body, leg_a, leg_b] = bislip_kinematics(Y);
 
 % Control inputs
-leg_a.length_eq = u(1);
-leg_b.length_eq = u(2);
-leg_a.torque =    u(3);
-leg_b.torque =    u(4);
+u_leg_a = [u(1); u(3)];
+u_leg_b = [u(2); u(4)];
 
 % Compute quantities for each leg
-leg_a = leg_dynamics(leg_a, body, ground, gravity);
-leg_b = leg_dynamics(leg_b, body, ground, gravity);
+[leg_a_foot_force, leg_a_spring_force, leg_a_motor_force] ...
+    = leg_dynamics(leg_a, leg_params, u_leg_a, body(1:2), ground, gravity);
+[leg_b_foot_force, leg_b_spring_force, leg_b_motor_force] ...
+    = leg_dynamics(leg_b, leg_params, u_leg_b, body(1:2), ground, gravity);
 
-% Calculate forces on body (other than ground reaction)
-body.spring_a_force = -leg_a.spring_force;
-body.spring_b_force = -leg_b.spring_force;
-body.gravity_force = gravity*body.mass*[0; -1];
+% Calculate forces on body
+body_spring_a_force = -leg_a_spring_force;
+body_spring_b_force = -leg_b_spring_force;
+body_motor_a_force = -leg_a_motor_force;
+body_motor_b_force = -leg_b_motor_force;
+body_gravity_force = gravity*body_params(1)*[0; -1];
+body_ground_force = ground_contact_model(body(1:2) + [0; -0.1], body(3:4), body(1:2), ground);
 
-% Ground reaction force for body
-nonground_force = body.spring_a_force + body.spring_b_force + body.gravity_force;
-body.ground_force = ground_contact_model(body.pos + [0; -0.1], body.dpos, body.pos, nonground_force, ground);
-
-body.force = nonground_force + body.ground_force;
-body.torque = -leg_a.torque + -leg_b.torque;
+body_force = body_spring_a_force + body_spring_b_force ...
+    + body_motor_a_force + body_motor_b_force ...
+    + body_gravity_force + body_ground_force;
+body_torque = -u_leg_a(2) + -u_leg_b(2);
 
 % Compose state derivative vector
-dY = [body.dpos; body.dth; body.force/body.mass; body.torque/body.inertia;
-    leg_a.dfoot; leg_a.foot_force/leg_a.mass;
-    leg_b.dfoot; leg_b.foot_force/leg_b.mass];
+dY = [body(3:4);  body_force/body_params(1);      body(6); body_torque/body_params(2);
+      leg_a(3:4); leg_a_foot_force/leg_params(1);
+      leg_b(3:4); leg_b_foot_force/leg_params(1)];
+0;
 
 
-function leg = leg_dynamics(leg, body, ground, gravity)
+function [foot_force, spring_force, motor_force] ...
+    = leg_dynamics(leg, leg_params, u_leg, body_pos, ground, gravity)
 
 % Forces acting on foot (other than ground reaction)
-leg.spring_force = (leg.stiffness*(leg.length_eq - leg.length) - leg.damping*leg.dlength)*leg.direction;
-if leg.length ~=0
-    leg.motor_force = leg.torque/leg.length*ccw90(leg.direction);
+spring_force = (leg_params(2)*(u_leg(1) - leg(7)) - leg_params(3)*leg(8))*leg(9:10);
+if leg(7) ~=0
+    motor_force = u_leg(2)/leg(7)*[-leg(10); leg(9)];
 else
-    leg.motor_force = [0; 0];
+    motor_force = [0; 0];
 end
-leg.gravity_force = gravity*leg.mass*[0; -1];
-
-% Get ground forces from ground contact model
-nonground_force = leg.spring_force + leg.motor_force + leg.gravity_force;
-leg.ground_force = ground_contact_model(leg.foot, leg.dfoot, body.pos, nonground_force, ground);
+gravity_force = gravity*leg_params(1)*[0; -1];
+ground_force = ground_contact_model(leg(1:2), leg(3:4), body_pos, ground);
 
 % Net forces on foot
-leg.foot_force = nonground_force + leg.ground_force;
+foot_force = spring_force + motor_force + gravity_force + ground_force;
 
 
-function ground_force = ground_contact_model(pos, vel, ref, external_force, ground)
+function ground_force = ground_contact_model(pos, vel, ref, ground)
 % Ground contact force model
 % Takes position and velocity of point that forces act on, a reference
 % position used to find the correct ground intersection location, external
@@ -75,119 +79,89 @@ function ground_force = ground_contact_model(pos, vel, ref, external_force, grou
 % Returns the ground forces and a structure containing intermediate values
 
 % Get unit direction vector from reference to point
-gc = makegc();
-gc.refdir = pos - ref;
-gc.refdir = gc.refdir/norm(gc.refdir);
+refdir = pos - ref;
+refdir = refdir/norm(refdir);
 
 % Find location on ground that point is contacting
-[xi, yi, ii] = polyxpoly_internal([ref(1) pos(1)], [ref(2) pos(2)], ground.x, ground.y);
-if length(xi) >= 1
+[xi, yi, ii] = linexpoly([ref(1); pos(1)], [ref(2); pos(2)], ground.x, ground.y);
+if length(xi) < 1
+    % No ground contact
+    ground_tangent = [1; 0];
+    ground_normal = [0; 1];
+    depth = 0;
+    ddepth = 0;
+    ground_stiffness = 0;
+    ground_damping = 0;
+    ground_friction = 0;
+else
     % Find depth into ground, speed, and ground properties at contact
     % Ground intersection geometry calculations
-    depths = sqrt((xi - pos(1)).^2 + (yi - pos(2)).^2);
-    [~, imax] = max(depths);
-    igs = ii(imax, 2);
+    depths2 = (xi - pos(1)).^2 + (yi - pos(2)).^2;
+    [~, imax] = max(depths2);
+    igs = ii(imax);
     ground_segment = [diff(ground.x(igs:igs+1)); diff(ground.y(igs:igs+1))];
     intersection_vector = [xi(imax) - ground.x(igs); yi(imax) - ground.y(igs)];
-    p = dot(intersection_vector, ground_segment)/norm(ground_segment)^2;
+    p = (intersection_vector(1)*ground_segment(1) + intersection_vector(2)*ground_segment(2))/(ground_segment(1)^2 + ground_segment(2)^2);
     
     % Ground contact properties
-    gc.ground_tangent = ground_segment/norm(ground_segment);
-    gc.ground_normal = ccw90(gc.ground_tangent);
-    gc.depth = depths(imax)*dot(gc.refdir, -gc.ground_normal);
-    gc.ddepth = dot(vel, -gc.ground_normal);
-    gc.ground_stiffness = interpolate(ground.stiffness, igs, p);
-    gc.ground_damping = interpolate(ground.damping, igs, p);
-    gc.ground_friction = interpolate(ground.friction, igs, p);
+    ground_tangent = ground_segment/norm(ground_segment);
+    ground_normal = [-ground_tangent(2); ground_tangent(1)];
+    depth = sqrt(depths2(imax))*(-refdir(1)*ground_normal(1) - refdir(2)*ground_normal(2));
+    ddepth = -vel(1)*ground_normal(1) - vel(2)*ground_normal(2);
+    ground_stiffness = interpolate(ground.stiffness, igs, p);
+    ground_damping = interpolate(ground.damping, igs, p);
+    ground_friction = interpolate(ground.friction, igs, p);
     
     % Make sure ground normal points towards reference position
-    if dot(-gc.refdir, gc.ground_normal) < 0
-        gc.ground_tangent = -gc.ground_tangent;
-        gc.ground_normal = -gc.ground_normal;
+    if -refdir(1)*ground_normal(1) - refdir(2)*ground_normal(2) < 0
+        ground_tangent = -ground_tangent;
+        ground_normal = -ground_normal;
     end
     
     % Ramp up damping with depth
     damping_threshold = 1e-5;
-    gc.ground_damping = gc.ground_damping*gc.depth/(gc.depth + damping_threshold);
+    ground_damping = ground_damping*depth/(depth + damping_threshold);
 end
 
 % Ground reaction force from spring-damper system
 % Acts nomral to the ground
-gc.spring_force = gc.ground_normal*max(gc.depth*gc.ground_stiffness + gc.ddepth*gc.ground_damping, 0);
+spring_force = ground_normal*max(depth*ground_stiffness + ddepth*ground_damping, 0);
 
 % Friction magnitude is proportional to component of ground spring force
 % normal to ground
-gc.friction_mag = gc.ground_friction*dot(gc.spring_force, gc.ground_normal);
+friction_mag = ground_friction*(spring_force(1)*ground_normal(1) + spring_force(2)*ground_normal(2));
 
 % Calculate friction, replacing the jump discontinuity due to the sign
 % function with a continuous ramp
-gc.tangential_force = dot(external_force, gc.ground_tangent);
-gc.ground_slip = dot(vel, gc.ground_tangent);
-slip_ramp_width = gc.friction_mag*1e-8;
-gc.p = min(max(abs(gc.ground_slip)/slip_ramp_width, 0), 1);
-gc.friction_force = -sign(gc.ground_slip)*gc.p*gc.friction_mag*gc.ground_tangent;
+ground_slip = vel(1)*ground_tangent(1) + vel(2)*ground_tangent(2);
+slip_ramp_width = friction_mag*1e-8;
+p = min(max(abs(ground_slip)/slip_ramp_width, 0), 1);
+friction_force = -sign(ground_slip)*p*friction_mag*ground_tangent;
 
 % Total ground force
-ground_force = gc.spring_force + gc.friction_force;
-
-
-function out = ccw90(v)
-% Rotate vector 90 degrees ccw
-out = [-v(2); v(1)];
+ground_force = spring_force + friction_force;
 
 
 function out = interpolate(v, i, p)
 % Interpolation function for ground properties
-out = v(i) + p*(v(i+1) - v(i));
+out = v(i) + p*(v(2) - v(i));
 
 
-function [xi, yi, ii] = polyxpoly_internal(x1, y1, x2, y2)
-% Reimplementation of polyxpoly for codegen
-assert(isa(x1, 'double') && isa(y1, 'double') &&length(x1) == length(y1) && isreal(x1) && isreal(y1));
-assert(isa(x2, 'double') && isa(y2, 'double') &&length(x2) == length(y2) && isreal(x2) && isreal(y2));
+function [xi, yi, ii] = linexpoly(x1, y1, x2, y2)
+% Customized implementation of polyxpoly for codegen
+dx1 = x1(2) - x1(1);
+dy1 = y1(2) - y1(1);
+dx2 = x2(2:end) - x2(1:end-1);
+dy2 = y2(2:end) - y2(1:end-1);
+dx12 = x1(1) - x2(1:end-1);
+dy12 = y1(1) - y2(1:end-1);
 
-xi = zeros(0, 1);
-yi = zeros(0, 1);
-ii = zeros(0, 2);
+num = dx2.*dy12 - dy2.*dx12;
+den = dy2.*dx1 - dx2.*dy1;
 
-for i = 1:length(x1)-1
-    for j = 1:length(x2)-1
-        v12 = [x1(i+1) y1(i+1)] - [x1(i) y1(i)];
-        v34 = [x2(j+1) y2(j+1)] - [x2(j) y2(j)];
-        v31 = [x1(i) y1(i)] - [x2(j) y2(j)];
-        
-        num = v34(1)*v31(2) - v34(2)*v31(1);
-        den = v34(2)*v12(1) - v34(1)*v12(2);
-        
-        if den == 0
-            continue
-        end
-        
-        sa = num/den;
-        sb = (v31(1) + sa*v12(1)) / v34(1);
-        if sa >= 0 && sa < 1 && sb >= 0 && sb < 1
-            p = [x1(i) y1(i)] + sa*v12;
-            xi = [xi; p(1)];
-            yi = [yi; p(2)];
-            ii = [ii; i j];
-        end
-    end
-end
+sa = num./den;
+sb = (dx12 + sa.*dx1)./dx2;
 
-
-function gc = makegc()
-% Define fields of ground contact struct
-gc.refdir = [1; 0];
-gc.ground_tangent = [1; 0];
-gc.ground_normal = [0; 1];
-gc.depth = 0;
-gc.ddepth = 0;
-gc.ground_stiffness = 0;
-gc.ground_damping = 0;
-gc.ground_friction = 0;
-gc.spring_force = [0; 0];
-gc.friction_mag = 0;
-gc.tangential_force = 0;
-gc.ground_slip = 0;
-gc.p = 0;
-gc.friction_force = [0; 0];
+ii = find(den ~= 0 & sa >= 0 & sa < 1 & sb >= 0 & sb < 1);
+xi = x1(1) + sa(ii).*dx1;
+yi = y1(1) + sa(ii).*dy1;

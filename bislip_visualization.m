@@ -56,7 +56,7 @@ if block.IsMajorTimeStep
     end
     
     body = block.InputPort(1).Data(1:2);
-    angle = block.InputPort(1).Data(3);
+    angle = block.InputPort(1).Data(5);
     toeA = block.InputPort(1).Data(7:8);
     toeB = block.InputPort(1).Data(11:12);
     
