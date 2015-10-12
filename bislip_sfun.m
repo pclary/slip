@@ -17,6 +17,8 @@ block.SetPreCompOutPortInfoToDynamic;
 block.InputPort(1).Dimensions = 4;
 block.InputPort(1).DatatypeID = 0;  % double
 block.InputPort(1).Complexity = 'Real';
+block.InputPort(1).DirectFeedthrough = false;
+
 
 % States: [body_x; body_y; body_th; com_xdot; body_ydot; body_thdot; 
 %          foot_a_x; foot_a_y; foot_a_xdot; foot_a_ydot; 
