@@ -51,7 +51,6 @@ body_torque = -u_leg_a(2) + -u_leg_b(2);
 dY = [body(3:4);  body_force/body_params(1);      body(6); body_torque/body_params(2);
       leg_a(3:4); leg_a_foot_force/leg_params(1);
       leg_b(3:4); leg_b_foot_force/leg_params(1)];
-0;
 
 
 function [foot_force, spring_force, motor_force] ...
@@ -98,7 +97,7 @@ else
     % Ground intersection geometry calculations
     depths2 = (xi - pos(1)).^2 + (yi - pos(2)).^2;
     [~, imax] = max(depths2);
-    igs = ii(imax);
+    igs = ii(imax(1));
     ground_segment = [diff(ground.x(igs:igs+1)); diff(ground.y(igs:igs+1))];
     intersection_vector = [xi(imax) - ground.x(igs); yi(imax) - ground.y(igs)];
     p = (intersection_vector(1)*ground_segment(1) + intersection_vector(2)*ground_segment(2))/(ground_segment(1)^2 + ground_segment(2)^2);
