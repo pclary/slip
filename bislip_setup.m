@@ -1,10 +1,10 @@
 %% bislip_setup.m
 
 l0 = 1;
-h0 = 0;
-tha0 = 0.3;
-thb0 = -0.3;
-v0 = 0;
+h0 = 1;
+tha0 = 0.0;
+thb0 = -0.0;
+v0 = 1;
 Y0 = [0; l0+h0; 0; v0; 0; 0;
     l0*sin(tha0); l0*(1-cos(tha0)) + h0; v0; 0;
     l0*sin(thb0); l0*(1-cos(thb0)) + h0; v0; 0];
@@ -22,3 +22,5 @@ ground_stiffness = 1e5*ones(size(ground_x));
 ground_damping = 1e3*ones(size(ground_x));
 ground_friction = 1*ones(size(ground_x));
 ground_data = [ground_x, ground_y, ground_stiffness, ground_damping, ground_friction];
+
+Ts = 1e-3;

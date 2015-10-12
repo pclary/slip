@@ -25,7 +25,7 @@ plot(t, [gclb.ground_slip])
 %%
 tic;
 vis = BiSLIPGraphics();
-
+t = Y.Time;
 
 while toc < t(end)
     tt = toc;
