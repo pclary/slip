@@ -1,4 +1,4 @@
-function [body, leg_a, leg_b] = bislip_kinematics(Y) %#codegen
+function [body, leg_a, leg_b] = bislip_kinematics(Y)
 % body: [x; y; xdot; ydot; th; thdot]
 % leg: [x; y; xdot; ydot; th; thdot; l; ldot; xdir; ydir]
 

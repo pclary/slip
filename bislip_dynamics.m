@@ -3,12 +3,6 @@ function [dY, body, leg_a, leg_b] = bislip_dynamics(Y, u, params, ground_data)
 %     foot_a_x; foot_a_y; foot_a_xdot; foot_a_ydot;
 %     foot_b_x; foot_b_y; foot_b_xdot; foot_b_ydot]
 
-%#codegen
-assert(isa(Y, 'double') && all(size(Y) == [14 1]) && isreal(Y));
-assert(isa(u, 'double') && all(size(u) == [4 1]) && isreal(u));
-assert(isa(params, 'double') && all(size(params) == [6 1]) && isreal(params));
-assert(isa(ground_data, 'double') && size(ground_data, 2) == 5 && isreal(ground_data));
-
 % Physical parameters
 body_params = params(1:2); % mass; inertia
 leg_params = params(3:5); % mass, stiffness, damping
