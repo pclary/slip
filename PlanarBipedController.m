@@ -3,15 +3,24 @@ classdef PlanarBipedController < matlab.System
     % controller
     
     properties
-        body_mass = 10;
-        body_inertia = 1;
-        foot_mass = 1;
-        leg_stiffness = 1e3;
-        leg_damping = 10;
-        gravity = 9.81;
+        body_mass = 0;
+        body_inertia = 0;
+        foot_mass = 0;
+        leg_stiffness = 0;
+        leg_damping = 0;
+        gravity = 0;
+        
+        target_speed = 0;
+    end
+    
+    properties (Nontunable)
+        u0 = zeros(4, 1);
     end
     
     properties (DiscreteState)
+        tlast;
+        Ylast;
+        trajlast;
     end
     
     properties (Access = private)
@@ -22,21 +31,52 @@ classdef PlanarBipedController < matlab.System
         function setupImpl(obj, t, Y)
             % Implement tasks that need to be performed only once,
             % such as pre-computed constants.
+            obj.tlast = t;
+            obj.Ylast = Y;
+            obj.trajlast = obj.u0;
         end
         
         function u = stepImpl(obj, t, Y)
-            leg_gains = [20; 5];
+            % Y: [body_angle; leg_a_angle; leg_a_length; leg_b_angle; leg_b_length]
+            dt = t - obj.tlast;
+            dY = Y - obj.Ylast;
+            if dt == 0
+                Ydot = zeros(size(Y));
+            else
+                Ydot = dY/dt;
+            end
+            
+            % PD gains
+            leg_gains = 20*[20; 5];
             body_gains = [2; 0.5];
             
-            [body, leg_a, leg_b] = bislip_kinematics(Y);
-            torque_a = pd_controller(leg_a(5), leg_a(6),  0.3, 0, leg_gains);
-            torque_b = pd_controller(leg_b(5), leg_b(6), -0.3, 0, leg_gains);
-            torque_body = pd_controller(body(5), body(6), 0, 0, body_gains);
+            thamp = 0.3;
+            lamp = 0.2;
+            freq = 0.2*sqrt(obj.leg_stiffness/obj.body_mass);
+            ta = freq*t;
+            tb = freq*t + pi;
+            tha  = thamp*sin(ta);
+            dtha = thamp*cos(ta);
+            thb  = thamp*sin(tb);
+            dthb = thamp*cos(tb);
+            la = 1 - max(lamp*cos(ta), -1);
+            lb = 1 - max(lamp*cos(tb), -1);
             
-            u = [1;
-                 1;
+            torque_a = pd_controller(Y(2), Ydot(2), tha, dtha, leg_gains);
+            torque_b = pd_controller(Y(4), Ydot(4), thb, dthb, leg_gains);
+            torque_body = pd_controller(Y(1), Ydot(1), 0, 0, body_gains);
+            
+            u = [la;
+                 lb;
                  torque_a - torque_body/2;
                  torque_b - torque_body/2];
+             
+            ulimit_upper = [1.5; 1.5; 100; 100];
+            ulimit_lower = [0.5; 0.5; -100; -100];
+            u = min(max(u, ulimit_lower), ulimit_upper);
+            
+            obj.tlast = t;
+            obj.Ylast = Y;
         end
         
         function resetImpl(obj)
