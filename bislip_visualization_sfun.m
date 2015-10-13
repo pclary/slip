@@ -1,5 +1,5 @@
 % adapted from http://blogs.mathworks.com/graphics/2014/10/21/double_pendulum/
-function bislip_visualization(block)
+function bislip_visualization_sfun(block)
 
 setup(block)
 
@@ -61,5 +61,5 @@ if block.IsMajorTimeStep
     toeB = block.InputPort(1).Data(11:12);
     
     vis.setState(body, angle, toeA, toeB);
-    vis.setGround(@(x) ground_height_interp(x, block.DialogPrm(1).Data), 100);
+    vis.setGround(@(x) ground_height_sample(x, block.DialogPrm(1).Data), 100);
 end
