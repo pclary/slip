@@ -8,7 +8,7 @@ v0 = 0;%1;
 X0 = [0; l0+h0; v0; 0; 0; 0;
     l0*sin(tha0); l0*(1-cos(tha0)) + h0 + 0.2; v0; 0;
     l0*sin(thb0); l0*(1-cos(thb0)) + h0; v0; 0];
-u0 = [1; 1; 0; 0];
+u0 = [0; 1; 0; 1];
 
 body_mass = 50;
 body_inertia = 5;

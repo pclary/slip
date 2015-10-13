@@ -11,15 +11,11 @@ gravity = params(6);
 % Kinematics
 [body, leg_a, leg_b] = bislip_kinematics(X);
 
-% Control inputs
-u_leg_a = [u(1); u(3)];
-u_leg_b = [u(2); u(4)];
-
 % Compute quantities for each leg
 [leg_a_foot_force, leg_a_spring_force, leg_a_motor_force] ...
-    = leg_dynamics(leg_a, leg_params, u_leg_a, body(1:2), ground_data, gravity);
+    = leg_dynamics(leg_a, leg_params, u(1:2), body(1:2), ground_data, gravity);
 [leg_b_foot_force, leg_b_spring_force, leg_b_motor_force] ...
-    = leg_dynamics(leg_b, leg_params, u_leg_b, body(1:2), ground_data, gravity);
+    = leg_dynamics(leg_b, leg_params, u(3:4), body(1:2), ground_data, gravity);
 
 % Calculate forces on body
 body_spring_a_force = -leg_a_spring_force;
@@ -32,7 +28,7 @@ body_ground_force = ground_contact_model(body(1:2) + [0; -0.1], body(3:4), body(
 body_force = body_spring_a_force + body_spring_b_force ...
     + body_motor_a_force + body_motor_b_force ...
     + body_gravity_force + body_ground_force;
-body_torque = -u_leg_a(2) + -u_leg_b(2);
+body_torque = -u(1) + -u(3);
 
 % Compose state derivative vector
 dX = [body(3:4);  body_force/body_params(1);      body(6); body_torque/body_params(2);
@@ -75,9 +71,9 @@ function [foot_force, spring_force, motor_force] ...
     = leg_dynamics(leg, leg_params, u_leg, body_pos, ground, gravity)
 
 % Forces acting on foot (other than ground reaction)
-spring_force = (leg_params(2)*(u_leg(1) - leg(7)) - leg_params(3)*leg(8))*leg(9:10);
+spring_force = (leg_params(2)*(u_leg(2) - leg(7)) - leg_params(3)*leg(8))*leg(9:10);
 if leg(7) ~=0
-    motor_force = u_leg(2)/leg(7)*[-leg(10); leg(9)];
+    motor_force = u_leg(1)/leg(7)*[-leg(10); leg(9)];
 else
     motor_force = [0; 0];
 end

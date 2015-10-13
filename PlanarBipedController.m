@@ -14,7 +14,7 @@ classdef PlanarBipedController < matlab.System
     end
     
     properties (Nontunable)
-        u0 = zeros(4, 1);
+        traj0 = zeros(5, 1);
     end
     
     properties (DiscreteState)
@@ -33,11 +33,12 @@ classdef PlanarBipedController < matlab.System
             % such as pre-computed constants.
             obj.tlast = t;
             obj.Ylast = Y;
-            obj.trajlast = obj.u0;
+            obj.trajlast = obj.traj0;
         end
         
         function u = stepImpl(obj, t, Y)
             % Y: [body_angle; leg_a_angle; leg_a_length; leg_b_angle; leg_b_length]
+            % Feedback derivatives
             dt = t - obj.tlast;
             dY = Y - obj.Ylast;
             if dt == 0
@@ -46,37 +47,40 @@ classdef PlanarBipedController < matlab.System
                 Ydot = dY/dt;
             end
             
-            % PD gains
-            leg_gains = 20*[20; 5];
+            % Generate trajectories
+            % traj: [body_angle; leg_a_angle; leg_a_length; leg_b_angle; leg_b_length]
+            body_angle = 0;
+            leg_a_angle = 0.1;
+            leg_b_angle = -0.1;
+            leg_a_length = 1;
+            leg_b_length = 1;
+            traj = [body_angle; leg_a_angle; leg_a_length; leg_b_angle; leg_b_length];
+            
+            % Trajectory derivatives
+            dtraj = traj - obj.trajlast;
+            if dt == 0
+                trajdot = zeros(size(traj));
+            else
+                trajdot = dtraj/dt;
+            end
+            
+            % PD control for trajectories
+            % gains: [kp; kd]
             body_gains = [2; 0.5];
+            leg_gains = [20; 5];
+            torque_body  = pd_controller(traj(1) - Y(1), trajdot(1) - Ydot(1), body_gains);
+            torque_leg_a = pd_controller(traj(2) - Y(2), trajdot(2) - Ydot(2), leg_gains);
+            torque_leg_b = pd_controller(traj(4) - Y(4), trajdot(4) - Ydot(4), leg_gains);
             
-            thamp = 0.3;
-            lamp = 0.2;
-            freq = 0.2*sqrt(obj.leg_stiffness/obj.body_mass);
-            ta = freq*t;
-            tb = freq*t + pi;
-            tha  = thamp*sin(ta);
-            dtha = thamp*cos(ta);
-            thb  = thamp*sin(tb);
-            dthb = thamp*cos(tb);
-            la = 1 - max(lamp*cos(ta), -1);
-            lb = 1 - max(lamp*cos(tb), -1);
-            
-            torque_a = pd_controller(Y(2), Ydot(2), tha, dtha, leg_gains);
-            torque_b = pd_controller(Y(4), Ydot(4), thb, dthb, leg_gains);
-            torque_body = pd_controller(Y(1), Ydot(1), 0, 0, body_gains);
-            
-            u = [la;
-                 lb;
-                 torque_a - torque_body/2;
-                 torque_b - torque_body/2];
-             
-            ulimit_upper = [1.5; 1.5; 100; 100];
-            ulimit_lower = [0.5; 0.5; -100; -100];
-            u = min(max(u, ulimit_lower), ulimit_upper);
+            % Set control outputs
+            u = [torque_leg_a - torque_body/2;
+                 traj(3);
+                 torque_leg_b - torque_body/2;
+                 traj(5)];
             
             obj.tlast = t;
             obj.Ylast = Y;
+            obj.trajlast = traj;
         end
         
         function resetImpl(obj)
@@ -87,8 +91,8 @@ end
 
 
 
-function out = pd_controller(x, xdot, ref, refdot, gains)
+function out = pd_controller(err, errdot, gains)
 % Generic PD controller
-out = gains(1)*(ref - x) + gains(2)*(refdot - xdot);
+out = gains(1).*err + gains(2).*errdot;
 end
 
