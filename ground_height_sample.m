@@ -1,4 +1,4 @@
-function y = ground_height_interp(x, ground_data)
+function y = ground_height_sample(x, ground_data)
 
 y = zeros(size(x));
 
