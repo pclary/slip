@@ -1,3 +1,8 @@
 *.asv
 *~
 *.autosave
+*.exe
+*.original
+*.mexw64
+slprj/
+*_grt_rtw/
