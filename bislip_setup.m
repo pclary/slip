@@ -1,21 +1,21 @@
 %% bislip_setup.m
 
 l0 = 1;
-h0 = 0.1;
+h0 = 1;
 tha0 = 0.0;
 thb0 = -0.0;
 v0 = 0;%1;
 X0 = [0; l0+h0; v0; 0; 0; 0;
-    l0*sin(tha0); l0*(1-cos(tha0)) + h0 + 0.2; v0; 0;
-    l0*sin(thb0); l0*(1-cos(thb0)) + h0; v0; 0];
-u0 = [0; 1; 0; 1];
+      l0*sin(tha0); l0*(1-cos(tha0)) + h0; v0; 0; l0;
+      l0*sin(thb0); l0*(1-cos(thb0)) + h0; v0; 0; l0];
+u0 = [0; 0; 0; 0];
 
 body_mass = 50;
 body_inertia = 5;
-foot_mass = 1;
+foot_mass = 25;
 leg_stiffness = 5e3;
 leg_damping = 50;
-gravity = 9.81;
+gravity = 0;%9.81;
 
 ground_x = [-1e3; 1e3];
 ground_y = [0; 0];

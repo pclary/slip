@@ -11,7 +11,7 @@ block.NumOutputPorts = 0;
 
 block.SetPreCompInpPortInfoToDynamic;
 
-block.InputPort(1).Dimensions = 14;
+block.InputPort(1).Dimensions = 16;
 block.InputPort(1).DatatypeID = 0;  % double
 block.InputPort(1).Complexity = 'Real';
 block.InputPort(1).DirectFeedthrough = true;
@@ -58,7 +58,7 @@ if block.IsMajorTimeStep
     body = block.InputPort(1).Data(1:2);
     angle = block.InputPort(1).Data(5);
     toeA = block.InputPort(1).Data(7:8);
-    toeB = block.InputPort(1).Data(11:12);
+    toeB = block.InputPort(1).Data(12:13);
     
     vis.setState(body, angle, toeA, toeB);
     vis.setGround(@(x) ground_height_sample(x, block.DialogPrm(1).Data), 100);
