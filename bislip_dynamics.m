@@ -2,19 +2,18 @@ function [dX, body, leg_a, leg_b] = bislip_dynamics(X, u, params, ground_data)
 % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
 %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
 %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
-% u: [length_motor_a_torque; angle_motor_a_torque;
-%     length_motor_b_torque; angle_motor_b_torque]
+% u: [length_motor_a_force; angle_motor_a_torque;
+%     length_motor_b_force; angle_motor_b_torque]
 % params: [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 
-%         length_motor_inertia; length_motor_ratio; length_motor_damping; 
-%         angle_motor_inertia;  angle_motor_ratio;  angle_motor_damping; 
-%         gravity]
+%          length_motor_inertia; length_motor_damping; angle_motor_inertia; 
+%          angle_motor_damping; gravity]
 % ground_data: [ground_x, ground_y, ground_stiffness, 
 %               ground_damping, ground_friction]
 
 % Kinematics
 % body: [x; xdot; y; ydot; th; thdot]
 % leg: [leq; leqdot; l; ldot; th; thdot; x; xdot; y; ydot; xdir; ydir]
-% Leg agles are relative to body angle
+% Leg angles are relative to body angle
 % Leg x, y, xdot, ydot are absolute
 body = X(1:6);
 leg_a = leg_kinematics(X(7:12), body);
@@ -27,7 +26,7 @@ leg_b = leg_kinematics(X(13:18), body);
     = leg_acceleration(leg_b, params, u(3:4), body, ground_data);
 
 % Calculate forces on body
-body_gravity_force = params(12)*params(1)*[0; -1];
+body_gravity_force = params(10)*params(1)*[0; -1];
 body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), body([1 3]), ground_data);
 body_force = reaction_force_a + reaction_force_b + body_gravity_force + body_ground_force;
 body_torque = reaction_torque_a + reaction_torque_b;
@@ -49,8 +48,15 @@ body_thddot = body_torque/params(2);
 dX = [X(2);  body_xddot;    X(4);  body_yddot;  X(6);  body_thddot; 
       X(8);  leg_a_leqddot; X(10); leg_a_lddot; X(12); leg_a_thddot;
       X(14); leg_b_leqddot; X(16); leg_b_lddot; X(18); leg_b_thddot];
-0;
 
+persistent i
+if isempty(i)
+    i = 0;
+end
+if mod(i, 16*3*1000*1) == 0
+    0;
+end
+i = i + 1;
 
 function leg = leg_kinematics(X_leg, body)
 % Calculate lengths, derivatives, etc
@@ -69,12 +75,10 @@ foot_mass = params(3);
 leg_stiffness = params(4);
 leg_damping = params(5);
 length_motor_inertia = params(6);
-length_motor_ratio = params(7);
-length_damping = params(8);
-angle_motor_inertia = params(9);
-angle_motor_ratio = params(10);
-angle_motor_damping = params(11);
-gravity = params(12);
+length_damping = params(7);
+angle_motor_inertia = params(8);
+angle_motor_damping = params(9);
+gravity = params(10);
 leq = leg(1);
 leqdot = leg(2);
 l = leg(3);
@@ -82,16 +86,15 @@ ldot = leg(4);
 thdot = leg(6);
 ldir = leg(11:12);
 thdir = [-ldir(2); ldir(1)];
-length_torque = u_leg(1);
+length_force = u_leg(1);
 angle_torque = u_leg(2);
 foot_inertia = foot_mass*leg(3)^2;
-leg_angle_inertia = foot_inertia + angle_motor_ratio^2*angle_motor_inertia;
-eq_length_inertia = length_motor_ratio^2*length_motor_inertia;
+leg_angle_inertia = foot_inertia + angle_motor_inertia;
 
 % Forces on foot in absolute x,y coordinates
 spring_force_mag = leg_stiffness*(leq - l) + leg_damping*(leqdot - ldot);
 spring_force = spring_force_mag*ldir;
-total_angle_torque = (angle_torque - angle_motor_damping*angle_motor_ratio^2*thdot);
+total_angle_torque = angle_torque - angle_motor_damping*thdot;
 angle_motor_force = total_angle_torque*foot_inertia/leg_angle_inertia/l*thdir;
 gravity_force = gravity*foot_mass*[0; -1];
 ground_force = ground_contact_model(leg([7 9]), leg([8 10]), body([1 3]), ground);
@@ -99,13 +102,12 @@ foot_force_abs = spring_force + angle_motor_force + gravity_force + ground_force
 foot_accel_abs = foot_force_abs/foot_mass;
 
 % Leg equilibrium length acceleration
-length_force = length_motor_ratio*length_torque;
-length_damping = length_damping*length_motor_ratio^2*leqdot;
-leqddot = (length_force - length_damping - spring_force_mag)/eq_length_inertia;
+length_motor_force_mag = length_force - length_damping*leqdot;
+leqddot = (length_motor_force_mag - spring_force_mag)/length_motor_inertia;
 
 % Reaction force and torque from leg on body
-body_reaction_force  = -spring_force - length_force*ldir - angle_motor_force;
-body_reaction_torque = -total_angle_torque;
+body_reaction_force  = -spring_force - angle_motor_force;
+body_reaction_torque = -dot(angle_motor_force, thdir);
 
 
 function [lddot, thddot] ...

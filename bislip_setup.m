@@ -1,7 +1,7 @@
 %% bislip_setup.m
 
 l0 = 1;
-h0 = 1;
+h0 = 100;
 tha0 = 0.0;
 thb0 = -0.0;
 v0 = 0;%1;
@@ -13,19 +13,16 @@ u0 = [0; 0; 0; 0];
 body_mass = 50;
 body_inertia = 5;
 foot_mass = 25;
-leg_stiffness = 5e3;
-leg_damping = 50;
-length_motor_inertia = 0.1;
-length_motor_ratio = 16;
-length_motor_damping = 0.01;
-angle_motor_inertia = 0.1;
-angle_motor_ratio = 16;
-angle_motor_damping = 0.01;
+leg_stiffness = 1e5;
+leg_damping = 1e5;
+length_motor_inertia = 1e5;
+length_motor_damping = 1e5;
+angle_motor_inertia = 0.01;
+angle_motor_damping = 0;
 gravity = 0;%9.81;
 params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 
-          length_motor_inertia; length_motor_ratio; length_motor_damping;
-          angle_motor_inertia;  angle_motor_ratio;  angle_motor_damping;  
-          gravity];
+          length_motor_inertia; length_motor_damping; angle_motor_inertia; ...
+          angle_motor_damping; gravity];
 
 ground_x = [-1e3; 1e3];
 ground_y = [0; 0];

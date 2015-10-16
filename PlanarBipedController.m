@@ -78,6 +78,8 @@ classdef PlanarBipedController < matlab.System
             umod = pd_controller(err, errdot, gains);
             
             % Set control outputs
+            % u: [length_motor_a_force; angle_motor_a_torque;
+            %     length_motor_b_force; angle_motor_b_torque]
             u = [umod(2);
                  umod(3) - umod(1)/2;
                  umod(4);
