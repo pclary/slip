@@ -46,6 +46,7 @@ classdef PlanarBipedController < matlab.System
             
             % Determine walking phase
             
+            
             % Generate trajectories
             % traj: [body_angle; leg_a_l; leg_a_th; leg_b_l; leg_b_th]
             body_angle = 0;
@@ -81,7 +82,7 @@ classdef PlanarBipedController < matlab.System
                  umod(3) - umod(1)/2;
                  umod(4);
                  umod(5) - umod(1)/2];
-            u = [1; 1; 0; 0];
+            u = [0; 1; 0; 0];
             
             obj.t_last = t;
             obj.Y_last = Y;

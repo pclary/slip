@@ -59,15 +59,15 @@ eq8 = simplify(fulldiff(diff(L, dlfb), GC) - diff(L, lfb))
 eq9 = simplify(fulldiff(diff(L, dthfb), GC) - diff(L, thfb))
 
 % 6. Xi: non-conservative terms
-Xi1 = Fbx + Ffxa + Ffxb
-Xi2 = Fby + Ffya + Ffyb
-Xi3 = lfa*Ffta + lfb*Fftb
-Xi4 = -bml*nl*dthmla
-Xi5 = Ffra
-Xi6 = lfa*Ffta - bma*dthmaa
-Xi7 = -bml*nl*dthmlb
-Xi8 = Ffrb
-Xi9 = lfb*Fftb - bml*dthmab
+Xi1 = 0;%Fbx + Ffxa + Ffxb
+Xi2 = 0;%Fby + Ffya + Ffyb
+Xi3 = 0;%lfa*Ffta + lfb*Fftb
+Xi4 = 0;%-bml*nl*dthmla
+Xi5 = 0;%Ffra
+Xi6 = 0;%lfa*Ffta - bma*dthmaa
+Xi7 = 0;%-bml*nl*dthmlb
+Xi8 = 0;%Ffrb
+Xi9 = 0;%lfb*Fftb - bml*dthmab
 
 
 %%
