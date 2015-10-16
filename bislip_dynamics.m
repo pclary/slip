@@ -73,9 +73,17 @@ body_reaction_force = -spring_force_mag*leg(11:12) + radial_force_mag*[-leg(12);
 body_reaction_torque = -u_leg(2) + params(11)*params(10)*(params(10)*leg(6) - (params(10) - 1)*body(5));
 
 % Second derivatives of leg state variables
-leqddot = (u_leg(1)*params(7) - params(8)*params(7)^2*leg(2) - spring_force_mag)/(params(7)^2*params(6));
-lddot = axial_force_mag/params(3);
-thddotabs = (u_leg(2)*params(10) - params(11)*params(10)*(params(10)*leg(6) - (params(10) - 1)*body(5)) - leg(3)*radial_force_mag)/(leg(3)*params(3) + params(10)^2*params(9));
+mf = params(3);
+Iml = params(6);
+nl = params(7);
+bml = params(8);
+Ima = params(9);
+na = params(10);
+bma = params(11);
+Ieffa = mf*leg(3)^2 + na^2*Ima;
+leqddot = (u_leg(1)*nl - bml*nl^2*leg(2) - spring_force_mag)/(nl^2*Iml);
+lddot = axial_force_mag/mf + leg(3)*leg(6)^2;
+thddotabs = (u_leg(2)*na - bma*na^2*leg(6) + leg(3)*radial_force_mag)/Ieffa - 0*2*leg(4)*leg(6)/leg(3);
 
 
 function ground_force = ground_contact_model(pos, vel, ref, ground_data)
