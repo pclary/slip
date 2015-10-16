@@ -7,12 +7,17 @@ else
 end
 t = X.Time;
 
-rate = 0.01;
+rate = 0.1;
 
 while toc*rate < t(end)
     tt = toc*rate;
     i = find(t <= tt, 1, 'last');
-    vis.setState(X.Data(i, 1:2), X.Data(i, 5), X.Data(i, 7:8), X.Data(i, 12:13));
+    XX = X.Data(i, :)';
+    body = XX([1 3]);
+    angle = XX(5);
+    toeA = body + XX(9)*[sin(XX(11) + XX(5)); -cos(XX(11) + XX(5))];
+    toeB = body + XX(15)*[sin(XX(17) + XX(5)); -cos(XX(17) + XX(5))];
+    vis.setState(body, angle, toeA, toeB);
     vis.setGround(@(x) ground_height_sample(x, ground_data), 100);
     drawnow;
 end

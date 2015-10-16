@@ -3,13 +3,7 @@ classdef PlanarBipedController < matlab.System
     % controller
     
     properties
-        body_mass = 0;
-        body_inertia = 0;
-        foot_mass = 0;
-        leg_stiffness = 0;
-        leg_damping = 0;
-        gravity = 0;
-        
+        params = zeros(12, 1);
         target_speed = 0;
     end
     
@@ -37,9 +31,10 @@ classdef PlanarBipedController < matlab.System
         end
         
         function u = stepImpl(obj, t, Y)
-            % Y: [body_angle; 
-            %     leg_a_angle; leg_a_length_eq; leg_a_length; 
-            %     leg_b_angle; leg_b_length_eq; leg_b_length]
+            % Y: [body_angle;
+            %     leg_a_leq; leg_a_l; leg_a_th; 
+            %     leg_b_leq; leg_b_l; leg_b_th]
+
             % Feedback derivatives
             dt = t - obj.t_last;
             dY = Y - obj.Y_last;
@@ -52,13 +47,13 @@ classdef PlanarBipedController < matlab.System
             % Determine walking phase
             
             % Generate trajectories
-            % traj: [body_angle; leg_a_angle; leg_a_length; leg_b_angle; leg_b_length]
+            % traj: [body_angle; leg_a_l; leg_a_th; leg_b_l; leg_b_th]
             body_angle = 0;
-            leg_a_angle = 0.3 + 0.1*sin(t);
-            leg_b_angle = -0.3 + 0.1*cos(t);
-            leg_a_length = 1 - 0.1*sin(t);
-            leg_b_length = 1 - 0.1*cos(t);
-            traj = [body_angle; leg_a_angle; leg_a_length; leg_b_angle; leg_b_length];
+            leg_a_l = 1 - 0.1*sin(t);
+            leg_b_l = 1 - 0.1*cos(t);
+            leg_a_th = 0.3 + 0.1*sin(t);
+            leg_b_th = -0.3 + 0.1*cos(t);
+            traj = [body_angle; leg_a_th; leg_a_l; leg_b_th; leg_b_l];
             
             % Trajectory derivatives
             if any(isnan(obj.traj_last)) || dt == 0
@@ -74,7 +69,7 @@ classdef PlanarBipedController < matlab.System
             body_gains = [2 0.5];
             leg_torque_gains = 1*[20 5];
             leg_length_gains = 10*[1 0.1];
-            gains = [body_gains; leg_torque_gains; leg_length_gains; leg_torque_gains; leg_length_gains];
+            gains = [body_gains; leg_length_gains; leg_torque_gains; leg_length_gains; leg_torque_gains];
             
             err = traj - Y([1 2 3 5 6]);
             errdot = trajdot - Ydot([1 2 3 5 6]);
@@ -82,10 +77,11 @@ classdef PlanarBipedController < matlab.System
             umod = pd_controller(err, errdot, gains);
             
             % Set control outputs
-            u = [umod(2) - umod(1)/2;
-                 umod(3);
-                 umod(4) - umod(1)/2;
-                 umod(5)];
+            u = [umod(2);
+                 umod(3) - umod(1)/2;
+                 umod(4);
+                 umod(5) - umod(1)/2];
+            u = [1; 1; 0; 0];
             
             obj.t_last = t;
             obj.Y_last = Y;

@@ -1,16 +1,9 @@
 function Y = bislip_measurements(X)
-% Y: [body_angle; leg_a_angle; leg_a_length_eq; leg_a_length; leg_b_angle; leg_b_length_eq; leg_b_length]
+% X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
+%     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
+%     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
+% Y: [body_angle;
+%     leg_a_leq; leg_a_l; leg_a_th; 
+%     leg_b_leq; leg_b_l; leg_b_th]
 
-body_angle = X(5);
-leg_a_vec = X(7:8) - X(1:2);
-leg_a_angle = atan2(leg_a_vec(1), -leg_a_vec(2)) - body_angle;
-leg_a_length_eq = X(11);
-leg_a_length = sqrt(leg_a_vec(1)^2 + leg_a_vec(2)^2);
-leg_b_vec = X(12:13) - X(1:2);
-leg_b_angle = atan2(leg_b_vec(1), -leg_b_vec(2)) - body_angle;
-leg_b_length_eq = X(16);
-leg_b_length = sqrt(leg_b_vec(1)^2 + leg_b_vec(2)^2);
-
-Y = [body_angle; 
-     leg_a_angle; leg_a_length_eq; leg_a_length; 
-     leg_b_angle; leg_b_length_eq; leg_b_length];
+Y = X([5 7 9 11 13 15 17]);
