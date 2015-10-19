@@ -63,8 +63,9 @@ function leg = leg_kinematics(X_leg, body)
 leg = zeros(12, 1);
 leg(1:6) = X_leg(1:6); % th, leg, l, and derivatives of each
 leg(11:12) = [sin(leg(5) + body(5)); -cos(leg(5) + body(5))]; % leg direction unit vector, absolute
-leg([7 9]) = body([1 3]) + leg(3)*leg(11:12); % x and y
-leg([8 10]) = leg(4)*leg(11:12) + leg(3)*leg(6)*[-leg(12); leg(11)]; % xdot and ydot
+leg([7 9]) = body([1 3]) + leg(3)*leg(11:12); % foot x and y
+leg([8 10]) = body([2 4]) + leg(4)*leg(11:12) ...
+    + leg(3)*(body(6) + leg(6))*[-leg(12); leg(11)]; % foot xdot and ydot
 
 
 function [foot_accel_abs, leqddot, body_reaction_force, body_reaction_torque] ...

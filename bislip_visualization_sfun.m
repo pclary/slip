@@ -62,5 +62,5 @@ if block.IsMajorTimeStep
     toeB = body + X(15)*[sin(X(17) + X(5)); -cos(X(17) + X(5))];
     
     vis.setState(body, angle, toeA, toeB);
-%     vis.setGround(@(x) ground_height_sample(x, block.DialogPrm(1).Data), 100);
+    vis.setGround(@(x) ground_height_sample(x, block.DialogPrm(1).Data), 100);
 end
