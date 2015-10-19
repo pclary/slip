@@ -94,8 +94,8 @@ leg_angle_inertia = foot_inertia + angle_motor_inertia;
 % Forces on foot in absolute x,y coordinates
 spring_force_mag = leg_stiffness*(leq - l) + leg_damping*(leqdot - ldot);
 spring_force = spring_force_mag*ldir;
-total_angle_torque = angle_torque - angle_motor_damping*thdot;
-angle_motor_force = total_angle_torque*foot_inertia/leg_angle_inertia/l*thdir;
+total_angle_torque = (angle_torque - angle_motor_damping*thdot)*foot_inertia/leg_angle_inertia;
+angle_motor_force = total_angle_torque/l*thdir;
 gravity_force = gravity*foot_mass*[0; -1];
 ground_force = ground_contact_model(leg([7 9]), leg([8 10]), body([1 3]), ground);
 foot_force_abs = spring_force + angle_motor_force + gravity_force + ground_force;
@@ -107,13 +107,12 @@ leqddot = (length_motor_force_mag - spring_force_mag)/length_motor_inertia;
 
 % Reaction force and torque from leg on body
 body_reaction_force  = -spring_force - angle_motor_force;
-body_reaction_torque = -dot(angle_motor_force, thdir);
+body_reaction_torque = -total_angle_torque;
 
 
 function [lddot, thddot] ...
     = leg_radial_acceleration(leg, foot_accel_abs, body, body_accel, body_thddot)
 % Convert absolute cartesian foot acceleration to relative polar coordinates
-% Friendlier names for variables
 l = leg(3);
 ldot = leg(4);
 thdot = leg(6);

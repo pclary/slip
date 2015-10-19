@@ -17,11 +17,11 @@ leg_stiffness = 1e5;
 leg_damping = 1e5;
 length_motor_inertia = 1e5;
 length_motor_damping = 1e5;
-angle_motor_inertia = 0.01;
+angle_motor_inertia = 0.1;
 angle_motor_damping = 0;
 gravity = 0;%9.81;
 params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 
-          length_motor_inertia; length_motor_damping; angle_motor_inertia; ...
+          length_motor_inertia; length_motor_damping; angle_motor_inertia; 
           angle_motor_damping; gravity];
 
 ground_x = [-1e3; 1e3];
