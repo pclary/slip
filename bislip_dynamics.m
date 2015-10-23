@@ -20,10 +20,10 @@ leg_a = leg_kinematics(X(7:12), body);
 leg_b = leg_kinematics(X(13:18), body);
 
 % Calculate world frame acceleration for each leg
-[foot_a_accel_abs, leg_a_leqddot, reaction_force_a, reaction_torque_a] ...
-    = leg_acceleration(leg_a, params, u(1:2), body, ground_data);
-[foot_b_accel_abs, leg_b_leqddot, reaction_force_b, reaction_torque_b] ...
-    = leg_acceleration(leg_b, params, u(3:4), body, ground_data);
+[foot_a_l_force, leg_a_leqddot, reaction_force_a] ...
+    = leg_forces(leg_a, params, u(1:2), body, ground_data);
+[foot_b_l_force, leg_b_leqddot, reaction_force_b] ...
+    = leg_forces(leg_b, params, u(3:4), body, ground_data);
 
 % Calculate forces on body
 body_gravity_force = params(10)*params(1)*[0; -1];
@@ -38,11 +38,11 @@ body_thddot = body_torque/params(2);
 
 % Convert foot acceleration to relative radial acceleration
 [leg_a_lddot, leg_a_thddot] ...
-    = leg_radial_acceleration(leg_a, foot_a_accel_abs, body, ...
-                              [body_xddot; body_yddot], body_thddot);
+    = leg_derivatives(leg_a, foot_a_l_force, foot_a_th_torque, body, ...
+                              body_xddot, body_yddot, body_thddot, params);
 [leg_b_lddot, leg_b_thddot] ...
-    = leg_radial_acceleration(leg_b, foot_b_accel_abs, body, ...
-                              [body_xddot; body_yddot], body_thddot);
+    = leg_derivatives(leg_b, foot_b_l_force, foot_b_th_torque, body, ...
+                              body_xddot, body_yddot, body_thddot, params);
 
 % Compose state derivative vector
 dX = [X(2);  body_xddot;    X(4);  body_yddot;  X(6);  body_thddot; 
@@ -53,7 +53,10 @@ persistent i
 if isempty(i)
     i = 0;
 end
-if mod(i, 16*3*1000*1) == 0
+if mod(i, 4*16*3*1000*1) == 0
+    0;
+end
+if mod(i, 0.001*16*3*1000*1) == 0
     0;
 end
 i = i + 1;
@@ -68,16 +71,15 @@ leg([8 10]) = body([2 4]) + leg(4)*leg(11:12) ...
     + leg(3)*(body(6) + leg(6))*[-leg(12); leg(11)]; % foot xdot and ydot
 
 
-function [foot_accel_abs, leqddot, body_reaction_force, body_reaction_torque] ...
-    = leg_acceleration(leg, params, u_leg, body, ground)
-% Get foot acceleration in absolute cartesian coordinates and body reactions
-% Friendlier names for variables
+function [foot_l_force, foot_th_torque, leqddot, body_reaction_force, body_reaction_torque] ...
+    = leg_forces(leg, params, u_leg, body, ground)
+% Get leg length force and angle torque, equilibirum length dynamics, and
+% body reaction forces and torque
 foot_mass = params(3);
 leg_stiffness = params(4);
 leg_damping = params(5);
 length_motor_inertia = params(6);
 length_damping = params(7);
-angle_motor_inertia = params(8);
 angle_motor_damping = params(9);
 gravity = params(10);
 leq = leg(1);
@@ -89,18 +91,17 @@ ldir = leg(11:12);
 thdir = [-ldir(2); ldir(1)];
 length_force = u_leg(1);
 angle_torque = u_leg(2);
-foot_inertia = foot_mass*leg(3)^2;
-leg_angle_inertia = foot_inertia + angle_motor_inertia;
 
-% Forces on foot in absolute x,y coordinates
+% Get force and torque on foot
 spring_force_mag = leg_stiffness*(leq - l) + leg_damping*(leqdot - ldot);
 spring_force = spring_force_mag*ldir;
-total_angle_torque = (angle_torque - angle_motor_damping*thdot)*foot_inertia/leg_angle_inertia;
+total_angle_torque = angle_torque - angle_motor_damping*thdot;
 angle_motor_force = total_angle_torque/l*thdir;
 gravity_force = gravity*foot_mass*[0; -1];
 ground_force = ground_contact_model(leg([7 9]), leg([8 10]), body([1 3]), ground);
 foot_force_abs = spring_force + angle_motor_force + gravity_force + ground_force;
-foot_accel_abs = foot_force_abs/foot_mass;
+foot_l_force = dot(foot_force_abs, ldir);
+foot_th_torque = l*dot(foot_force_abs, thdir);
 
 % Leg equilibrium length acceleration
 length_motor_force_mag = length_force - length_damping*leqdot;
@@ -112,21 +113,20 @@ body_reaction_torque = -total_angle_torque;
 
 
 function [lddot, thddot] ...
-    = leg_radial_acceleration(leg, foot_accel_abs, body, body_accel, body_thddot)
+    = leg_derivatives(leg, F, T, body, xbddot, ybddot, thbddot, params)
 % Convert absolute cartesian foot acceleration to relative polar coordinates
 l = leg(3);
 ldot = leg(4);
+th = leg(5);
 thdot = leg(6);
-ldir = leg(11:12);
-thdir = [-ldir(2); ldir(1)];
+thb = body(5);
+thbdot = body(6);
+M = params(3);
+I = params(8) + M*l^2;
 
-foot_accel_rel = foot_accel_abs - body_accel - body_thddot*l*thdir;
-foot_accel_l = dot(foot_accel_rel, ldir);
-foot_accel_th = dot(foot_accel_rel, thdir);
-
-lddot = foot_accel_l + l*(thdot + body(6))^2;
-thddot = (foot_accel_th - 2*ldot*(thdot + body(6)))/l;
-
+lddot = (I*M*l*thbdot^2 + 2*I*M*l*thbdot*thdot + I*M*l*thdot^2 + F*I*cos(thb) + I*M*ybddot*cos(th + thb) - I*M*xbddot*sin(th + thb) + M*T*l*sin(thb))/(I*M);
+thddot = -(F*I*sin(thb) + I*M*xbddot*cos(th + thb) + I*M*ybddot*sin(th + thb) - M*T*l*cos(thb) + I*M*l*thbddot + 2*I*M*ldot*thbdot + 2*I*M*ldot*thdot)/(I*M*l);
+0;
 
 function ground_force = ground_contact_model(pos, vel, ref, ground_data)
 % Ground contact force model

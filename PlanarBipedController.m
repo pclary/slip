@@ -84,7 +84,7 @@ classdef PlanarBipedController < matlab.System
                  umod(3) - umod(1)/2;
                  umod(4);
                  umod(5) - umod(1)/2];
-%             u = [sin(t)*00000; 1; 0; 0];
+            u = [sin(t)*00000; 1; 0; 0];
             
             obj.t_last = t;
             obj.Y_last = Y;
