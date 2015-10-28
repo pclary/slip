@@ -4,22 +4,30 @@ syms Tma Tmb Tb Fexa Feya Fexb Feyb Fbx Fby
 syms Im Ib b n lxa lya lxb lyb mb mf la lb dla dlb dthma dthmb dthla dthlb dthb
 % motor and output angles are relative to body
 
+
 ddthoaabs = ddthb + ddthoa;
 ddthobabs = ddthb + ddthob;
 ddthmaabs = ddthb + ddthma;
 ddthmbabs = ddthb + ddthmb;
-Foa = -lya*(Fexa - mf*ddbx) + lxa*(Feya - mf*ddby);
-Fob = -lyb*(Fexb - mf*ddbx) + lxb*(Feyb - mf*ddby);
-Fbxtot = Fbx - lya*Foa - lyb*Fob;
-Fbytot = Fby + lxa*Foa + lxb*Fob;
+Fea = [Fexa; Feya];
+Feb = [Fexb; Feyb];
+Ffict = -mf*[ddbx; ddby];
+ldira = [lxa; lya];
+ldirb = [lxb; lyb];
+thdira = [-lya; lxa];
+thdirb = [-lyb; lxb];
+Fra = -Tint2a/la;
+Frb = -Tint2b/lb;
+Fbxtot = Fbx - lya*Fra - lyb*Frb;
+Fbytot = Fby + lxa*Fra + lxb*Frb;
 Ioa = la^2*mf;
 Iob = lb^2*mf;
-Toa = Foa*la - 2*(dthla + dthb)*dla*mf*la;
-Tob = Fob*lb - 2*(dthlb + dthb)*dlb*mf*lb;
+Toa = dot(thdira', Fea - Ffict)*la - 2*(dthla + dthb)*dla*mf*la;
+Tob = dot(thdirb', Feb - Ffict)*lb - 2*(dthlb + dthb)*dlb*mf*lb;
 Tmanet = Tma - b*dthma;
 Tmbnet = Tmb - b*dthmb;
-Fla = lxa*(Fexa - mf*ddbx) + lya*(Feya - mf*ddby) + mf*la*(dthla + dthb)^2;
-Flb = lxb*(Fexb - mf*ddbx) + lyb*(Feyb - mf*ddby) + mf*lb*(dthlb + dthb)^2;
+Fla = dot(ldira', Fea - Ffict) + mf*la*(dthla + dthb)^2;
+Flb = dot(ldirb', Feb - Ffict) + mf*lb*(dthlb + dthb)^2;
 
 eq1a = Im*ddthmaabs - (Tmanet - Tint1a);
 eq2a = Ioa*ddthoaabs - (Toa + Tint2a);
