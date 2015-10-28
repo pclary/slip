@@ -31,16 +31,18 @@ body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), b
 body_force_ext = body_gravity_force + body_ground_force - spring_force_a - spring_force_b;
 
 % Use big ugly jacobian to get most of the derivatives
-v = [u(2); u(4); foot_a_force_ext; foot_b_force_ext; 0; body_force_ext];
-[J, f0] = get_eom(params, body, leg_a, leg_b);
+v = [u; body_force_ext; 0; foot_a_force_ext; foot_b_force_ext];
+[J, f0] = get_eom(params, X);
 dd = J*v + f0;
 body_xddot = dd(1);
 body_yddot = dd(2);
 body_thddot = dd(3);
-leg_a_lddot = dd(4);
-leg_a_thddot = dd(5);
-leg_b_lddot = dd(6);
-leg_b_thddot = dd(7);
+leg_a_leqddot = dd(4);
+leg_a_lddot = dd(5);
+leg_a_thddot = dd(6);
+leg_b_leqddot = dd(7);
+leg_b_lddot = dd(8);
+leg_b_thddot = dd(9);
 
 % Compose state derivative vector
 dX = [X(2);  body_xddot;    X(4);  body_yddot;  X(6);  body_thddot; 
