@@ -24,7 +24,7 @@ ground_force_a = ground_contact_model(leg_a([7 9]), leg_a([8 10]), body([1 3]), 
 ground_force_b = ground_contact_model(leg_b([7 9]), leg_b([8 10]), body([1 3]), ground_data);
 
 % Calculate ground force on body
-body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), body([1 3]), ground_data);
+body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), body([1 3]) + [0; 1e3], ground_data);
 
 % Use big ugly jacobian to get most of the derivatives
 ufull = [u; body_ground_force; 0; ground_force_a; ground_force_b];
@@ -34,7 +34,7 @@ persistent i
 if isempty(i)
     i = 0;
 end
-if mod(i, 7.55*16*3*1000*1) == 0
+if mod(i, 0.615*16*3*1000*1) == 0
     0;
 end
 if mod(i, 0.001*16*3*1000*1) == 0
