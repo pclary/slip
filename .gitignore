@@ -4,5 +4,6 @@
 *.exe
 *.original
 *.mexw64
+*.mexa64
 slprj/
 *_grt_rtw/

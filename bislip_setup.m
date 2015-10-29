@@ -2,8 +2,8 @@
 
 l0 = 1;
 h0 = 1;
-tha0 = 0.0;
-thb0 = 0.0;
+tha0 = 0.5;
+thb0 = -0.5;
 v0 = 1;
 X0 = [0;  v0; l0+h0; 0; 0;    0;
       l0; 0;  l0;    0; tha0; 0;
@@ -11,15 +11,15 @@ X0 = [0;  v0; l0+h0; 0; 0;    0;
 u0 = [0; 0; 0; 0];
 
 body_mass = 50;
-body_inertia = 1e3;
-foot_mass = 25;
-leg_stiffness = 1e4;
-leg_damping = 1e4;
-length_motor_inertia = 1e4;
-length_motor_damping = 1e4;
+body_inertia = 5;
+foot_mass = 1;
+leg_stiffness = 1e3;
+leg_damping = 10;
+length_motor_inertia = 10000;
+length_motor_damping = 10000;
 angle_motor_inertia = 1;
-angle_motor_damping = 0;
-angle_motor_ratio = 1;
+angle_motor_damping = 0.1;
+angle_motor_ratio = 15;
 gravity = 9.81;
 params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 
           length_motor_inertia; length_motor_damping; angle_motor_inertia; 

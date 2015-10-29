@@ -28,16 +28,16 @@ J = [[0, 0, Iam, 0, 0, Iam*n, 0, 0, 0, 1, 0];
      [0, mb, 0, 0, 0, 0, 0, 0, 0, (ldirxa*n)/la, (ldirxb*n)/lb]];
 
 f0 = [[bam*dthoa*n - Tma];
-      [ldirxa*(bs*(la - leqa) + ks*(la - leqa)) - mf*(2*dla*ldirya*(dthb + dthoa) + la*ldirxa*(dthb + dthoa)^2) - Fefxa];
-      [g*mf - Fefya + mf*(2*dla*ldirxa*(dthb + dthoa) - la*ldirya*(dthb + dthoa)^2) + ldirya*(bs*(la - leqa) + ks*(la - leqa))];
-      [blm*dleqa - Fla - bs*(la - leqa) - ks*(la - leqa)];
+      [ldirxa*(bs*(dla - dleqa) + ks*(la - leqa)) - mf*(2*dla*ldirya*(dthb + dthoa) + la*ldirxa*(dthb + dthoa)^2) - Fefxa];
+      [g*mf - Fefya + mf*(2*dla*ldirxa*(dthb + dthoa) - la*ldirya*(dthb + dthoa)^2) + ldirya*(bs*(dla - dleqa) + ks*(la - leqa))];
+      [blm*dleqa - Fla - bs*(dla - dleqa) - ks*(la - leqa)];
       [bam*dthob*n - Tmb];
-      [ldirxb*(bs*(lb - leqb) + ks*(lb - leqb)) - mf*(2*dlb*ldiryb*(dthb + dthob) + lb*ldirxb*(dthb + dthob)^2) - Fefxb];
-      [g*mf - Fefyb + mf*(2*dlb*ldirxb*(dthb + dthob) - lb*ldiryb*(dthb + dthob)^2) + ldiryb*(bs*(lb - leqb) + ks*(lb - leqb))];
-      [blm*dleqb - Flb - bs*(lb - leqb) - ks*(lb - leqb)];
+      [ldirxb*(bs*(dlb - dleqb) + ks*(lb - leqb)) - mf*(2*dlb*ldiryb*(dthb + dthob) + lb*ldirxb*(dthb + dthob)^2) - Fefxb];
+      [g*mf - Fefyb + mf*(2*dlb*ldirxb*(dthb + dthob) - lb*ldiryb*(dthb + dthob)^2) + ldiryb*(bs*(dlb - dleqb) + ks*(lb - leqb))];
+      [blm*dleqb - Flb - bs*(dlb - dleqb) - ks*(lb - leqb)];
       [Tma - Tb + Tmb - bam*dthoa*n - bam*dthob*n];
-      [- Fbx - ldirxa*(bs*(la - leqa) + ks*(la - leqa)) - ldirxb*(bs*(lb - leqb) + ks*(lb - leqb))];
-      [g*mb - Fby - ldirya*(bs*(la - leqa) + ks*(la - leqa)) - ldiryb*(bs*(lb - leqb) + ks*(lb - leqb))]];
+      [- Fbx - ldirxa*(bs*(dla - dleqa) + ks*(la - leqa)) - ldirxb*(bs*(dlb - dleqb) + ks*(lb - leqb))];
+      [g*mb - Fby - ldirya*(bs*(dla - dleqa) + ks*(la - leqa)) - ldiryb*(bs*(dlb - dleqb) + ks*(lb - leqb))]];
 
 v = J\-f0;
 tmp = [X(2:2:end)'; v(1:9)'];

@@ -32,8 +32,8 @@ ddthmaabs = ddthb + ddthma;
 ddthmbabs = ddthb + ddthmb;
 
 % Spring force magnitude (compression positive)
-Fsma = ks*(leqa - la) + bs*(leqa - la);
-Fsmb = ks*(leqb - lb) + bs*(leqb - lb);
+Fsma = ks*(leqa - la) + bs*(dleqa - dla);
+Fsmb = ks*(leqb - lb) + bs*(dleqb - dlb);
 
 % Angle torque force magnitude
 Ftma = Tint2a/la;
