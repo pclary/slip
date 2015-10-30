@@ -30,17 +30,6 @@ body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), b
 ufull = [u; body_ground_force; 0; ground_force_a; ground_force_b];
 dX = bislip_eom(X, ufull, params);
 
-persistent i
-if isempty(i)
-    i = 0;
-end
-if mod(i, 0.615*16*3*1000*1) == 0
-    0;
-end
-if mod(i, 0.001*16*3*1000*1) == 0
-    0;
-end
-i = i + 1;
 
 function leg = leg_kinematics(X_leg, body)
 % Calculate lengths, derivatives, etc

@@ -1,7 +1,7 @@
 %% bislip_setup.m
 
 l0 = 1;
-h0 = 1;
+h0 = 0.3;
 tha0 = 0.5;
 thb0 = -0.5;
 v0 = 1;
@@ -13,8 +13,8 @@ u0 = [0; 0; 0; 0];
 body_mass = 50;
 body_inertia = 5;
 foot_mass = 1;
-leg_stiffness = 1e5;
-leg_damping = 0.3*2*sqrt(leg_stiffness*body_mass);
+leg_stiffness = 5e3;
+leg_damping = 0.1*2*sqrt(leg_stiffness*body_mass);
 length_motor_inertia = 1;
 length_motor_damping = 0.1;
 angle_motor_inertia = 0.1;
