@@ -41,7 +41,7 @@ classdef DoubleSupportController < matlab.System
             
             % gains: [body_angle; leg_front_leq; leg_front_th; 
             %   leg_back_leq; leg_back_th] * [kp, kd]
-            p_gains = [1e2; 1e4; 1e0; 1e4; 1e0];
+            p_gains = [3e2; 1e4; 1e0; 1e4; 1e0];
             d_gains = p_gains*0.1;
             
             % PD control for trajectories

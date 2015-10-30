@@ -28,14 +28,14 @@ classdef FlightController < matlab.System
             xdot = X(2);
             xdot_target = control(1);
             
-            ff_vel = 0.1;
-            kp_vel = 0.1;
+            ff_vel = 0.05;
+            kp_vel = 0.2;
             
             target_angle = ff_vel*xdot_target - kp_vel*(xdot_target - xdot);
             
             % traj: [body_angle; leg_front_leq; leg_front_th; 
             %   leg_back_leq; leg_back_th]
-            traj = [0; 1; target_angle; 0.8; -target_angle];
+            traj = [0; 1; target_angle; 0.5; -target_angle];
             
             % Trajectory derivatives
             dt = t - obj.t_last;
@@ -49,13 +49,13 @@ classdef FlightController < matlab.System
             
             % gains: [body_angle; leg_front_leq; leg_front_th; 
             %   leg_back_leq; leg_back_th] * [kp, kd]
-            p_gains = [1e2; 1e3; 1e2; 1e3; 1e2];
+            p_gains = [0; 1e3; 3e2; 1e3; 1e2];
             d_gains = p_gains*0.1;
             
             % PD control for trajectories
             ind = [5 7 11 13 17];
-            err = traj - X(ind);
-            errdot = trajdot - X(ind + 1);
+            err = traj - (X(ind) + [0; 0; X(5); 0; X(5)]);
+            errdot = trajdot - (X(ind + 1) + [0; 0; X(6); 0; X(6)]);
             umod = p_gains.*err + d_gains.*errdot;
             
             % Set control outputs

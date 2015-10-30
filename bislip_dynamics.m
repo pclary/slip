@@ -1,4 +1,4 @@
-function [dX, body, leg_a, leg_b] = bislip_dynamics(X, u, params, ground_data)
+function [dX, ground_force_a, ground_force_b] = bislip_dynamics(X, u, params, ground_data)
 % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
 %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
 %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
@@ -29,6 +29,18 @@ body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), b
 % Use big ugly jacobian to get most of the derivatives
 ufull = [u; body_ground_force; 0; ground_force_a; ground_force_b];
 dX = bislip_eom(X, ufull, params);
+
+persistent i
+if isempty(i)
+    i = 0;
+end
+if mod(i, 8.851*1000*16*3) == 0
+    0;
+end
+if mod(i, 0.001*1000*16*3) == 0
+    0;
+end
+i = i + 1;
 
 
 function leg = leg_kinematics(X_leg, body)
@@ -105,7 +117,7 @@ friction_mag = ground_friction*(spring_force(1)*ground_normal(1) + spring_force(
 % Calculate friction, replacing the jump discontinuity due to the sign
 % function with a continuous ramp
 ground_slip = vel(1)*ground_tangent(1) + vel(2)*ground_tangent(2);
-slip_ramp_width = friction_mag*1e-8;
+slip_ramp_width = friction_mag*1e-5;
 p = min(max(abs(ground_slip)/slip_ramp_width, 0), 1);
 friction_force = -sign(ground_slip)*p*friction_mag*ground_tangent;
 

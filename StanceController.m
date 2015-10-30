@@ -27,7 +27,7 @@ classdef StanceController < matlab.System
             
             % traj: [body_angle; leg_stance_leq; leg_stance_th; 
             %   leg_swing_leq; leg_swing_th]
-            traj = [0; 1; X(11); 0.8; -X(11)];
+            traj = [0; 1; X(11); 0.5; -X(11)];
             
             % Trajectory derivatives
             dt = t - obj.t_last;
@@ -41,7 +41,7 @@ classdef StanceController < matlab.System
             
             % gains: [body_angle; leg_front_leq; leg_front_th; 
             %   leg_back_leq; leg_back_th] * [kp, kd]
-            p_gains = [1e2; 1e4; 1e0; 1e3; 1e2];
+            p_gains = [1e3; 1e4; 1e0; 1e3; 1e2];
             d_gains = p_gains*0.1;
             
             % PD control for trajectories
@@ -56,7 +56,7 @@ classdef StanceController < matlab.System
             u = [umod(2);
                  umod(3) - umod(1)/2;
                  umod(4);
-                 umod(5) - umod(1)/2];
+                 umod(5) - 0*umod(1)/2];
             
             obj.t_last = t;
         end
