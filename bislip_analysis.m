@@ -7,7 +7,7 @@ else
 end
 t = X.Time;
 
-rate = 0.1;
+rate = 1;
 
 while toc*rate < t(end)
     tt = toc*rate;

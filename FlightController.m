@@ -28,14 +28,14 @@ classdef FlightController < matlab.System
             xdot = X(2);
             xdot_target = control(1);
             
-            ff_vel = 0.05;
+            ff_vel = 0.07;
             kp_vel = 0.2;
             
             target_angle = ff_vel*xdot_target - kp_vel*(xdot_target - xdot);
             
             % traj: [body_angle; leg_front_leq; leg_front_th; 
             %   leg_back_leq; leg_back_th]
-            traj = [0; 1; target_angle; 0.5; -target_angle];
+            traj = [0; 1; target_angle; X(13); -target_angle];
             
             % Trajectory derivatives
             dt = t - obj.t_last;
