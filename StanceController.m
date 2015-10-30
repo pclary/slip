@@ -1,5 +1,5 @@
-classdef FlightController < matlab.System
-    % Flight phase controller for planar biped
+classdef StanceController < matlab.System
+    % Stance phase controller for planar biped
     
     properties
         params = zeros(11, 1);
@@ -19,23 +19,15 @@ classdef FlightController < matlab.System
             obj.traj_last = NaN*ones(5, 1);
         end
         
-        function u = stepImpl(obj, control, t, X)
+        function u = stepImpl(obj, ~, t, X)
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
             %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
             % control: [xdot_target]
             
-            xdot = X(2);
-            xdot_target = control(1);
-            
-            ff_vel = 0.1;
-            kp_vel = 0.1;
-            
-            target_angle = ff_vel*xdot_target - kp_vel*(xdot_target - xdot);
-            
-            % traj: [body_angle; leg_front_leq; leg_front_th; 
-            %   leg_back_leq; leg_back_th]
-            traj = [0; 1; target_angle; 0.8; -target_angle];
+            % traj: [body_angle; leg_stance_leq; leg_stance_th; 
+            %   leg_swing_leq; leg_swing_th]
+            traj = [0; 1; X(11); 0.8; -X(11)];
             
             % Trajectory derivatives
             dt = t - obj.t_last;
@@ -49,7 +41,7 @@ classdef FlightController < matlab.System
             
             % gains: [body_angle; leg_front_leq; leg_front_th; 
             %   leg_back_leq; leg_back_th] * [kp, kd]
-            p_gains = [1e2; 1e3; 1e2; 1e3; 1e2];
+            p_gains = [1e2; 1e4; 1e0; 1e3; 1e2];
             d_gains = p_gains*0.1;
             
             % PD control for trajectories
