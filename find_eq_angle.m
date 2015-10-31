@@ -1,4 +1,4 @@
-function th_eq = find_eq_angle(params, eq_length, apex_height, forward_velocity)
+function th_eq = find_eq_angle(apex_height, forward_velocity, eq_length, params)
 
 m = params(1);
 k = params(4);
@@ -16,7 +16,7 @@ odeopts = odeset('Events', eventfun);
         l0 = eq_length;
         hdiff = apex_height - l0*cos(th0);
         dx0 = forward_velocity;
-        dy0 = sqrt(2*g*hdiff);
+        dy0 = -sqrt(2*g*hdiff);
         dl0 = dy0*cos(th0) - dx0*sin(th0);
         dth0 = -(dx0*cos(th0) + dy0*sin(th0))/l0;
         Y0 = [l0; dl0; th0; dth0];
@@ -24,7 +24,7 @@ odeopts = odeset('Events', eventfun);
 
     function out = zerofun(th0)
         Y0 = initial_conditions(th0);
-        [~, Y] = ode45(odefun, [0 1e3], Y0, odeopts);
+        [~, Y] = ode45(odefun, [0 1e2], Y0, odeopts);
         out = th0 + Y(end, 3);
     end
 
@@ -32,8 +32,8 @@ th_eq = fzero(@zerofun, 0);
 end
 
 
-function [value, isterminal, direction] = takeoff_event(~, Y, equilibrium_length)
-value = equilibrium_length - Y(1);
-isterminal = 1;
-direction = -1;
+function [value, isterminal, direction] = takeoff_event(~, Y, eq_length)
+value = [eq_length - Y(1); abs(Y(3)) - pi/2];
+isterminal = [1; 1];
+direction = [-1; 1];
 end
