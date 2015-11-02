@@ -1,6 +1,7 @@
 classdef BiSLIPGraphics < handle
 
     properties (SetAccess=private)
+        Axes = gobjects();
         Body = gobjects();
         BodyVis = gobjects();
         LegA = gobjects();
@@ -80,6 +81,7 @@ classdef BiSLIPGraphics < handle
         function createGeometry(obj)
             fig = figure;
             ax = axes('Parent', fig);
+            obj.Axes = ax;
             axis(ax, 'equal');
             title(ax, 'BiSLIP');
             xlabel(ax, 'x (m)');
