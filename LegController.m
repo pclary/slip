@@ -11,15 +11,15 @@ classdef LegController < matlab.System
     end
     
     properties (DiscreteState)
-        footstep_target;
+        th_target;
     end
     
     methods (Access = protected)
         function setupImpl(obj, ~, ~, ~, ~, ~)
-            obj.footstep_target = 0;
+            obj.th_target = 0;
         end
         
-        function u = stepImpl(obj, control, t, X, ~, feet)
+        function [u, debug] = stepImpl(obj, control, t, X, ~, feet)
             % control: [xdot_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
@@ -29,15 +29,11 @@ classdef LegController < matlab.System
             
             % Update footstep target if this foot is in the air and the
             % other is on the ground
-            if feet(1) == 0 && feet(2) > 0
-                dx = X(2);
-                dx_target = control(1);
-                ff = 0.1;
-                kp = 0.1;
-                stride_length = ff*dx + kp*(dx - dx_target);
-                leg_b_x = X(1) + X(15)*sin(X(5) + X(17));
-                obj.footstep_target = leg_b_x + stride_length;
-            end
+            dx = X(2);
+            dx_target = control(1);
+            ff = 0.1;
+            kp = 0.25;
+            obj.th_target = ff*dx + kp*(dx - dx_target);
             
             % Foot on ground controller
             u_down = obj.foot_down_controller(X);
@@ -51,6 +47,8 @@ classdef LegController < matlab.System
             
             % Output as row vector
             u = u';
+            
+            debug = obj.th_target;
         end
             
         function resetImpl(obj)
@@ -100,11 +98,8 @@ classdef LegController < matlab.System
             th_b = X(17);
             p1 = min(max(movement_dir*(th_b - th_a)/th_ramp_width, 0), 1); % Is this leg behind other?
             p_back = p1*(1 - feet(2));
-            
-            x_ramp_width = 0.1;
-            x_target = obj.footstep_target;
-            x_leg = X(1) + X(9)*sin(X(5) + X(11));
-            p2 = min(max(movement_dir*(x_target - x_leg)/x_ramp_width, 0), 1); % Is foot near or ahead of target?
+            th_ramp_width2 = 0.1;
+            p2 = min(max(movement_dir*(obj.th_target - th_a)/th_ramp_width2, 0), 1);
             p_mirror = (1 - p_back)*p2;
             p_touchdown = (1 - p_back)*(1 - p2);
             
@@ -130,7 +125,7 @@ classdef LegController < matlab.System
         end
         
         function u = foot_up_mirror_controller(obj, X)
-            % Leg in air, not near footstep target
+            % Leg in air, not near angle target
             % Mirror other leg angle and keep foot clear of ground
             
             leq = X(7);
@@ -146,7 +141,7 @@ classdef LegController < matlab.System
             th_a_target = -th_b - 2*body_th;
             dth_a_target = -dth_b - 2*body_dth;
             
-            kp = [1e3; 1e2];
+            kp = [1e3; 1e3];
             kd = kp*0.1;
             
             err = [leq_target - leq; th_a_target - th_a];
@@ -156,33 +151,26 @@ classdef LegController < matlab.System
         end
         
         function u = foot_up_touchdown_controller(obj, X)
-            % Leg in air, near footstep target
-            % Set length to normal leg length, adjust angle to hit target
+            % Leg in air, near angle target
+            % Set length to normal leg length, mirror angle
             
             leq = X(7);
             dleq = X(8);
             body_th = X(5);
             body_dth = X(6);
-            th = X(11);
-            dth = X(12);
-            th_abs = th + body_th;
-            x = X(1);
-            dx = X(2);
-            l = X(9);
-            dl = X(10);
-            x_target = obj.footstep_target;
+            th_a = X(11);
+            dth_a = X(12);
             
             leq_target = 1;
             dleq_target = 0;
-            sinth = min(max((x - x_target)/l, 0), 1);
-            th_a_target = -asin(sinth) - body_th;
-            dth_a_target = -(dx + dl*sin(th_abs) + body_dth*l*cos(th_abs))/(l*cos(th_abs));
+            th_a_target = obj.th_target - body_th;
+            dth_a_target = 0 - body_dth;
             
-            kp = [1e3; 1e2];
+            kp = [1e3; 1e3];
             kd = kp*0.1;
             
-            err = [leq_target - leq; th_a_target - th];
-            derr = [dleq_target - dleq; dth_a_target - dth];
+            err = [leq_target - leq; th_a_target - th_a];
+            derr = [dleq_target - dleq; dth_a_target - dth_a];
             
             u = kp.*err + kd.*derr;
         end
