@@ -2,18 +2,18 @@
 
 l0 = 1;
 h0 = 0.1;
-tha0 = 0.3;
-thb0 = -0.3;
-v0 = 0.5;
+tha0 = 0.5;
+thb0 = -0.5;
+v0 = 1;
 X0 = [0; v0; l0+h0; 0; 0;    0;
      l0; 0;  l0;    0; tha0; 0;
      l0; 0;  l0;    0; thb0; 0];
 u0 = [0; 0; 0; 0];
 
-body_mass = 75;
+body_mass = 50;
 body_inertia = 10;
 foot_mass = 1;
-leg_stiffness = 1.1e4;
+leg_stiffness = 4e4;
 leg_damping = 0.03*2*sqrt(leg_stiffness*body_mass);
 length_motor_inertia = 1;
 length_motor_damping = 0.1;
