@@ -1,4 +1,4 @@
-function [th, y, dx] = stance_sim(th0, y0, dx0, leq0, leqfun, params)
+function [th, y, dx] = stance_sim(th0, y0, dx0, leq0, params)
 % Simulates a SLIP stance phase
 % Inputs:
 %   th0: touchdown angle
@@ -40,17 +40,17 @@ dt = dtmax;
 Y = Y0;
 while t < tstop
     % Runge-kutta integration step
-    dY1 = stance_dynamics(t, Y, leqfun, leq0, params);
+    dY1 = stance_dynamics(t, Y, leq0, params);
     Y1 = Y + dt/2*dY1;
-    dY2 = stance_dynamics(t + dt/2, Y1, leqfun, leq0, params);
+    dY2 = stance_dynamics(t + dt/2, Y1, leq0, params);
     Y2 = Y + dt/2*dY2;
-    dY3 = stance_dynamics(t + dt/2, Y2, leqfun, leq0, params);
+    dY3 = stance_dynamics(t + dt/2, Y2, leq0, params);
     Y3 = Y + dt*dY3;
-    dY4 = stance_dynamics(t + dt, Y3, leqfun, leq0, params);
+    dY4 = stance_dynamics(t + dt, Y3, leq0, params);
     Ynew = Y + dt/6*(dY1 + 2*dY2 + 2*dY3 + dY4);
     
     % Stopping logic
-    sfval = leqfun(t + dt, Ynew, leq0) - Ynew(1);
+    sfval = leq0 - Ynew(1);
     if sfval <= 0
         if dt/2 >= dtmin
             dt = dt/2;
@@ -84,12 +84,12 @@ dy = dl*cos(th) - dth*l*sin(th);
 y = l*cos(th) + dy^2/g/2;
 
 
-function dY = stance_dynamics(t, Y, leqfun, leq0, params)
+function dY = stance_dynamics(t, Y, leq0, params)
 % Y: [l; dl; th; dth]
 m = params(1);
 k = params(4);
 g = params(11);
-dY = [Y(2); 
-      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leqfun(t, Y, leq0) - Y(1));
+dY = [Y(2);
+      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq0 - Y(1));
       Y(4);
       (g*sin(Y(3)) - 2*Y(2)*Y(4))/Y(1)];

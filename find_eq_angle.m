@@ -15,14 +15,14 @@ th = th0;
 dth = 0.1;
 for i = 1:8
     % Newton's method with a finite difference derivative
-    f0 = stance_sim(th, y0, dx0, leq0, @leqfun, params) + th;
+    f0 = stance_sim(th, y0, dx0, leq0, params) + th;
     if ~isfinite(f0)
         th = NaN;
         return;
     end
     
     th1 = th + dth;
-    f1 = stance_sim(th1, y0, dx0, leq0, @leqfun, params) + th1;
+    f1 = stance_sim(th1, y0, dx0, leq0, params) + th1;
     if ~isfinite(f1)
         th = NaN;
         return;
@@ -38,7 +38,3 @@ if abs(thstep) > maxstep / 1000
     % Convergence failed
     th = NaN;
 end
-
-
-function leq = leqfun(~, ~, leq0)
-leq = leq0;
