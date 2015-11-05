@@ -25,30 +25,75 @@ classdef LegController < matlab.System
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
             %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
             % phase: [alpha; beta]
+            %   alpha: bias towards leg A or leg B, [-1, 1]
+            %   betap: proportion total leg forces, depends on alpha, [0, 1]
+            %   beta: unwrapped betap, [0, 3)
+            %     0 is flight, A to front
+            %     1 is double support, A in front
+            %     2 is flight, B to front
+            %     3 is double support, B in front
             % feet: [foot_a_contact; foot_b_contact];
             
-            % Update footstep target if this foot is in the air and the
-            % other is on the ground
+            % Raibert-style angle control
             dx = X(2);
             dx_target = control(1);
-            ff = 0.05;
-            kp = 0.2;
-            obj.th_target = ff*dx_target + kp*(dx - dx_target);
+            ff = 0.09;
+            kp = 0.05;
+            obj.th_target = ff*dx + kp*(dx - dx_target);
             
-            % Foot on ground controller
-            u_down = obj.foot_down_controller(X);
+            % Compute sub-controlers
+            u_support = obj.support_controller(X);
+            u_mirror = obj.mirror_controller(X);
+            u_touchdown = obj.touchdown_controller(X);
+            u_push = obj.push_controller(X);
             
-            % Foot in air controller
-            u_up = obj.foot_up_controller(X, feet, phase);
+            % Parameters used to interpolate between sub-controllers
+            movement_dir = sign(X(2));
+            pushvel = dx_target;
+            % 0 before target angle, 1 close to and after
+            p_angle = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
+            % 1 before pushvel, 0 after
+            p_speed = 1 - min(max(movement_dir*(X(2) - pushvel)/0.1, 0), 1);
+            % 1 before support transfer, 0 after
+            p_pushangle = 1 - min(max((X(11) + X(17) + 2*X(5))/0.05, 0), 1);
+            p_push = min(max(p_speed + p_pushangle, 0), 1);
             
-            % Interpolate between ground and air control based on ground
-            % contact intensity
-            u = feet(1)*u_down + (1 - feet(1))*u_up;
+            % Phase controllers
+            u_sa = u_support;
+            u_fb = u_mirror;
+            u_db = p_push*u_push + (1 - p_push)*u_mirror;
+            u_sb = (1 - p_angle)*u_mirror + p_angle*u_touchdown;
+            u_fa = u_touchdown;
+            u_da = u_support;
+            
+            % Phase interpolation
+            alpha = phase(1);
+            beta = phase(2);
+            betap = abs(mod(beta + 1, 2) - 1);
+            
+            p_sa = min(max(alpha, 0), 1);
+            p_sb = min(max(-alpha, 0), 1);
+            if beta < 2
+                p_fb = 0;
+                p_db = 0;
+                p_fa = (1 - betap)*(1 - abs(alpha));
+                p_da = betap*(1 - abs(alpha));
+            else
+                p_fb = (1 - betap)*(1 - abs(alpha));
+                p_db = betap*(1 - abs(alpha));
+                p_fa = 0;
+                p_da = 0;
+            end
+            
+            u = u_sa*p_sa + u_fb*p_fb + u_db*p_db + u_sb*p_sb + u_fa*p_fa + u_da*p_da;
             
             % Output as row vector
             u = u';
             
             debug = obj.th_target;
+            if t > 0.15
+                0;
+            end
         end
             
         function resetImpl(obj)
@@ -57,9 +102,8 @@ classdef LegController < matlab.System
     end
     
     methods (Access = private)
-        function u = foot_down_controller(obj, X)
-            % Use angle torque to keep body upright
-            % Strong leg length gains
+        function u = support_controller(obj, X)
+            % Use angle torque to keep body upright, maintain leg length
             
             leq = X(7);
             dleq = X(8);
@@ -80,32 +124,8 @@ classdef LegController < matlab.System
             u = kp.*err + kd.*derr;
         end
         
-        function u = foot_up_controller(obj, X, feet, phase)
-            % Separate controllers for:
-            %   Flight phase when this foot is behind the other
-            %   Leg is behind footstep target
-            %   Leg is ahead of or near footstep target
-            
-            u_back = obj.foot_up_back_controller(X);
-            u_mirror = obj.foot_up_mirror_controller(X);
-            u_touchdown = obj.foot_up_touchdown_controller(X);
-            
-            % Interpolate between the three controllers
-            movement_dir = sign(X(2));
-            
-            p_back = double(phase(2) >= 2);
-            th_a = X(11);
-            th_ramp_width = 0.03;
-            p2 = min(max(movement_dir*(obj.th_target - th_a)/th_ramp_width, 0), 1);
-            p_mirror = (1 - p_back)*p2;
-            p_touchdown = (1 - p_back)*(1 - p2);
-            
-            u = u_back*p_back + u_mirror*p_mirror + u_touchdown*p_touchdown;
-        end
-        
-        function u = foot_up_back_controller(obj, X)
-            % Back leg in flight phase
-            % Let leg swing freely, keep foot off ground
+        function u = mirror_controller(obj, X)
+            % Mirror other leg angle and keep foot clear of ground
             
             leq = X(7);
             dleq = X(8);
@@ -120,29 +140,6 @@ classdef LegController < matlab.System
             th_a_target = -th_b - 2*body_th;
             dth_a_target = -dth_b - 2*body_dth;
             
-            kp = [4e3; 4e3];
-            kd = kp.*[0.03; 0.1];
-            
-            err = [leq_target - leq; th_a_target - th_a];
-            derr = [dleq_target - dleq; dth_a_target - dth_a];
-            
-            u = kp.*err + kd.*derr;
-        end
-        
-        function u = foot_up_mirror_controller(obj, X)
-            % Leg in air, not near angle target
-            % Mirror other leg angle and keep foot clear of ground
-            
-            leq = X(7);
-            dleq = X(8);
-            body_th = X(5);
-            body_dth = X(6);
-            th_a = X(11);
-            dth_a = X(12);
-            
-            [leq_target, dleq_target] = get_clearance_length(X);
-            th_a_target = obj.th_target - body_th;
-            dth_a_target = 0 - body_dth;
             
             kp = [4e3; 4e3];
             kd = kp.*[0.03; 0.1];
@@ -153,9 +150,8 @@ classdef LegController < matlab.System
             u = kp.*err + kd.*derr;
         end
         
-        function u = foot_up_touchdown_controller(obj, X)
-            % Leg in air, near angle target
-            % Set length to normal leg length, mirror angle
+        function u = touchdown_controller(obj, X)
+            % Set length to normal leg length, angle to touchdown angle
             
             leq = X(7);
             dleq = X(8);
@@ -174,6 +170,30 @@ classdef LegController < matlab.System
             
             err = [leq_target - leq; th_a_target - th_a];
             derr = [dleq_target - dleq; dth_a_target - dth_a];
+            
+            u = kp.*err + kd.*derr;
+        end
+        
+        function u = push_controller(obj, X)
+            % Push forward with back leg in double support
+            % Currently the same as support, need to figure out how to make
+            % push work correctly
+            
+            leq = X(7);
+            dleq = X(8);
+            body_th = X(5);
+            body_dth = X(6);
+            
+            leq_target = 1.0;
+            body_th_target = 0;
+            dleq_target = 0;
+            body_dth_target = 0;
+            
+            kp = [4e4; -1e3];
+            kd = kp.*[0.02; 0.1];
+            
+            err = [leq_target - leq; body_th_target - body_th];
+            derr = [dleq_target - dleq; body_dth_target - body_dth];
             
             u = kp.*err + kd.*derr;
         end
