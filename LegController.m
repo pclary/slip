@@ -121,7 +121,7 @@ classdef LegController < matlab.System
             % Output as row vector
             u = u';
             
-            debug = obj.energy_last;
+            debug = get_gait_energy(X, obj.params);
             if t > 1
                 0;
             end
