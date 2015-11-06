@@ -12,11 +12,24 @@ classdef LegController < matlab.System
     
     properties (DiscreteState)
         th_target;
+        energy_target;
+        dx_last;
+        energy_last;
+        dx_accumulator;
+        energy_accumulator;
+        acc_count;
     end
     
     methods (Access = protected)
-        function setupImpl(obj, ~, ~, ~, ~, ~)
+        function setupImpl(obj, ~, ~, X, ~, ~)
             obj.th_target = 0;
+            obj.acc_count = 0;
+            obj.dx_accumulator = 0;
+            obj.energy_accumulator = 0;
+            
+            obj.dx_last = X(2);
+            obj.energy_last = get_gait_energy(X, obj.params);
+            obj.energy_target = obj.energy_last;
         end
         
         function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
@@ -34,12 +47,30 @@ classdef LegController < matlab.System
             %     3 is double support, B in front
             % feet: [foot_a_contact; foot_b_contact];
             
+            % Use average values of gait energy and forward velocity over
+            % last cycle for speed/energy regulation
+            if feet(1) < 1
+                obj.dx_accumulator = obj.dx_accumulator + X(2);
+                obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.params);
+                obj.acc_count = obj.acc_count + 1;
+            else
+                if obj.acc_count > 0
+                    obj.dx_last = obj.dx_accumulator/obj.acc_count;
+                    obj.energy_last = obj.energy_accumulator/obj.acc_count;
+                end
+                obj.acc_count = 0;
+                obj.dx_accumulator = 0;
+                obj.energy_accumulator = 0;
+            end
+            
             % Raibert-style angle control
-            dx = X(2);
+            dx = obj.dx_last;
             dx_target = control(1);
-            ff = 0.09;
-            kp = 0.05;
-            obj.th_target = ff*dx + kp*(dx - dx_target);
+            if feet(1) == 1
+                ff = 0.15;
+                kp = 0.1;
+                obj.th_target = ff*dx + kp*(dx - dx_target);
+            end
             
             % Compute sub-controlers
             u_support = obj.support_controller(X);
@@ -55,8 +86,8 @@ classdef LegController < matlab.System
             % 1 before pushvel, 0 after
             p_speed = 1 - min(max(movement_dir*(X(2) - pushvel)/0.1, 0), 1);
             % 1 before support transfer, 0 after
-            p_pushangle = 1 - min(max((X(11) + X(17) + 2*X(5))/0.05, 0), 1);
-            p_push = min(max(p_speed + p_pushangle, 0), 1);
+            p_pushangle = 1 - min(max(-movement_dir*(X(11) + X(17) + 2*X(5))/0.05, 0), 1);
+            p_push = p_pushangle;
             
             % Phase controllers
             u_sa = u_support;
@@ -90,8 +121,8 @@ classdef LegController < matlab.System
             % Output as row vector
             u = u';
             
-            debug = obj.th_target;
-            if t > 0.15
+            debug = obj.energy_last;
+            if t > 1
                 0;
             end
         end
@@ -115,8 +146,8 @@ classdef LegController < matlab.System
             dleq_target = 0;
             body_dth_target = 0;
             
-            kp = [4e4; -1e3];
-            kd = kp.*[0.02; 0.1];
+            kp = [1e4; -1e3];
+            kd = kp.*[0.05; 0.1];
             
             err = [leq_target - leq; body_th_target - body_th];
             derr = [dleq_target - dleq; body_dth_target - body_dth];
@@ -141,8 +172,8 @@ classdef LegController < matlab.System
             dth_a_target = -dth_b - 2*body_dth;
             
             
-            kp = [4e3; 4e3];
-            kd = kp.*[0.03; 0.1];
+            kp = [1e3; 1e3];
+            kd = kp.*[0.05; 0.1];
             
             err = [leq_target - leq; th_a_target - th_a];
             derr = [dleq_target - dleq; dth_a_target - dth_a];
@@ -165,8 +196,8 @@ classdef LegController < matlab.System
             th_a_target = obj.th_target - body_th;
             dth_a_target = 0 - body_dth;
             
-            kp = [4e3; 4e3];
-            kd = kp.*[0.03; 0.1];
+            kp = [1e3; 1e3];
+            kd = kp.*[0.05; 0.1];
             
             err = [leq_target - leq; th_a_target - th_a];
             derr = [dleq_target - dleq; dth_a_target - dth_a];
@@ -189,8 +220,8 @@ classdef LegController < matlab.System
             dleq_target = 0;
             body_dth_target = 0;
             
-            kp = [4e4; -1e3];
-            kd = kp.*[0.02; 0.1];
+            kp = [1e4; -1e3];
+            kd = kp.*[0.05; 0.1];
             
             err = [leq_target - leq; body_th_target - body_th];
             derr = [dleq_target - dleq; body_dth_target - body_dth];
@@ -204,7 +235,7 @@ end
 function [l, dl] = get_clearance_length(X)
 % Get leg length required to clear ground
 
-ground_clearance = 0.1;
+ground_clearance = 0.05;
 
 y = X(3);
 dy = X(4);
@@ -222,4 +253,16 @@ if isnan(l)
 end
 
 l = min(max(l, l_min), l_max);
+end
+
+
+function gait_energy = get_gait_energy(X, params)
+m = params(1);
+k = params(4);
+g = params(11);
+spring_a_energy = 1/2*k*(X(7) - X(9))^2;
+spring_b_energy = 1/2*k*(X(13) - X(15))^2;
+kinetic_energy = 1/2*m*(X(2)^2 + X(4)^2);
+gravitational_energy = m*g*(X(3) - 1);
+gait_energy = spring_a_energy + spring_b_energy + kinetic_energy + gravitational_energy;
 end

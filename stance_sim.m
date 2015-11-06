@@ -88,8 +88,10 @@ function dY = stance_dynamics(t, Y, leq0, params)
 % Y: [l; dl; th; dth]
 m = params(1);
 k = params(4);
+b = params(5);
 g = params(11);
+
 dY = [Y(2);
-      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq0 - Y(1));
+      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq0 - Y(1)) + b/m*(0 - Y(2));
       Y(4);
       (g*sin(Y(3)) - 2*Y(2)*Y(4))/Y(1)];
