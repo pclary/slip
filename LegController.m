@@ -12,7 +12,6 @@ classdef LegController < matlab.System
     
     properties (DiscreteState)
         th_target;
-        energy_target;
         dx_last;
         energy_last;
         dx_accumulator;
@@ -34,14 +33,13 @@ classdef LegController < matlab.System
             
             obj.dx_last = X(2);
             obj.energy_last = NaN;
-            obj.energy_target = obj.energy_last;
             
             obj.feet_last = feet;
             obj.reset_time = -inf;
             obj.ratio_last = 1;
             obj.touchdown_length = 1;
             
-            obj.energy_input = 0.1;
+            obj.energy_input = 0;
         end
         
         function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
@@ -62,7 +60,6 @@ classdef LegController < matlab.System
             % Initialization
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.params);
-                obj.energy_target = obj.energy_last;
             end
             
             % Use average values of gait energy and forward velocity over
@@ -94,10 +91,18 @@ classdef LegController < matlab.System
             dx = obj.dx_last;
             dx_target = control(1);
 %             if feet(1) == 1
-                ff = 0.15;
+                ff = 0.05;
                 kp = 0.1;
                 obj.th_target = ff*dx + kp*(dx - dx_target);
 %             end
+
+            % Energy controller
+            energy_target = 100;
+            err = energy_target - obj.energy_last;
+            max_extension = 0.1;
+            kp = 1e-3;
+            ff = 0.05;
+            obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
             % Compute sub-controlers
             u_support = obj.support_controller(X);
@@ -156,8 +161,8 @@ classdef LegController < matlab.System
             u = u';
             
 %             [~, debug] = get_gait_energy(X, obj.params);
-%             debug = [obj.energy_last; obj.ratio_last];
-            debug = obj.th_target;
+            debug = [obj.energy_last; obj.ratio_last];
+%             debug = obj.th_target;
             
             if t > 0.24
                 0;
