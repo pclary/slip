@@ -23,7 +23,6 @@ classdef LegController < matlab.System
         post_midstance_latched;
         angles_last;
         dy_last;
-        dx_ff;
         extension_length;
     end
     
@@ -45,7 +44,6 @@ classdef LegController < matlab.System
             obj.angles_last = [X(11); X(17)];
             obj.dy_last = 0;
             
-            obj.dx_ff = 0;
             obj.extension_length = 0;
         end
         
@@ -69,7 +67,6 @@ classdef LegController < matlab.System
                 obj.energy_last = get_gait_energy(X, obj.params);
                 obj.angles_last = [X(11); X(17)];
                 obj.dy_last = X(4);
-                obj.dx_ff = X(2);
             end
             
             % Find midstance events either based on the angle or the change
@@ -80,7 +77,7 @@ classdef LegController < matlab.System
             dy = X(4);
             velocity_triggers = dy > 0 & obj.dy_last <= 0;
             obj.dy_last = dy;
-            post_midstance = feet == 1 & (angle_triggers | velocity_triggers);
+            post_midstance = feet == 1 & (angle_triggers);
             midstance_events = obj.post_midstance_latched == false & post_midstance == true;
             obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
             
@@ -104,12 +101,8 @@ classdef LegController < matlab.System
                 obj.touchdown_length = X(9);
             end
             
-            if any(takeoff_events | touchdown_events | midstance_events)
-                obj.dx_ff = X(2);
-            end
-            
             % Angle controller
-            dx = obj.dx_ff;
+            dx = X(2);
             dx_target = control(2);
             ff = 0.1/obj.touchdown_length;
             kp = 0.2;
@@ -202,17 +195,22 @@ classdef LegController < matlab.System
             body_th = X(5);
             body_dth = X(6);
             
-            extension_time = 0.1;
-            if any(obj.post_midstance_latched)
-                extension_rate = obj.energy_input/extension_time;
-                obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
-                leq_target = obj.touchdown_length + obj.extension_length;
-                dleq_target = extension_rate;
-            else
-                obj.extension_length = 0;
-                leq_target = obj.touchdown_length;
-                dleq_target = 0;
-            end
+%             extension_time = 0.1;
+%             if any(obj.post_midstance_latched)
+%                 extension_rate = obj.energy_input/extension_time;
+%                 obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
+%                 leq_target = obj.touchdown_length + obj.extension_length;
+%                 dleq_target = extension_rate;
+%             else
+%                 obj.extension_length = 0;
+%                 leq_target = obj.touchdown_length;
+%                 dleq_target = 0;
+%             end
+            stance_ramp = 0.1;
+            stance_half = min(max(-X(11)/stance_ramp, 0), 1);
+            leq_target = obj.touchdown_length + stance_half*obj.energy_input;
+            dleq_target = 0;
+            
             body_th_target = 0;
             body_dth_target = 0;
             
