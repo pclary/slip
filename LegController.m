@@ -12,9 +12,7 @@ classdef LegController < matlab.System
     
     properties (DiscreteState)
         th_target;
-        dx_last;
         energy_last;
-        dx_accumulator;
         energy_accumulator;
         acc_count;
         feet_latched;
@@ -29,10 +27,8 @@ classdef LegController < matlab.System
         function setupImpl(obj, ~, ~, X, ~, feet)
             obj.th_target = 0;
             obj.acc_count = 0;
-            obj.dx_accumulator = 0;
             obj.energy_accumulator = 0;
             
-            obj.dx_last = X(2);
             obj.energy_last = NaN;
             
             obj.feet_latched = [false; false];
@@ -77,14 +73,11 @@ classdef LegController < matlab.System
             midstance_triggers = obj.post_midstance_latched == false & post_midstance == true;
             obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
             if any(midstance_triggers)
-                obj.dx_last = obj.dx_accumulator/obj.acc_count;
                 obj.energy_last = obj.energy_accumulator/obj.acc_count;
                 obj.ratio_last = abs(X(4))/(abs(X(2)) + abs(X(4)));
                 obj.acc_count = 0;
-                obj.dx_accumulator = 0;
                 obj.energy_accumulator = 0;
             end
-            obj.dx_accumulator = obj.dx_accumulator + X(2);
             obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.params);
             obj.acc_count = obj.acc_count + 1;
             
@@ -97,10 +90,10 @@ classdef LegController < matlab.System
             end
             
             % Angle controller
-            dx = obj.dx_last;
+            dx = X(2);
             dx_target = control(2);
-            ff = 0.09/obj.touchdown_length;
-            kp = 0.03;
+            ff = 0.1/obj.touchdown_length;
+            kp = 0.1;
             obj.th_target = ff*dx + kp*(dx - dx_target);
 
             % Energy controller
