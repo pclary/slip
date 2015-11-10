@@ -5,12 +5,13 @@ else
     vis = BiSLIPGraphics();
 end
 t = X.Time;
+t0 = 1;
 
-rate = 0.1;
+rate = 0.01;
 
 tic;
 while toc*rate < t(end)
-    tt = toc*rate;
+    tt = t0 + toc*rate;
     i = find(t <= tt, 1, 'last');
     XX = X.Data(i, :)';
     body = XX([1 3]);

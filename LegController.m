@@ -17,11 +17,12 @@ classdef LegController < matlab.System
         dx_accumulator;
         energy_accumulator;
         acc_count;
-        feet_last;
-        reset_time;
+        feet_latched;
         ratio_last;
         touchdown_length;
         energy_input;
+        post_midstance_latched;
+        angles_last;
     end
     
     methods (Access = protected)
@@ -34,16 +35,18 @@ classdef LegController < matlab.System
             obj.dx_last = X(2);
             obj.energy_last = NaN;
             
-            obj.feet_last = feet;
-            obj.reset_time = -inf;
+            obj.feet_latched = [false; false];
             obj.ratio_last = 1;
             obj.touchdown_length = 1;
             
             obj.energy_input = 0;
+            obj.post_midstance_latched = [false; false];
+            
+            obj.angles_last = [X(11); X(17)];
         end
         
         function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
-            % control: [xdot_target]
+            % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
             %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
@@ -60,44 +63,48 @@ classdef LegController < matlab.System
             % Initialization
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.params);
+                obj.angles_last = [X(11); X(17)];
             end
             
             % Use average values of gait energy and forward velocity over
             % last cycle for speed/energy regulation
-            % Use rising edges of foot signals to trigger new cycle
-            touchdown_edge = obj.feet_last == 0 & floor(feet) == 1;
-            reset_timeout = 0.1;
-            if (any(touchdown_edge) && t - obj.reset_time > reset_timeout)
+            % Use midstance to trigger new cycle
+            
+            angles = [X(11); X(17)];
+            angle_triggers = angles*sign(X(2)) <= 0 & obj.angles_last*sign(X(2)) > 0;
+            obj.angles_last = angles;
+            post_midstance = feet == 1 & angle_triggers;
+            midstance_triggers = obj.post_midstance_latched == false & post_midstance == true;
+            obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
+            if any(midstance_triggers)
                 obj.dx_last = obj.dx_accumulator/obj.acc_count;
                 obj.energy_last = obj.energy_accumulator/obj.acc_count;
-                obj.ratio_last = X(4)^2/(X(2)^2 + X(4)^2);
+                obj.ratio_last = abs(X(4))/(abs(X(2)) + abs(X(4)));
                 obj.acc_count = 0;
                 obj.dx_accumulator = 0;
                 obj.energy_accumulator = 0;
-                obj.reset_time = t;
             end
-            obj.feet_last(feet == 0) = 0;
-            obj.feet_last(feet == 1) = 1;
             obj.dx_accumulator = obj.dx_accumulator + X(2);
             obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.params);
             obj.acc_count = obj.acc_count + 1;
             
             % Record leg length at touchdown
+            touchdown_edge = obj.feet_latched == false & logical(floor(feet)) == true;
+            obj.feet_latched(feet == 0) = false;
+            obj.feet_latched(feet == 1) = true;
             if touchdown_edge(1)
                 obj.touchdown_length = X(9);
             end
             
-            % Raibert-style angle control
+            % Angle controller
             dx = obj.dx_last;
-            dx_target = control(1);
-%             if feet(1) == 1
-                ff = 0.05;
-                kp = 0.1;
-                obj.th_target = ff*dx + kp*(dx - dx_target);
-%             end
+            dx_target = control(2);
+            ff = 0.09/obj.touchdown_length;
+            kp = 0.03;
+            obj.th_target = ff*dx + kp*(dx - dx_target);
 
             % Energy controller
-            energy_target = 100;
+            energy_target = control(1);
             err = energy_target - obj.energy_last;
             max_extension = 0.1;
             kp = 1e-3;
@@ -112,7 +119,7 @@ classdef LegController < matlab.System
             
             % Parameters used to interpolate between sub-controllers
             movement_dir = sign(X(2));
-            pushvel = dx_target;
+            pushvel = 0;
             % 0 before target angle, 1 close to and after
             p_angle = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
             % 1 before pushvel, 0 after
@@ -161,10 +168,10 @@ classdef LegController < matlab.System
             u = u';
             
 %             [~, debug] = get_gait_energy(X, obj.params);
-            debug = [obj.energy_last; obj.ratio_last];
+            debug = [obj.energy_last; obj.ratio_last*100];
 %             debug = obj.th_target;
             
-            if t > 0.24
+            if t > 1.3
                 0;
             end
         end
@@ -235,8 +242,8 @@ classdef LegController < matlab.System
             th_a = X(11);
             dth_a = X(12);
             
-            leq_target = 1;
-            dleq_target = 0;
+            leq_target = min(X(7), 1);
+            dleq_target = 1;
             th_a_target = obj.th_target - body_th;
             dth_a_target = 0 - body_dth;
             
@@ -289,7 +296,7 @@ dth = X(6) + X(12);
 l = (y - ground_clearance)/cos(th);
 dl = dy/cos(th) + dth*sin(th)*(y - ground_clearance)/cos(th)^2;
 
-l_min = 0.3;
+l_min = 0.5;
 l_max = 1;
 
 if isnan(l)
