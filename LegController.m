@@ -4,6 +4,7 @@ classdef LegController < matlab.System
     % Rearrange inputs to control leg B
     
     properties
+        Ts = 1e-3;
         params = zeros(11, 1);
         % params: [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 
         %          length_motor_inertia; length_motor_damping; angle_motor_inertia;
@@ -21,6 +22,9 @@ classdef LegController < matlab.System
         energy_input;
         post_midstance_latched;
         angles_last;
+        dy_last;
+        dx_ff;
+        extension_length;
     end
     
     methods (Access = protected)
@@ -39,6 +43,10 @@ classdef LegController < matlab.System
             obj.post_midstance_latched = [false; false];
             
             obj.angles_last = [X(11); X(17)];
+            obj.dy_last = 0;
+            
+            obj.dx_ff = 0;
+            obj.extension_length = 0;
         end
         
         function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
@@ -60,19 +68,25 @@ classdef LegController < matlab.System
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.params);
                 obj.angles_last = [X(11); X(17)];
+                obj.dy_last = X(4);
+                obj.dx_ff = X(2);
             end
             
-            % Use average values of gait energy and forward velocity over
-            % last cycle for speed/energy regulation
-            % Use midstance to trigger new cycle
-            
+            % Find midstance events either based on the angle or the change
+            % in vertical velocity
             angles = [X(11); X(17)];
             angle_triggers = angles*sign(X(2)) <= 0 & obj.angles_last*sign(X(2)) > 0;
             obj.angles_last = angles;
-            post_midstance = feet == 1 & angle_triggers;
-            midstance_triggers = obj.post_midstance_latched == false & post_midstance == true;
+            dy = X(4);
+            velocity_triggers = dy > 0 & obj.dy_last <= 0;
+            obj.dy_last = dy;
+            post_midstance = feet == 1 & (angle_triggers | velocity_triggers);
+            midstance_events = obj.post_midstance_latched == false & post_midstance == true;
             obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
-            if any(midstance_triggers)
+            
+            % Use average values of gait energy and forward velocity over
+            % last cycle for speed/energy regulation
+            if any(midstance_events)
                 obj.energy_last = obj.energy_accumulator/obj.acc_count;
                 obj.ratio_last = abs(X(4))/(abs(X(2)) + abs(X(4)));
                 obj.acc_count = 0;
@@ -82,18 +96,23 @@ classdef LegController < matlab.System
             obj.acc_count = obj.acc_count + 1;
             
             % Record leg length at touchdown
-            touchdown_edge = obj.feet_latched == false & logical(floor(feet)) == true;
+            touchdown_events = obj.feet_latched == false & logical(floor(feet)) == true;
+            takeoff_events = obj.feet_latched == true & logical(ceil(feet)) == false;
             obj.feet_latched(feet == 0) = false;
             obj.feet_latched(feet == 1) = true;
-            if touchdown_edge(1)
+            if touchdown_events(1)
                 obj.touchdown_length = X(9);
             end
             
+            if any(takeoff_events | touchdown_events | midstance_events)
+                obj.dx_ff = X(2);
+            end
+            
             % Angle controller
-            dx = X(2);
+            dx = obj.dx_ff;
             dx_target = control(2);
             ff = 0.1/obj.touchdown_length;
-            kp = 0.1;
+            kp = 0.2;
             obj.th_target = ff*dx + kp*(dx - dx_target);
 
             % Energy controller
@@ -183,10 +202,17 @@ classdef LegController < matlab.System
             body_th = X(5);
             body_dth = X(6);
             
-            stance_ramp = 0.1;
-            stance_half = min(max(-X(11)/stance_ramp, 0), 1);
-            leq_target = obj.touchdown_length + stance_half*obj.energy_input;
-            dleq_target = 0;
+            extension_time = 0.1;
+            if any(obj.post_midstance_latched)
+                extension_rate = obj.energy_input/extension_time;
+                obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
+                leq_target = obj.touchdown_length + obj.extension_length;
+                dleq_target = extension_rate;
+            else
+                obj.extension_length = 0;
+                leq_target = obj.touchdown_length;
+                dleq_target = 0;
+            end
             body_th_target = 0;
             body_dth_target = 0;
             
@@ -236,7 +262,7 @@ classdef LegController < matlab.System
             dth_a = X(12);
             
             leq_target = min(X(7), 1);
-            dleq_target = 1;
+            dleq_target = 2;
             th_a_target = obj.th_target - body_th;
             dth_a_target = 0 - body_dth;
             
