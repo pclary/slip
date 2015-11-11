@@ -22,8 +22,9 @@ classdef LegController < matlab.System
         energy_input;
         post_midstance_latched;
         angles_last;
-        dy_last;
+        dcomp_last;
         extension_length;
+        comp_peak;
     end
     
     methods (Access = protected)
@@ -41,8 +42,9 @@ classdef LegController < matlab.System
             obj.energy_input = 0;
             obj.post_midstance_latched = [false; false];
             
-            obj.angles_last = [X(11); X(17)];
-            obj.dy_last = 0;
+            obj.angles_last = [0; 0];
+            obj.dcomp_last = [0; 0];
+            obj.comp_peak = 0;
             
             obj.extension_length = 0;
         end
@@ -65,19 +67,19 @@ classdef LegController < matlab.System
             % Initialization
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.params);
-                obj.angles_last = [X(11); X(17)];
-                obj.dy_last = X(4);
+                obj.angles_last = [X(11); X(17)] + X(5);
+                obj.dcomp_last = [X(8) - X(10); X(14) - X(16)];
             end
             
-            % Find midstance events either based on the angle or the change
-            % in vertical velocity
-            angles = [X(11); X(17)];
+            % Find midstance events either based on the angle or the leg
+            % compression
+            angles = [X(11); X(17)] + X(5);
             angle_triggers = angles*sign(X(2)) <= 0 & obj.angles_last*sign(X(2)) > 0;
             obj.angles_last = angles;
-            dy = X(4);
-            velocity_triggers = dy > 0 & obj.dy_last <= 0;
-            obj.dy_last = dy;
-            post_midstance = feet == 1 & (angle_triggers);
+            dcomp = [X(8) - X(10); X(14) - X(16)];
+            compression_triggers = dcomp < 0 & obj.dcomp_last >= 0;
+            obj.dcomp_last = dcomp;
+            post_midstance = feet == 1 & (compression_triggers);
             midstance_events = obj.post_midstance_latched == false & post_midstance == true;
             obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
             
@@ -99,6 +101,11 @@ classdef LegController < matlab.System
             obj.feet_latched(feet == 1) = true;
             if touchdown_events(1)
                 obj.touchdown_length = X(9);
+            end
+            
+            % Record compression at midstance
+            if compression_triggers(1) && feet(1) == 1
+                obj.comp_peak = X(7) - X(9);
             end
             
             % Angle controller
@@ -175,7 +182,6 @@ classdef LegController < matlab.System
 %             [~, debug] = get_gait_energy(X, obj.params);
             debug = [obj.energy_last; obj.ratio_last*100];
 %             debug = obj.th_target;
-            
             if t > 1.3
                 0;
             end
@@ -195,21 +201,17 @@ classdef LegController < matlab.System
             body_th = X(5);
             body_dth = X(6);
             
-%             extension_time = 0.1;
-%             if any(obj.post_midstance_latched)
-%                 extension_rate = obj.energy_input/extension_time;
-%                 obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
-%                 leq_target = obj.touchdown_length + obj.extension_length;
-%                 dleq_target = extension_rate;
-%             else
-%                 obj.extension_length = 0;
-%                 leq_target = obj.touchdown_length;
-%                 dleq_target = 0;
-%             end
-            stance_ramp = 0.1;
-            stance_half = min(max(-X(11)/stance_ramp, 0), 1);
-            leq_target = obj.touchdown_length + stance_half*obj.energy_input;
-            dleq_target = 0;
+            extension_time = 0.3;
+            if any(obj.post_midstance_latched)
+                extension_rate = obj.energy_input/extension_time;
+                obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
+                leq_target = obj.touchdown_length + obj.extension_length;
+                dleq_target = extension_rate;
+            else
+                obj.extension_length = 0;
+                leq_target = obj.touchdown_length;
+                dleq_target = 0;
+            end
             
             body_th_target = 0;
             body_dth_target = 0;
@@ -238,7 +240,6 @@ classdef LegController < matlab.System
             [leq_target, dleq_target] = get_clearance_length(X);
             th_a_target = -th_b - 2*body_th;
             dth_a_target = -dth_b - 2*body_dth;
-            
             
             kp = [4e4; 1e3];
             kd = kp.*[0.05; 0.1];
