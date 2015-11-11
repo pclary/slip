@@ -1,31 +1,19 @@
-function [th, y, dx] = stance_sim(th0, y0, dx0, leq0, params)
+function [th, dx, dy] = stance_sim(th0, dx0, dy0, leq0, leq_ext, params)
 % Simulates a SLIP stance phase
 % Inputs:
 %   th0: touchdown angle
-%   y0: previous apex height
-%   dx0: forward velocity at previous apex
+%   dx0: forward velocity at touchdown
+%   dy0: vertical velocity at touchdown
 %   leq0: equilibrium length (and actual length) at touchdown
-%   leqfun: equilibrium leg length as a function of (t, Y, leq0) where t is time
-%     and Y = [l; dl; th; dth]
+%   leq_ext: amount the leg is to be extended during stance
 %   params: slip model parameters (see bislip_setup.m)
 % Outputs:
 %   th: takeoff angle
-%   y: next apex height
-%   dx: forward velocity at next apex
-
-g = params(11);
+%   dx: forward velocity at takeoff
+%   dy: vertical velocity at takeoff
 
 % Get initial conditions for stance ODE
 l0 = leq0;
-hdiff = y0 - l0*cos(th0);
-if hdiff < 0
-    % Abort if initial conditions are already past touchdown
-    th = NaN;
-    y = NaN;
-    dx = NaN;
-    return;
-end
-dy0 = -sqrt(2*g*hdiff);
 dl0 = dy0*cos(th0) - dx0*sin(th0);
 dth0 = -(dx0*cos(th0) + dy0*sin(th0))/l0;
 Y0 = [l0; dl0; th0; dth0];
@@ -38,16 +26,22 @@ tstop = 1e1;
 t = 0;
 dt = dtmax;
 Y = Y0;
+t_ext = inf;
 while t < tstop
     % Runge-kutta integration step
-    dY1 = stance_dynamics(t, Y, leq0, params);
+    dY1 = stance_dynamics(t, Y, leq0, leq_ext, t_ext, params);
     Y1 = Y + dt/2*dY1;
-    dY2 = stance_dynamics(t + dt/2, Y1, leq0, params);
+    dY2 = stance_dynamics(t + dt/2, Y1, leq0, leq_ext, t_ext, params);
     Y2 = Y + dt/2*dY2;
-    dY3 = stance_dynamics(t + dt/2, Y2, leq0, params);
+    dY3 = stance_dynamics(t + dt/2, Y2, leq0, leq_ext, t_ext, params);
     Y3 = Y + dt*dY3;
-    dY4 = stance_dynamics(t + dt, Y3, leq0, params);
+    dY4 = stance_dynamics(t + dt, Y3, leq0, leq_ext, t_ext, params);
     Ynew = Y + dt/6*(dY1 + 2*dY2 + 2*dY3 + dY4);
+    
+    % Find leg extension starting time
+    if ~isfinite(t_ext) && Ynew(2) > 0 && Y(2) <= 0
+        t_ext = t;
+    end
     
     % Stopping logic
     sfval = leq0 - Ynew(1);
@@ -81,17 +75,26 @@ th = Y(3);
 dth = Y(4);
 dx = -dl*sin(th) - dth*l*cos(th);
 dy = dl*cos(th) - dth*l*sin(th);
-y = l*cos(th) + dy^2/g/2;
 
 
-function dY = stance_dynamics(t, Y, leq0, params)
+function dY = stance_dynamics(t, Y, leq0, leq_ext, t_ext, params)
 % Y: [l; dl; th; dth]
 m = params(1);
 k = params(4);
 b = params(5);
 g = params(11);
 
+if t > t_ext
+    extension_time = 0.2;
+    extension_rate = leq_ext/extension_time;
+    leq = leq0 + min((t - t_ext)*extension_rate, leq_ext);
+    dleq = extension_rate;
+else
+    leq = leq0;
+    dleq = 0;
+end
+
 dY = [Y(2);
-      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq0 - Y(1)) + b/m*(0 - Y(2));
+      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq - Y(1)) + b/m*(dleq - Y(2));
       Y(4);
       (g*sin(Y(3)) - 2*Y(2)*Y(4))/Y(1)];

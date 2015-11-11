@@ -15,14 +15,26 @@ th = th0;
 dth = 0.1;
 for i = 1:8
     % Newton's method with a finite difference derivative
-    f0 = stance_sim(th, y0, dx0, leq0, params) + th;
+    hdiff = y0 - leq0*cos(th);
+    if hdiff < 0
+        th = NaN;
+        return;
+    end
+    dy0 = -sqrt(2*hdiff*params(11));
+    f0 = stance_sim(th, dx0, dy0, leq0, 0, params) + th;
     if ~isfinite(f0)
         th = NaN;
         return;
     end
     
     th1 = th + dth;
-    f1 = stance_sim(th1, y0, dx0, leq0, params) + th1;
+    hdiff = y0 - leq0*cos(th1);
+    if hdiff < 0
+        th = NaN;
+        return;
+    end
+    dy0 = -sqrt(2*hdiff*params(11));
+    f1 = stance_sim(th1, dx0, dy0, leq0, 0, params) + th1;
     if ~isfinite(f1)
         th = NaN;
         return;

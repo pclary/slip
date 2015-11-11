@@ -28,25 +28,7 @@ classdef LegController < matlab.System
     end
     
     methods (Access = protected)
-        function setupImpl(obj, ~, ~, X, ~, feet)
-            obj.th_target = 0;
-            obj.acc_count = 0;
-            obj.energy_accumulator = 0;
-            
-            obj.energy_last = NaN;
-            
-            obj.feet_latched = [false; false];
-            obj.ratio_last = 1;
-            obj.touchdown_length = 1;
-            
-            obj.energy_input = 0;
-            obj.post_midstance_latched = [false; false];
-            
-            obj.angles_last = [0; 0];
-            obj.dcomp_last = [0; 0];
-            obj.comp_peak = 0;
-            
-            obj.extension_length = 0;
+        function setupImpl(~)
         end
         
         function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
@@ -189,6 +171,24 @@ classdef LegController < matlab.System
             
         function resetImpl(obj)
             % Initialize discrete-state properties.
+            obj.th_target = 0;
+            obj.acc_count = 0;
+            obj.energy_accumulator = 0;
+            
+            obj.energy_last = NaN;
+            
+            obj.feet_latched = [false; false];
+            obj.ratio_last = 1;
+            obj.touchdown_length = 1;
+            
+            obj.energy_input = 0;
+            obj.post_midstance_latched = [false; false];
+            
+            obj.angles_last = [0; 0];
+            obj.dcomp_last = [0; 0];
+            obj.comp_peak = 0;
+            
+            obj.extension_length = 0;
         end
     end
     
