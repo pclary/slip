@@ -118,7 +118,7 @@ classdef LegController < matlab.System
             % Energy controller
             energy_target = control(1);
             err = energy_target - obj.energy_last;
-            max_extension = 0.1;
+            max_extension = 0.15;
             kp = 1e-3;
             ff = 0.05;
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
@@ -201,7 +201,7 @@ classdef LegController < matlab.System
             body_th = X(5);
             body_dth = X(6);
             
-            extension_time = 0.3;
+            extension_time = 0.2;
             if any(obj.post_midstance_latched)
                 extension_rate = obj.energy_input/extension_time;
                 obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
