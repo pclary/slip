@@ -24,7 +24,7 @@ classdef StepOptimizer < matlab.System
         function u = stepImpl(obj, dx0, dy0, leq0, leq_ext, target)
             
             if ~any(obj.state == [0, 1])
-                obj.th = 0.1*obj.dx0;
+                obj.th = 0.1*dx0;
                 obj.state = 0;
             end
             
@@ -63,7 +63,7 @@ classdef StepOptimizer < matlab.System
                     obj.state = 0;
             end
             
-            u = obj.th_best;
+            u = obj.th;
         end
         
         function resetImpl(obj)
