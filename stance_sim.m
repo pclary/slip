@@ -1,4 +1,4 @@
-function [th, dx, dy] = stance_sim(th0, dx0, dy0, leq0, leq_ext, params)
+function [th, dx, dy, t] = stance_sim(th0, dx0, dy0, leq0, leq_ext, params)
 % Simulates a SLIP stance phase
 % Inputs:
 %   th0: touchdown angle
@@ -18,9 +18,10 @@ dl0 = dy0*cos(th0) - dx0*sin(th0);
 dth0 = -(dx0*cos(th0) + dy0*sin(th0))/l0;
 Y0 = [l0; dl0; th0; dth0];
 
+wn = sqrt(params(1)/params(4));
+tstop = 10*wn;
 dtmax = 1e-2;
 dtmin = 1e-3;
-tstop = 1e1;
 
 % Integrate stance dynamics until takeoff or timeout
 t = 0;
@@ -44,12 +45,18 @@ while t < tstop
     end
     
     % Stopping logic
-    sfval = leq0 - Ynew(1);
+    sfval = leqfun(t, t_ext, leq0, leq_ext) - Ynew(1);
     if sfval <= 0
-        if dt/2 >= dtmin
+        if t == 0
+            % Stop if there is no stance phase with this angle
+            Y = Y*NaN;
+            break;
+        elseif dt/2 >= dtmin
+            % Reduce timestep to find zero crossing
             dt = dt/2;
             continue;
         else
+            % Max precision reached
             Y = Ynew;
             break;
         end
@@ -84,6 +91,16 @@ k = params(4);
 b = params(5);
 g = params(11);
 
+[leq, dleq] = leqfun(t, t_ext, leq0, leq_ext);
+
+dY = [Y(2);
+      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq - Y(1)) + b/m*(dleq - Y(2));
+      Y(4);
+      (g*sin(Y(3)) - 2*Y(2)*Y(4))/Y(1)];
+
+
+function [leq, dleq] = leqfun(t, t_ext, leq0, leq_ext)
+    
 if t > t_ext
     extension_time = 0.2;
     extension_rate = leq_ext/extension_time;
@@ -93,8 +110,3 @@ else
     leq = leq0;
     dleq = 0;
 end
-
-dY = [Y(2);
-      Y(1)*Y(4)^2 - g*cos(Y(3)) + k/m*(leq - Y(1)) + b/m*(dleq - Y(2));
-      Y(4);
-      (g*sin(Y(3)) - 2*Y(2)*Y(4))/Y(1)];
