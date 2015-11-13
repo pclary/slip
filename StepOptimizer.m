@@ -58,7 +58,7 @@ classdef StepOptimizer < matlab.System
                         thstep = (target - obj.f)/(df/obj.dth);
                         maxstep = pi/16;
                         thstep = min(max(thstep, -maxstep), maxstep);
-                        obj.th = obj.th + thstep;
+                        obj.th = min(max(obj.th + thstep, -pi/2), pi/2);
                     end
                     obj.state = 0;
             end

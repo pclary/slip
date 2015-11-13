@@ -11,7 +11,7 @@ classdef LegController < matlab.System
         %          angle_motor_damping; angle_motor_ratio; gravity]
     end
     
-    properties (DiscreteState)
+    properties (Access = private)
         th_target;
         energy_last;
         energy_accumulator;
@@ -25,10 +25,13 @@ classdef LegController < matlab.System
         dcomp_last;
         extension_length;
         comp_peak;
+        step_optimizer;
     end
     
     methods (Access = protected)
-        function setupImpl(~)
+        function setupImpl(obj)
+            obj.step_optimizer = StepOptimizer();
+            obj.step_optimizer.params = obj.params;
         end
         
         function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
@@ -85,6 +88,10 @@ classdef LegController < matlab.System
                 obj.touchdown_length = X(9);
             end
             
+            if takeoff_events(1)
+                obj.step_optimizer.reset();
+            end
+            
             % Record compression at midstance
             if compression_triggers(1) && feet(1) == 1
                 obj.comp_peak = X(7) - X(9);
@@ -96,6 +103,13 @@ classdef LegController < matlab.System
             ff = 0.1/obj.touchdown_length;
             kp = 0.2;
             obj.th_target = ff*dx + kp*(dx - dx_target);
+            
+            dx0 = X(2);
+            dy0 = min(X(4), 0);
+            leq0 = 1;
+            leq_ext = obj.energy_input;
+            target = control(2);
+            obj.th_target = obj.step_optimizer.step(dx0, dy0, leq0, leq_ext, target);
 
             % Energy controller
             energy_target = control(1);
@@ -162,8 +176,8 @@ classdef LegController < matlab.System
             u = u';
             
 %             [~, debug] = get_gait_energy(X, obj.params);
-            debug = [obj.energy_last; obj.ratio_last*100];
-%             debug = obj.th_target;
+%             debug = [obj.energy_last; obj.ratio_last*100];
+            debug = obj.th_target;
             if t > 1.3
                 0;
             end
@@ -189,6 +203,8 @@ classdef LegController < matlab.System
             obj.comp_peak = 0;
             
             obj.extension_length = 0;
+            
+            obj.step_optimizer.reset();
         end
     end
     

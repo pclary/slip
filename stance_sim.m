@@ -19,7 +19,7 @@ dth0 = -(dx0*cos(th0) + dy0*sin(th0))/l0;
 Y0 = [l0; dl0; th0; dth0];
 
 wn = sqrt(params(1)/params(4));
-tstop = 10*wn;
+tstop = 30*wn;
 dtmax = 1e-2;
 dtmin = 1e-3;
 
