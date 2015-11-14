@@ -1,24 +1,24 @@
 %% bislip_setup.m
 
 l0 = 1;
-h0 = 0.0;
+h0 = 0.1;
 tha0 = 0.1;
 thb0 = -0.1;
-v0 = 1;
+v0 = 0;
 X0 = [0; v0; l0+h0; 0; 0;    0;
      l0; 0;  l0;    0; tha0; 0;
      l0; 0;  l0;    0; thb0; 0];
 u0 = [0; 0; 0; 0];
 
 body_mass = 50;
-body_inertia = 10;
-foot_mass = 0.1;
-leg_stiffness = 1e4;
-leg_damping = 0.03*2*sqrt(leg_stiffness*body_mass);
-length_motor_inertia = 10;
-length_motor_damping = 1;
-angle_motor_inertia = 0.1;
-angle_motor_damping = 0.05;
+body_inertia = 5; % 10cm radius of gyration
+foot_mass = 0.5;
+leg_stiffness = 1e4; % 5cm deflection caused by gravity (one leg)
+leg_damping = 0.01*2*sqrt(leg_stiffness*body_mass); % damping ratio of 0.01
+length_motor_inertia = 1e-3*16^2; % 1e-3 rotational inertia, 16:1 gearbox
+length_motor_damping = 4; % time constant of ~0.2s (with foot mass)
+angle_motor_inertia = 1e-3; % 0.5 kg with ~4cm radius of gyration
+angle_motor_damping = 0.01; % time constant of ~0.3s (with foot inertia)
 angle_motor_ratio = 16;
 gravity = 9.81;
 params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 

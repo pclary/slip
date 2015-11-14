@@ -177,7 +177,8 @@ classdef LegController < matlab.System
             
 %             [~, debug] = get_gait_energy(X, obj.params);
 %             debug = [obj.energy_last; obj.ratio_last*100];
-            debug = obj.th_target;
+%             debug = obj.th_target;
+debug = obj.touchdown_length;
             if t > 1.3
                 0;
             end
@@ -233,7 +234,7 @@ classdef LegController < matlab.System
             body_dth_target = 0;
             
             kp = [1e5; -4e2];
-            kd = kp.*[0.05; 0.1];
+            kd = 0.1*[4e3; -60];
             
             err = [leq_target - leq; body_th_target - body_th];
             derr = [dleq_target - dleq; body_dth_target - body_dth];
@@ -257,8 +258,8 @@ classdef LegController < matlab.System
             th_a_target = -th_b - 2*body_th;
             dth_a_target = -dth_b - 2*body_dth;
             
-            kp = [4e4; 1e3];
-            kd = kp.*[0.05; 0.1];
+            kp = [4e2; 80];
+            kd = 0.1*[40; 15];
             
             err = [leq_target - leq; th_a_target - th_a];
             derr = [dleq_target - dleq; dth_a_target - dth_a];
@@ -281,8 +282,8 @@ classdef LegController < matlab.System
             th_a_target = obj.th_target - body_th;
             dth_a_target = 0 - body_dth;
             
-            kp = [1e4; 1e3];
-            kd = kp.*[0.05; 0.1];
+            kp = [4e2; 80];
+            kd = 0.1*[40; 15];
             
             err = [leq_target - leq; th_a_target - th_a];
             derr = [dleq_target - dleq; dth_a_target - dth_a];
@@ -306,7 +307,7 @@ classdef LegController < matlab.System
             body_dth_target = 0;
             
             kp = [1e5; -4e2];
-            kd = kp.*[0.05; 0.1];
+            kd = [4e3; -60];
             
             err = [leq_target - leq; body_th_target - body_th];
             derr = [dleq_target - dleq; body_dth_target - body_dth];
