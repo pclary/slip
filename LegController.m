@@ -21,7 +21,6 @@ classdef LegController < matlab.System
         touchdown_length;
         energy_input;
         post_midstance_latched;
-        angles_last;
         dcomp_last;
         extension_length;
         comp_peak;
@@ -52,15 +51,10 @@ classdef LegController < matlab.System
             % Initialization
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.params);
-                obj.angles_last = [X(11); X(17)] + X(5);
                 obj.dcomp_last = [X(8) - X(10); X(14) - X(16)];
             end
             
-            % Find midstance events either based on the angle or the leg
-            % compression
-            angles = [X(11); X(17)] + X(5);
-            angle_triggers = angles*sign(X(2)) <= 0 & obj.angles_last*sign(X(2)) > 0;
-            obj.angles_last = angles;
+            % Find midstance events either based on leg compression
             dcomp = [X(8) - X(10); X(14) - X(16)];
             compression_triggers = dcomp < 0 & obj.dcomp_last >= 0;
             obj.dcomp_last = dcomp;
@@ -120,9 +114,22 @@ classdef LegController < matlab.System
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
             % Compute sub-controlers
-            u_support = obj.support_controller(X);
-            u_mirror = obj.mirror_controller(X);
-            u_touchdown = obj.touchdown_controller(X);
+            % [support; mirror; touchdown]
+            u_sub = zeros(3, 2);
+            target_sub = zeros(3, 3);
+            dtarget_sub = zeros(3, 3);
+            kp_sub = zeros(3, 3);
+            kd_sub = zeros(3, 3);
+            [u_sub(1, :), target_sub(1, :), dtarget_sub(1, :), kp_sub(1, :), kd_sub(1, :)] ...
+                = obj.support_controller(X);
+            [u_sub(2, :), target_sub(2, :), dtarget_sub(2, :), kp_sub(2, :), kd_sub(2, :)] ...
+                = obj.mirror_controller(X);
+            [u_sub(3, :), target_sub(3, :), dtarget_sub(3, :), kp_sub(3, :), kd_sub(3, :)] ...
+                = obj.touchdown_controller(X);
+            
+            u_support = u_sub(1, :)';
+            u_mirror = u_sub(2, :)';
+            u_touchdown = u_sub(3, :)';
             
             % Parameters used to interpolate between sub-controllers
             movement_dir = sign(X(2));
@@ -132,13 +139,28 @@ classdef LegController < matlab.System
             p_push = 1 - min(max(-movement_dir*(X(11) + X(17) + 2*X(5))/0.05, 0), 1);
             
             % Phase controllers
-            % [flight_a: double_a; stance_a; flight_b; double_b; stance_b]
+            % [flight_a; double_a; stance_a; flight_b; double_b; stance_b]
+            p_sub2phase = [0      0         1;
+                           1      0         0;
+                           1      0         0;
+                           0      1         0;
+                           p_push 1-p_push  0;
+                           0      1-p_angle p_angle];
+            
+            u_phase = p_sub2phase*u_sub;
+            kp_phase = p_sub2phase*kp_sub;
+            kd_phase = p_sub2phase*kd_sub;
+            target_phase = p_sub2phase*(target_sub.*kp_sub)./kp_phase;
+            dtarget_phase = p_sub2phase*(dtarget_sub.*kd_sub)./kd_phase;
+            target_phase(isnan(target_phase)) = 0;
+            dtarget_phase(isnan(dtarget_phase)) = 0;
+            
+            u_fa = u_touchdown;
+            u_da = u_support;
             u_sa = u_support;
             u_fb = u_mirror;
             u_db = p_push*u_support + (1 - p_push)*u_mirror;
             u_sb = (1 - p_angle)*u_mirror + p_angle*u_touchdown;
-            u_fa = u_touchdown;
-            u_da = u_support;
             
             % Phase interpolation
             alpha = phase(1);
@@ -159,7 +181,29 @@ classdef LegController < matlab.System
                 p_da = 0;
             end
             
+            p_phase2eff = [p_fa, p_da, p_sa, p_fb, p_db, p_sb];
+            u_eff = p_phase2eff*u_phase;
+            kp_eff = p_phase2eff*kp_phase;
+            kd_eff = p_phase2eff*kd_phase;
+            target_eff = p_phase2eff*(target_phase.*kp_phase)./kp_eff;
+            dtarget_eff = p_phase2eff*(dtarget_phase.*kd_phase)./kd_eff;
+            target_eff(isnan(target_eff)) = 0;
+            dtarget_eff(isnan(dtarget_eff)) = 0;
+            
             u = u_sa*p_sa + u_fb*p_fb + u_db*p_db + u_sb*p_sb + u_fa*p_fa + u_da*p_da;
+            
+            
+            leq = X(7);
+            dleq = X(8);
+            th_body = X(5);
+            dth_body = X(6);
+            th_a = X(11);
+            dth_a = X(12);
+            
+            err = target_eff - [leq, th_a, th_body];
+            derr = dtarget_eff - [dleq, dth_a, dth_body];
+            
+            u2 = ([1 0 0; 0 1 -1]*(kp_eff.*err + kd_eff.*derr)')';
             
             % Prevent ground slip
             ground_force = max(obj.params(4)*(X(9) - X(7)), 0);
@@ -168,16 +212,13 @@ classdef LegController < matlab.System
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
             
-            % Effective PD gains and trajectory
-            
-            % Output as row vector
             u = u';
             
 %             [~, debug] = get_gait_energy(X, obj.params);
 %             debug = [obj.energy_last; obj.ratio_last*100];
 %             debug = obj.th_target;
             debug = obj.touchdown_length;
-            if t > 1.3
+            if t > 0.3
                 0;
             end
         end
@@ -197,7 +238,6 @@ classdef LegController < matlab.System
             obj.energy_input = 0;
             obj.post_midstance_latched = [false; false];
             
-            obj.angles_last = [0; 0];
             obj.dcomp_last = [0; 0];
             obj.comp_peak = 0;
             
@@ -208,13 +248,15 @@ classdef LegController < matlab.System
     end
     
     methods (Access = private)
-        function u = support_controller(obj, X)
+        function [u, target, dtarget, kp, kd] = support_controller(obj, X)
             % Use angle torque to keep body upright, maintain leg length
             
             leq = X(7);
             dleq = X(8);
-            body_th = X(5);
-            body_dth = X(6);
+            th_body = X(5);
+            dth_body = X(6);
+            th_a = X(11);
+            dth_a = X(12);
             
             extension_time = 0.2;
             if any(obj.post_midstance_latched)
@@ -228,65 +270,83 @@ classdef LegController < matlab.System
                 dleq_target = 0;
             end
             
-            body_th_target = 0;
-            body_dth_target = 0;
+            th_a_target = 0;
+            dth_a_target = 0;
             
-            kp = [1e5; -4e2];
-            kd = 0.1*[4e3; -60];
+            th_body_target = 0;
+            dth_body_target = 0;
             
-            err = [leq_target - leq; body_th_target - body_th];
-            derr = [dleq_target - dleq; body_dth_target - body_dth];
+            target = [leq_target, th_a_target, th_body_target];
+            dtarget = [dleq_target, dth_a_target, dth_body_target];
             
-            u = kp.*err + kd.*derr;
+            err = target - [leq, th_a, th_body];
+            derr = dtarget - [dleq, dth_a, dth_body];
+            
+            kp = [1e5, 0, 4e2];
+            kd = 0.1*[4e3, 0, 60];
+            
+            u = ([1 0 0; 0 1 -1]*(kp.*err + kd.*derr)')';
         end
         
-        function u = mirror_controller(obj, X)
+        function [u, target, dtarget, kp, kd] = mirror_controller(obj, X)
             % Mirror other leg angle and keep foot clear of ground
             
             leq = X(7);
             dleq = X(8);
-            body_th = X(5);
-            body_dth = X(6);
+            th_body = X(5);
+            dth_body = X(6);
             th_a = X(11);
             dth_a = X(12);
             th_b = X(17);
             dth_b = X(18);
             
             [leq_target, dleq_target] = get_clearance_length(X);
-            th_a_target = -th_b - 2*body_th;
-            dth_a_target = -dth_b - 2*body_dth;
+            th_a_target = -th_b - 2*th_body;
+            dth_a_target = -dth_b - 2*dth_body;
             
-            kp = [4e2; 80];
-            kd = 0.1*[40; 15];
+            th_body_target = 0;
+            dth_body_target = 0;
             
-            err = [leq_target - leq; th_a_target - th_a];
-            derr = [dleq_target - dleq; dth_a_target - dth_a];
+            target = [leq_target, th_a_target, th_body_target];
+            dtarget = [dleq_target, dth_a_target, dth_body_target];
             
-            u = kp.*err + kd.*derr;
+            err = target - [leq, th_a, th_body];
+            derr = dtarget - [dleq, dth_a, dth_body];
+            
+            kp = [4e2, 80, 0];
+            kd = 0.1*[40, 15, 0];
+            
+            u = ([1 0 0; 0 1 -1]*(kp.*err + kd.*derr)')';
         end
         
-        function u = touchdown_controller(obj, X)
+        function [u, target, dtarget, kp, kd] = touchdown_controller(obj, X)
             % Set length to normal leg length, angle to touchdown angle
             
             leq = X(7);
             dleq = X(8);
-            body_th = X(5);
-            body_dth = X(6);
+            th_body = X(5);
+            dth_body = X(6);
             th_a = X(11);
             dth_a = X(12);
             
             leq_target = min(X(7), 1);
             dleq_target = 2;
-            th_a_target = obj.th_target - body_th;
-            dth_a_target = 0 - body_dth;
+            th_a_target = obj.th_target - th_body;
+            dth_a_target = 0 - dth_body;
             
-            kp = [4e2; 80];
-            kd = 0.1*[40; 15];
+            th_body_target = 0;
+            dth_body_target = 0;
             
-            err = [leq_target - leq; th_a_target - th_a];
-            derr = [dleq_target - dleq; dth_a_target - dth_a];
+            target = [leq_target, th_a_target, th_body_target];
+            dtarget = [dleq_target, dth_a_target, dth_body_target];
             
-            u = kp.*err + kd.*derr;
+            err = target - [leq, th_a, th_body];
+            derr = dtarget - [dleq, dth_a, dth_body];
+            
+            kp = [4e2, 80, 0];
+            kd = 0.1*[40, 15, 0];
+            
+            u = ([1 0 0; 0 1 -1]*(kp.*err + kd.*derr)')';
         end
     end
 end
