@@ -11,7 +11,7 @@ X0 = [0; v0; l0+h0; 0; 0;    0;
 u0 = [0; 0; 0; 0];
 
 body_mass = 50;
-body_inertia = 5; % 10cm radius of gyration
+body_inertia = 2; % 20cm radius of gyration
 foot_mass = 0.5;
 leg_stiffness = 1e4; % 5cm deflection caused by gravity (one leg)
 leg_damping = 0.01*2*sqrt(leg_stiffness*body_mass); % damping ratio of 0.01

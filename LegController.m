@@ -123,23 +123,19 @@ classdef LegController < matlab.System
             u_support = obj.support_controller(X);
             u_mirror = obj.mirror_controller(X);
             u_touchdown = obj.touchdown_controller(X);
-            u_push = u_support;%obj.push_controller(X);
             
             % Parameters used to interpolate between sub-controllers
             movement_dir = sign(X(2));
-            pushvel = 0;
             % 0 before target angle, 1 close to and after
             p_angle = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
-            % 1 before pushvel, 0 after
-            p_speed = 1 - min(max(movement_dir*(X(2) - pushvel)/0.1, 0), 1);
             % 1 before support transfer, 0 after
-            p_pushangle = 1 - min(max(-movement_dir*(X(11) + X(17) + 2*X(5))/0.05, 0), 1);
-            p_push = p_pushangle;
+            p_push = 1 - min(max(-movement_dir*(X(11) + X(17) + 2*X(5))/0.05, 0), 1);
             
             % Phase controllers
+            % [flight_a: double_a; stance_a; flight_b; double_b; stance_b]
             u_sa = u_support;
             u_fb = u_mirror;
-            u_db = p_push*u_push + (1 - p_push)*u_mirror;
+            u_db = p_push*u_support + (1 - p_push)*u_mirror;
             u_sb = (1 - p_angle)*u_mirror + p_angle*u_touchdown;
             u_fa = u_touchdown;
             u_da = u_support;
@@ -172,13 +168,15 @@ classdef LegController < matlab.System
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
             
+            % Effective PD gains and trajectory
+            
             % Output as row vector
             u = u';
             
 %             [~, debug] = get_gait_energy(X, obj.params);
 %             debug = [obj.energy_last; obj.ratio_last*100];
 %             debug = obj.th_target;
-debug = obj.touchdown_length;
+            debug = obj.touchdown_length;
             if t > 1.3
                 0;
             end
@@ -287,30 +285,6 @@ debug = obj.touchdown_length;
             
             err = [leq_target - leq; th_a_target - th_a];
             derr = [dleq_target - dleq; dth_a_target - dth_a];
-            
-            u = kp.*err + kd.*derr;
-        end
-        
-        function u = push_controller(obj, X)
-            % Push forward with back leg in double support
-            % Currently the same as support, need to figure out how to make
-            % push work correctly
-            
-            leq = X(7);
-            dleq = X(8);
-            body_th = X(5);
-            body_dth = X(6);
-            
-            leq_target = 1;
-            body_th_target = 0;
-            dleq_target = 0;
-            body_dth_target = 0;
-            
-            kp = [1e5; -4e2];
-            kd = [4e3; -60];
-            
-            err = [leq_target - leq; body_th_target - body_th];
-            derr = [dleq_target - dleq; body_dth_target - body_dth];
             
             u = kp.*err + kd.*derr;
         end
