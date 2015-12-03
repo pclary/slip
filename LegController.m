@@ -6,9 +6,10 @@ classdef LegController < matlab.System
     properties
         Ts = 1e-3;
         params = zeros(11, 1);
-        % params: [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping; 
-        %          length_motor_inertia; length_motor_damping; angle_motor_inertia;
-        %          angle_motor_damping; angle_motor_ratio; gravity]
+        kp_ground = zeros(3, 1);
+        kd_ground = zeros(3, 1);
+        kp_air = zeros(3, 1);
+        kd_air = zeros(3, 1);
     end
     
     properties (Access = private)
@@ -25,6 +26,8 @@ classdef LegController < matlab.System
         extension_length;
         comp_peak;
         step_optimizer;
+        err_last;
+        kp_last;
     end
     
     methods (Access = protected)
@@ -33,7 +36,7 @@ classdef LegController < matlab.System
             obj.step_optimizer.params = obj.params;
         end
         
-        function [u, debug] = stepImpl(obj, control, t, X, phase, feet)
+        function [u, err, kp, debug] = stepImpl(obj, control, t, X, phase, feet)
             % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
@@ -47,10 +50,13 @@ classdef LegController < matlab.System
             %     2 is flight, B to front
             %     3 is double support, B in front
             % feet: [foot_a_contact; foot_b_contact];
+            % params: [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping;
+            %          length_motor_inertia; length_motor_damping; angle_motor_inertia;
+            %          angle_motor_damping; angle_motor_ratio; gravity]
             
             % Initialization
             if isnan(obj.energy_last)
-                obj.energy_last = get_gait_energy(X, obj.params);
+                obj.energy_last = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
                 obj.dcomp_last = [X(8) - X(10); X(14) - X(16)];
             end
             
@@ -70,7 +76,7 @@ classdef LegController < matlab.System
                 obj.acc_count = 0;
                 obj.energy_accumulator = 0;
             end
-            obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.params);
+            obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
             obj.acc_count = obj.acc_count + 1;
             
             % Record leg length at touchdown
@@ -168,12 +174,12 @@ classdef LegController < matlab.System
             end
             
             p_phase2eff = [p_fa, p_da, p_sa, p_fb, p_db, p_sb];
-            kp_eff = p_phase2eff*kp_phase;
-            kd_eff = p_phase2eff*kd_phase;
-            target_eff = p_phase2eff*(target_phase.*kp_phase)./kp_eff;
-            dtarget_eff = p_phase2eff*(dtarget_phase.*kd_phase)./kd_eff;
-            target_eff(isnan(target_eff)) = 0;
-            dtarget_eff(isnan(dtarget_eff)) = 0;
+            kp = p_phase2eff*kp_phase;
+            kd = p_phase2eff*kd_phase;
+            target = p_phase2eff*(target_phase.*kp_phase)./kp;
+            dtarget = p_phase2eff*(dtarget_phase.*kd_phase)./kd;
+            target(isnan(target)) = 0;
+            dtarget(isnan(dtarget)) = 0;
             
             leq = X(7);
             dleq = X(8);
@@ -182,10 +188,10 @@ classdef LegController < matlab.System
             th_a = X(11);
             dth_a = X(12);
             
-            err = target_eff - [leq, th_a, th_body];
-            derr = dtarget_eff - [dleq, dth_a, dth_body];
+            err = target - [leq, th_a, th_body];
+            derr = dtarget - [dleq, dth_a, dth_body];
             
-            u = ([1 0 0; 0 1 -1]*(kp_eff.*err + kd_eff.*derr)')';
+            u = ([1 0 0; 0 1 -1]*(kp.*err + kd.*derr)')';
             
             % Prevent ground slip
             ground_force = max(obj.params(4)*(X(9) - X(7)), 0);
@@ -194,7 +200,10 @@ classdef LegController < matlab.System
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
             
-%             [~, debug] = get_gait_energy(X, obj.params);
+            obj.err_last = err;
+            obj.kp_last = kp;
+            
+%             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = [obj.energy_last; obj.ratio_last*100];
 %             debug = obj.th_target;
             debug = obj.touchdown_length;
@@ -224,6 +233,9 @@ classdef LegController < matlab.System
             obj.extension_length = 0;
             
             obj.step_optimizer.reset();
+            
+            obj.err_last = [0 0 0];
+            obj.kp_last = [0 0 0];
         end
     end
     
@@ -246,8 +258,8 @@ classdef LegController < matlab.System
             target = [leq_target, 0, 0];
             dtarget = [dleq_target, 0, 0];
             
-            kp = [1e5, 0, 4e2];
-            kd = 0.1*[4e3, 0, 60];
+            kp = obj.kp_ground;
+            kd = obj.kd_ground;
         end
         
         function [target, dtarget, kp, kd] = mirror_controller(obj, X)
@@ -265,8 +277,8 @@ classdef LegController < matlab.System
             target = [leq_target, th_a_target, 0];
             dtarget = [dleq_target, dth_a_target, 0];
             
-            kp = [4e2, 80, 0];
-            kd = 0.1*[40, 15, 0];
+            kp = obj.kp_air;
+            kd = obj.kd_air;
         end
         
         function [target, dtarget, kp, kd] = touchdown_controller(obj, X)
@@ -283,8 +295,8 @@ classdef LegController < matlab.System
             target = [leq_target, th_a_target, 0];
             dtarget = [dleq_target, dth_a_target, 0];
             
-            kp = [4e2, 80, 0];
-            kd = 0.1*[40, 15, 0];
+            kp = obj.kp_air;
+            kd = obj.kd_air;
         end
     end
 end
@@ -314,7 +326,7 @@ l = min(max(l, l_min), l_max);
 end
 
 
-function [gait_energy, energies] = get_gait_energy(X, params)
+function [gait_energy, energies] = get_gait_energy(X, err_eff, kp_eff, params)
 m = params(1);
 k = params(4);
 g = params(11);
@@ -322,8 +334,8 @@ spring_a_energy = 1/2*k*(X(7) - X(9))^2;
 spring_b_energy = 1/2*k*(X(13) - X(15))^2;
 kinetic_energy = 1/2*m*(X(2)^2 + X(4)^2);
 gravitational_energy = m*g*(X(3) - 1);
-energies = [spring_a_energy; spring_b_energy; kinetic_energy; gravitational_energy; 0; 0];
+controller_energy = sum(1/2*kp_eff.*err_eff.^2);
+energies = [spring_a_energy; spring_b_energy; kinetic_energy; gravitational_energy; controller_energy; 0];
 gait_energy = sum(energies);
-energies(5) = gait_energy;
-energies(6) = gait_energy - kinetic_energy;
+energies(6) = gait_energy;
 end
