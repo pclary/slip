@@ -40,8 +40,10 @@ end
 if isempty(vis) || ~isa(vis, 'BiSLIPGraphics') || ~vis.isAlive()
     vis = BiSLIPGraphics();
 else
-    vis.clearTrace();
+    vis.reset();
 end
+
+vis.setGround(block.DialogPrm(1).Data);
 
 ud.vis = vis;
 set_param(block.BlockHandle, 'UserData', ud);
@@ -65,7 +67,6 @@ if block.IsMajorTimeStep
     toeB = body + X(15)*[sin(X(17) + X(5)); -cos(X(17) + X(5))];
     
     vis.setState(body, angle, toeA, toeB);
-    vis.setGround(@(x) ground_height_sample(x, block.DialogPrm(1).Data), 100);
     
     if vis.ClickActive
         x = vis.MouseLine.XData;

@@ -22,13 +22,15 @@ classdef BiSLIPGraphics < handle
         BodyRadius = [0.2; 0.2];
         SpringWidth = 0.1;
         ClickActive = false;
+        Scale = 1;
+        Center = [0 0];
     end
     
     methods
         function obj = BiSLIPGraphics()
             obj.createGeometry();
             obj.updateTransforms();
-            obj.clearTrace();
+            obj.reset();
         end
         
         function setState(obj, body, bodyth, toeA, toeB)
@@ -39,7 +41,8 @@ classdef BiSLIPGraphics < handle
             obj.addTracePoints();
             obj.updateTransforms();
         end
-        function clearTrace(obj)
+        
+        function reset(obj)
             obj.BodyTrace.clearpoints();
             obj.ToeATrace.clearpoints();
             obj.ToeBTrace.clearpoints();
@@ -47,6 +50,10 @@ classdef BiSLIPGraphics < handle
             obj.StepsA.YData = [];
             obj.StepsB.XData = [];
             obj.StepsB.YData = [];
+            obj.Scale = 1;
+            obj.ClickActive = false;
+            obj.MouseLine.Visible = 'off';
+            obj.ClickIndicator.Visible = 'off';
         end
         
         function r = isAlive(obj)
@@ -57,16 +64,8 @@ classdef BiSLIPGraphics < handle
                 isvalid(obj.StepsA) && isvalid(obj.StepsB);
         end
         
-        function setGround(obj, groundfun, numpts)
-            [xb, ~] = obj.BodyTrace.getpoints();
-            [xta, ~] = obj.ToeATrace.getpoints();
-            [xtb, ~] = obj.ToeBTrace.getpoints();
-            minx = min([xb(:); xta(:); xtb(:)]);
-            maxx = max([xb(:); xta(:); xtb(:)]);
-            width = maxx - minx;
-            xg = linspace(minx - width*0.1, maxx + width*0.1, numpts);
-            yg = groundfun(xg);
-            set(obj.Ground, 'XData', xg, 'YData', yg);
+        function setGround(obj, ground_data)
+            set(obj.Ground, 'XData', ground_data(:, 1), 'YData', ground_data(:, 2));
         end
         
         function setSteps(obj, xstepsA, ystepsA, xstepsB, ystepsB)
@@ -93,10 +92,11 @@ classdef BiSLIPGraphics < handle
             obj.Fig = fig;
             ax = axes('Parent', fig);
             obj.Axes = ax;
-            axis(ax, 'equal');
-            title(ax, 'BiSLIP');
-            xlabel(ax, 'x (m)');
-            ylabel(ax, 'y (m)');
+            obj.Axes.DataAspectRatio = [1 1 1];
+            obj.Axes.PlotBoxAspectRatio = [obj.Fig.Position(3:4) 1];
+            obj.Axes.Position = [0 0 1 1];
+            obj.Axes.XRuler.Visible = 'off';
+            obj.Axes.YRuler.Visible = 'off';
             
             % Traces
             obj.BodyTrace = animatedline('Parent', ax, 'Color', 'green');
@@ -171,6 +171,8 @@ classdef BiSLIPGraphics < handle
             obj.BodyVis.Children(1).ButtonDownFcn = @(varargin) obj.bodyClick();
             obj.BodyVis.Children(end).ButtonDownFcn = @(varargin) obj.bodyClick();
             obj.Fig.WindowButtonMotionFcn = @(varargin) obj.mouseMove();
+            obj.Fig.SizeChangedFcn = @(varargin) obj.figureResize();
+            obj.Fig.WindowScrollWheelFcn = @(~, data) obj.scrollWheel(data);
         end
         
         function updateTransforms(obj)
@@ -188,6 +190,7 @@ classdef BiSLIPGraphics < handle
             if ~isnan(thetaB)
                 obj.LegB.Matrix = makehgtform('zrotate', thetaB)*makehgtform('scale', [1 lengthB 1]);
             end
+            obj.figureResize();
             obj.mouseMove();
         end
         
@@ -221,6 +224,24 @@ classdef BiSLIPGraphics < handle
             mxy = obj.Axes.CurrentPoint(1, 1:2);
             bxy = obj.Body.Matrix(1:2, 4);
             set(obj.MouseLine, 'XData', [bxy(1) mxy(1)], 'YData', [bxy(2) mxy(2)]);
+        end
+        
+        function figureResize(obj)
+            if ~obj.ClickActive
+                obj.Center = obj.Body.Matrix(1:2, 4);
+            end
+            fr = obj.Fig.Position(3)/obj.Fig.Position(4);
+            yw = obj.Scale;
+            xw = yw*fr;
+            obj.Axes.XLim = [obj.Center(1) - xw, obj.Center(1) + xw];
+            obj.Axes.YLim = [obj.Center(2) - yw*1.5, obj.Center(2) + yw*0.5];
+            obj.Axes.PlotBoxAspectRatio = [fr 1 1];
+        end
+        
+        function scrollWheel(obj, data)
+            sc = 2^(0.5*data.VerticalScrollCount);
+            obj.Scale = obj.Scale*sc;
+            obj.figureResize();
         end
     end
     

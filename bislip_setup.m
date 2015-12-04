@@ -33,9 +33,10 @@ kd_air = [40, 15, 0];
 length_nonlin_width = inf;
 
 % Stiffness of external body force (dragging body around with mouse)
-k_f_ext = 1e4;
+kp_f_ext = 1e4;
+kd_f_ext = 2*sqrt(kp_f_ext*body_mass);
 
-ground_x = [-1e3; 1e3];
+ground_x = [0; 0];%[-1e3; 1e3];
 ground_y = [0; 0];
 ground_stiffness = 1e6*ones(size(ground_x));
 ground_damping = 1.5*2*sqrt(ground_stiffness*foot_mass).*ones(size(ground_x));
