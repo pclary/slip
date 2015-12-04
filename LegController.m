@@ -10,6 +10,7 @@ classdef LegController < matlab.System
         kd_ground = zeros(3, 1);
         kp_air = zeros(3, 1);
         kd_air = zeros(3, 1);
+        length_nonlin_width = inf;
     end
     
     properties (Access = private)
@@ -279,6 +280,13 @@ classdef LegController < matlab.System
             
             kp = obj.kp_air;
             kd = obj.kd_air;
+            
+            % Length stiffening
+            kpg = obj.kp_ground(1);
+            kpa = obj.kp_air(1);
+            width = obj.length_nonlin_width;
+            x = target(1) - X(7);
+            kp(1) = min(kpa*exp(abs(x)*log(kpg/kpa)/width), kpg);
         end
         
         function [target, dtarget, kp, kd] = touchdown_controller(obj, X)
@@ -297,6 +305,13 @@ classdef LegController < matlab.System
             
             kp = obj.kp_air;
             kd = obj.kd_air;
+            
+            % Length stiffening
+            kpg = obj.kp_ground(1);
+            kpa = obj.kp_air(1);
+            width = obj.length_nonlin_width;
+            x = target(1) - X(7);
+            kp(1) = min(kpa*exp(abs(x)*log(kpg/kpa)/width), kpg);
         end
     end
 end

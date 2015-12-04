@@ -5,9 +5,9 @@ else
     vis = BiSLIPGraphics();
 end
 t = X.Time;
-t0 = 1;
+t0 = 0;
 
-rate = 0.01;
+rate = 0.1;
 
 tic;
 while toc*rate < t(end)
