@@ -1,6 +1,7 @@
 classdef BiSLIPGraphics < handle
 
     properties (SetAccess=private)
+        Fig = gobjects();
         Axes = gobjects();
         Body = gobjects();
         BodyVis = gobjects();
@@ -12,12 +13,15 @@ classdef BiSLIPGraphics < handle
         ToeBTrace = gobjects();
         StepsA = gobjects();
         StepsB = gobjects();
+        MouseLine = gobjects();
+        ClickIndicator = gobjects();
         BodyPos = [0; 1];
         BodyAngle = 0;
         ToeAPos = [0; 0];
         ToeBPos = [0; 0];
         BodyRadius = [0.2; 0.2];
         SpringWidth = 0.1;
+        ClickActive = false;
     end
     
     methods
@@ -26,6 +30,7 @@ classdef BiSLIPGraphics < handle
             obj.updateTransforms();
             obj.clearTrace();
         end
+        
         function setState(obj, body, bodyth, toeA, toeB)
             obj.BodyPos = body(:);
             obj.BodyAngle = bodyth;
@@ -43,6 +48,7 @@ classdef BiSLIPGraphics < handle
             obj.StepsB.XData = [];
             obj.StepsB.YData = [];
         end
+        
         function r = isAlive(obj)
             r = isvalid(obj) && isvalid(obj.Ground) && ...
                 isvalid(obj.Body) && isvalid(obj.LegA) && ...
@@ -50,6 +56,7 @@ classdef BiSLIPGraphics < handle
                 isvalid(obj.ToeATrace) && isvalid(obj.ToeBTrace) && ...
                 isvalid(obj.StepsA) && isvalid(obj.StepsB);
         end
+        
         function setGround(obj, groundfun, numpts)
             [xb, ~] = obj.BodyTrace.getpoints();
             [xta, ~] = obj.ToeATrace.getpoints();
@@ -61,16 +68,19 @@ classdef BiSLIPGraphics < handle
             yg = groundfun(xg);
             set(obj.Ground, 'XData', xg, 'YData', yg);
         end
+        
         function setSteps(obj, xstepsA, ystepsA, xstepsB, ystepsB)
             obj.StepsA.XData = xstepsA;
             obj.StepsA.YData = ystepsA;
             obj.StepsB.XData = xstepsB;
             obj.StepsB.YData = ystepsB;
         end
+        
         function addStepA(obj, step)
             obj.StepsA.XData = [obj.Steps.XData, step(1)];
             obj.StepsA.YData = [obj.Steps.YData, step(2)];
         end
+        
         function addStepB(obj, step)
             obj.StepsB.XData = [obj.Steps.XData, step(1)];
             obj.StepsB.YData = [obj.Steps.YData, step(2)];
@@ -80,6 +90,7 @@ classdef BiSLIPGraphics < handle
     methods (Access=private)
         function createGeometry(obj)
             fig = figure;
+            obj.Fig = fig;
             ax = axes('Parent', fig);
             obj.Axes = ax;
             axis(ax, 'equal');
@@ -118,22 +129,50 @@ classdef BiSLIPGraphics < handle
                 1*obj.BodyRadius(1) 1*obj.BodyRadius(2)];
             b.Curvature = [1 1];
             b.FaceColor = 'white';
-            line(obj.BodyRadius(1)*[0.1 0.5], [0 0], 'Parent', obj.BodyVis);
+            line(obj.BodyRadius(1)*[0.2 0.5], [0 0], 'Parent', obj.BodyVis);
             
             % Step points
-            obj.StepsA = line('Parent', ax');
+            obj.StepsA = line('Parent', ax);
             obj.StepsA.LineStyle = 'none';
             obj.StepsA.Marker = 'o';
             obj.StepsA.Color = 'cyan';
             obj.StepsA.XData = [];
             obj.StepsA.YData = [];
-            obj.StepsB = line('Parent', ax');
+            obj.StepsB = line('Parent', ax);
             obj.StepsB.LineStyle = 'none';
             obj.StepsB.Marker = 'o';
             obj.StepsB.Color = 'magenta';
             obj.StepsB.XData = [];
             obj.StepsB.YData = [];
+            
+            % Mouse-body line
+            obj.MouseLine = line('Parent', ax);
+            obj.MouseLine.Color = 'red';
+            obj.MouseLine.LineStyle = '--';
+            obj.MouseLine.Visible = 'off';
+            obj.ClickIndicator = rectangle('Parent', obj.BodyVis);
+            obj.ClickIndicator.EdgeColor = [1 0 0];
+            obj.ClickIndicator.FaceColor = [1 0 0];
+            obj.ClickIndicator.Curvature = [1 1];
+            obj.ClickIndicator.Position = [-0.01 -0.01 0.02 0.02];
+            obj.ClickIndicator.Visible = 'off';
+            
+            % Turn off hit test
+            obj.BodyTrace.HitTest = 'off';
+            obj.ToeATrace.HitTest = 'off';
+            obj.ToeBTrace.HitTest = 'off';
+            obj.LegA.Children(1).HitTest = 'off';
+            obj.LegB.Children(1).HitTest = 'off';
+            obj.MouseLine.HitTest = 'off';
+            obj.ClickIndicator.HitTest = 'off';
+            
+            % Register callbacks
+            obj.Axes.ButtonDownFcn = @(varargin) obj.axesClick();
+            obj.BodyVis.Children(1).ButtonDownFcn = @(varargin) obj.bodyClick();
+            obj.BodyVis.Children(end).ButtonDownFcn = @(varargin) obj.bodyClick();
+            obj.Fig.WindowButtonMotionFcn = @(varargin) obj.mouseMove();
         end
+        
         function updateTransforms(obj)
             obj.Body.Matrix = makehgtform('translate', [obj.BodyPos; 0]);
             obj.BodyVis.Matrix = makehgtform('zrotate', obj.BodyAngle);
@@ -149,11 +188,39 @@ classdef BiSLIPGraphics < handle
             if ~isnan(thetaB)
                 obj.LegB.Matrix = makehgtform('zrotate', thetaB)*makehgtform('scale', [1 lengthB 1]);
             end
+            obj.mouseMove();
         end
+        
         function addTracePoints(obj)
             obj.BodyTrace.addpoints(obj.BodyPos(1), obj.BodyPos(2));
             obj.ToeATrace.addpoints(obj.ToeAPos(1), obj.ToeAPos(2));
             obj.ToeBTrace.addpoints(obj.ToeBPos(1), obj.ToeBPos(2));
+        end
+        
+        function axesClick(obj)
+            if obj.ClickActive
+                obj.ClickActive = false;
+                obj.MouseLine.Visible = 'off';
+                obj.ClickIndicator.Visible = 'off';
+            end
+        end
+        
+        function bodyClick(obj)
+            if ~obj.ClickActive
+                obj.ClickActive = true;
+                obj.MouseLine.Visible = 'on';
+                obj.ClickIndicator.Visible = 'on';
+            else
+                obj.ClickActive = false;
+                obj.MouseLine.Visible = 'off';
+                obj.ClickIndicator.Visible = 'off';
+            end
+        end
+        
+        function mouseMove(obj)
+            mxy = obj.Axes.CurrentPoint(1, 1:2);
+            bxy = obj.Body.Matrix(1:2, 4);
+            set(obj.MouseLine, 'XData', [bxy(1) mxy(1)], 'YData', [bxy(2) mxy(2)]);
         end
     end
     

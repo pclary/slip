@@ -7,7 +7,7 @@ setup(block)
 function setup(block)
 
 block.NumInputPorts  = 1;
-block.NumOutputPorts = 0;
+block.NumOutputPorts = 1;
 
 block.SetPreCompInpPortInfoToDynamic;
 
@@ -16,10 +16,14 @@ block.InputPort(1).DatatypeID = 0;  % double
 block.InputPort(1).Complexity = 'Real';
 block.InputPort(1).DirectFeedthrough = true;
 
+block.OutputPort(1).Dimensions = 2;
+block.OutputPort(1).DatatypeID = 0;  % double
+block.OutputPort(1).Complexity = 'Real';
+
 block.NumDialogPrms = 1;
 
-block.RegBlockMethod('Start',                @Start);
-block.RegBlockMethod('Outputs',              @Output);
+block.RegBlockMethod('Start',   @Start);
+block.RegBlockMethod('Outputs', @Output);
 
 block.SetSimViewingDevice(true);
 
@@ -43,7 +47,6 @@ ud.vis = vis;
 set_param(block.BlockHandle, 'UserData', ud);
 
 
-
 function Output(block)
 
 if block.IsMajorTimeStep
@@ -63,4 +66,13 @@ if block.IsMajorTimeStep
     
     vis.setState(body, angle, toeA, toeB);
     vis.setGround(@(x) ground_height_sample(x, block.DialogPrm(1).Data), 100);
+    
+    if vis.ClickActive
+        x = vis.MouseLine.XData;
+        y = vis.MouseLine.YData;
+        v = [x(2) - x(1); y(2) - y(1)];
+    else
+        v = [0; 0];
+    end
+    block.OutputPort(1).Data = v;
 end

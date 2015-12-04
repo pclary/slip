@@ -1,4 +1,4 @@
-function [dX, ground_force_a, ground_force_b] = bislip_dynamics(X, u, params, ground_data)
+function [dX, ground_force_a, ground_force_b] = bislip_dynamics(X, u, params, ground_data, body_ext_force)
 % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
 %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
 %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
@@ -27,7 +27,7 @@ ground_force_b = ground_contact_model(leg_b([7 9]), leg_b([8 10]), body([1 3]), 
 body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), body([1 3]) + [0; 1e3], ground_data);
 
 % Use big ugly jacobian to get most of the derivatives
-ufull = [u; body_ground_force; 0; ground_force_a; ground_force_b];
+ufull = [u; body_ground_force + body_ext_force; 0; ground_force_a; ground_force_b];
 dX = bislip_eom(X, ufull, params);
 
 persistent i
