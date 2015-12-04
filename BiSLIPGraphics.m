@@ -171,7 +171,7 @@ classdef BiSLIPGraphics < handle
             obj.BodyVis.Children(1).ButtonDownFcn = @(varargin) obj.bodyClick();
             obj.BodyVis.Children(end).ButtonDownFcn = @(varargin) obj.bodyClick();
             obj.Fig.WindowButtonMotionFcn = @(varargin) obj.mouseMove();
-            obj.Fig.SizeChangedFcn = @(varargin) obj.figureResize();
+            obj.Fig.SizeChangedFcn = @(varargin) obj.setAxes();
             obj.Fig.WindowScrollWheelFcn = @(~, data) obj.scrollWheel(data);
         end
         
@@ -190,7 +190,7 @@ classdef BiSLIPGraphics < handle
             if ~isnan(thetaB)
                 obj.LegB.Matrix = makehgtform('zrotate', thetaB)*makehgtform('scale', [1 lengthB 1]);
             end
-            obj.figureResize();
+            obj.setAxes();
             obj.mouseMove();
         end
         
@@ -226,7 +226,7 @@ classdef BiSLIPGraphics < handle
             set(obj.MouseLine, 'XData', [bxy(1) mxy(1)], 'YData', [bxy(2) mxy(2)]);
         end
         
-        function figureResize(obj)
+        function setAxes(obj)
             if ~obj.ClickActive
                 obj.Center = obj.Body.Matrix(1:2, 4);
             end
@@ -241,7 +241,13 @@ classdef BiSLIPGraphics < handle
         function scrollWheel(obj, data)
             sc = 2^(0.5*data.VerticalScrollCount);
             obj.Scale = obj.Scale*sc;
-            obj.figureResize();
+            if obj.ClickActive
+                % Keep Axes.CurrentPoint constant during scaling
+                mouse = obj.Axes.CurrentPoint(1, 1:2)';
+                offset = mouse - obj.Center;
+                obj.Center = mouse - offset*sc;
+            end
+            obj.setAxes();
         end
     end
     

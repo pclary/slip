@@ -189,6 +189,13 @@ classdef LegController < matlab.System
             th_a = X(11);
             dth_a = X(12);
             
+            %
+            target(1) = 1;
+            target(2) = min(max(target(2), -pi/2), pi/2);
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+            %
+            
             err = target - [leq, th_a, th_body];
             derr = dtarget - [dleq, dth_a, dth_body];
             
