@@ -1,13 +1,15 @@
 %% Real-time animation of simulated bislip system
 if exist('vis', 'var') && isa(vis, 'BiSLIPGraphics') && vis.isAlive()
-    vis.clearTrace();
+    vis.reset();
 else
     vis = BiSLIPGraphics();
+    timedisp = uicontrol('Style', 'text', 'Parent', vis.Fig);
 end
+vis.setGround(ground_data);
 t = X.Time;
 t0 = 0;
 
-rate = 0.1;
+rate = 1;
 
 tic;
 while toc*rate < t(end)
@@ -19,7 +21,7 @@ while toc*rate < t(end)
     toeA = body + XX(9)*[sin(XX(11) + XX(5)); -cos(XX(11) + XX(5))];
     toeB = body + XX(15)*[sin(XX(17) + XX(5)); -cos(XX(17) + XX(5))];
     vis.setState(body, angle, toeA, toeB);
-    vis.setGround(@(x) ground_height_sample(x, ground_data), 100);
+    timedisp.String = datestr(tt/24/3600, 'MM:SS.FFF');
     drawnow;
 end
 

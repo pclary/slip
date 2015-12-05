@@ -54,6 +54,7 @@ classdef BiSLIPGraphics < handle
             obj.ClickActive = false;
             obj.MouseLine.Visible = 'off';
             obj.ClickIndicator.Visible = 'off';
+            set(obj.Ground, 'XData', [], 'YData', []);
         end
         
         function r = isAlive(obj)
