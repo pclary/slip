@@ -21,7 +21,11 @@ while toc*rate < t(end)
     toeA = body + XX(9)*[sin(XX(11) + XX(5)); -cos(XX(11) + XX(5))];
     toeB = body + XX(15)*[sin(XX(17) + XX(5)); -cos(XX(17) + XX(5))];
     vis.setState(body, angle, toeA, toeB);
-    timedisp.String = datestr(tt/24/3600, 'MM:SS.FFF');
+    
+    microsecs = floor((tt - floor(tt))*1000);
+    seconds = mod(floor(tt), 60);
+    minutes = floor(tt/60);
+    timedisp.String = sprintf('%.2d:%.2d.%.3d', minutes, seconds, microsecs);
     drawnow;
 end
 
