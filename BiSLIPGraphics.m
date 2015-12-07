@@ -202,27 +202,25 @@ classdef BiSLIPGraphics < handle
             obj.ToeBTrace.addpoints(obj.ToeBPos(1), obj.ToeBPos(2));
         end
         
-        function axesClick(obj, ~, ~)
-            if obj.ClickActive
-                obj.ClickActive = false;
-                obj.MouseLine.Visible = 'off';
-                obj.ClickIndicator.Visible = 'off';
-                obj.Fig.WindowButtonMotionFcn = '';
+        function axesClick(obj, ~, data)
+            switch data.Button
+                case 1 % LMB
+                    obj.disableDrag();
+                case 2 % MMB
+                    
+                case 3 % RMB
+                    
             end
         end
         
-        function bodyClick(obj, ~, ~)
-            if ~obj.ClickActive
-                obj.ClickActive = true;
-                obj.MouseLine.Visible = 'on';
-                obj.ClickIndicator.Visible = 'on';
-                obj.Fig.WindowButtonMotionFcn = @obj.mouseMove;
-                obj.mouseMove();
-            else
-                obj.ClickActive = false;
-                obj.MouseLine.Visible = 'off';
-                obj.ClickIndicator.Visible = 'off';
-                obj.Fig.WindowButtonMotionFcn = '';
+        function bodyClick(obj, ~, data)
+            switch data.Button
+                case 1 % LMB
+                    obj.toggleDrag();
+                case 2 % MMB
+                    
+                case 3 % RMB
+                    
             end
         end
         
@@ -254,6 +252,29 @@ classdef BiSLIPGraphics < handle
                 obj.Center = mouse - offset*sc;
             end
             obj.setAxes();
+        end
+        
+        function toggleDrag(obj)
+            if obj.ClickActive
+                obj.disableDrag();
+            else
+                obj.enableDrag();
+            end
+        end
+        
+        function enableDrag(obj)
+            obj.ClickActive = true;
+            obj.MouseLine.Visible = 'on';
+            obj.ClickIndicator.Visible = 'on';
+            obj.Fig.WindowButtonMotionFcn = @obj.mouseMove;
+            obj.mouseMove();
+        end
+        
+        function disableDrag(obj)
+            obj.ClickActive = false;
+            obj.MouseLine.Visible = 'off';
+            obj.ClickIndicator.Visible = 'off';
+            obj.Fig.WindowButtonMotionFcn = '';
         end
     end
     
