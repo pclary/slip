@@ -1,7 +1,7 @@
 classdef BiSLIPGraphics < handle
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Private Properties
+    % Properties
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
     properties (SetAccess=private)
@@ -14,12 +14,12 @@ classdef BiSLIPGraphics < handle
         BodyTrace = gobjects();
         ToeATrace = gobjects();
         ToeBTrace = gobjects();
-        MouseLine = gobjects();
-        ClickIndicator = gobjects();
-        BodyRadius = [0.2; 0.2];
-        SpringWidth = 0.1;
-        Scale = 1;
-        Center = [0; 0];
+        DragLine = gobjects();
+        DragIndicator = gobjects();
+        ViewScale = 1;
+        ViewCenter = [0; 0];
+        PanEnabled = false;
+        PanAnchor = [0; 0];
     end
     
     
@@ -49,14 +49,17 @@ classdef BiSLIPGraphics < handle
             obj.BodyTrace.clearpoints();
             obj.ToeATrace.clearpoints();
             obj.ToeBTrace.clearpoints();
-            obj.Scale = 1;
+            obj.ViewScale = 1;
+            obj.ViewCenter = [0; 0];
+            obj.PanEnabled = false;
+            obj.PanAnchor = [0; 0];
             obj.disableDrag();
             set(obj.Ground, 'XData', [], 'YData', []);
         end
         
         
         function en = dragEnabled(obj)
-            en = strcmp(obj.ClickIndicator.Visible, 'on');
+            en = strcmp(obj.DragIndicator.Visible, 'on');
         end
         
         
@@ -101,30 +104,32 @@ classdef BiSLIPGraphics < handle
             l2 = 0.15;
             coils = 5;
             hpitch = (1-l1-l2)/coils/2;
-            xs =  [0, 0, repmat([1  -1], 1, coils), 0, 0]*obj.SpringWidth/2;
+            spring_width = 0.1;
+            xs =  [0, 0, repmat([1  -1], 1, coils), 0, 0]*spring_width/2;
             ys = -[0, l1, (l1+hpitch/2):hpitch:(1-l2-hpitch/2), 1-l2, 1];
             line(xs, ys, 'Parent', obj.LegA);
             line(xs, ys, 'Parent', obj.LegB);
             
             % Body
-            b = rectangle('Parent', obj.Body);
-            b.Position = [-0.5*obj.BodyRadius(1) -0.5*obj.BodyRadius(2) ...
-                1*obj.BodyRadius(1) 1*obj.BodyRadius(2)];
-            b.Curvature = [1 1];
-            b.FaceColor = 'white';
-            line(obj.BodyRadius(1)*[0.2 0.5], [0 0], 'Parent', obj.Body);
+            body_rect = rectangle('Parent', obj.Body);
+            body_radius = [0.2 0.2];
+            body_rect.Position = [-0.5*body_radius(1) -0.5*body_radius(2) ...
+                1*body_radius(1) 1*body_radius(2)];
+            body_rect.Curvature = [1 1];
+            body_rect.FaceColor = 'white';
+            body_line = line(body_radius(1)*[0.2 0.5], [0 0], 'Parent', obj.Body);
             
             % Mouse-body line
-            obj.MouseLine = line('Parent', ax);
-            obj.MouseLine.Color = 'red';
-            obj.MouseLine.LineStyle = '--';
-            obj.MouseLine.Visible = 'off';
-            obj.ClickIndicator = rectangle('Parent', obj.Body);
-            obj.ClickIndicator.EdgeColor = [1 0 0];
-            obj.ClickIndicator.FaceColor = [1 0 0];
-            obj.ClickIndicator.Curvature = [1 1];
-            obj.ClickIndicator.Position = [-0.01 -0.01 0.02 0.02];
-            obj.ClickIndicator.Visible = 'off';
+            obj.DragLine = line('Parent', ax);
+            obj.DragLine.Color = 'red';
+            obj.DragLine.LineStyle = '--';
+            obj.DragLine.Visible = 'off';
+            obj.DragIndicator = rectangle('Parent', obj.Body);
+            obj.DragIndicator.EdgeColor = [1 0 0];
+            obj.DragIndicator.FaceColor = [1 0 0];
+            obj.DragIndicator.Curvature = [1 1];
+            obj.DragIndicator.Position = [-0.01 -0.01 0.02 0.02];
+            obj.DragIndicator.Visible = 'off';
             
             % Turn off hit test
             obj.BodyTrace.HitTest = 'off';
@@ -132,15 +137,17 @@ classdef BiSLIPGraphics < handle
             obj.ToeBTrace.HitTest = 'off';
             obj.LegA.Children(1).HitTest = 'off';
             obj.LegB.Children(1).HitTest = 'off';
-            obj.MouseLine.HitTest = 'off';
-            obj.ClickIndicator.HitTest = 'off';
+            obj.DragLine.HitTest = 'off';
+            obj.DragIndicator.HitTest = 'off';
             
             % Register callbacks
             obj.Axes.ButtonDownFcn = @obj.axesClick;
-            obj.Body.Children(1).ButtonDownFcn = @obj.bodyClick;
-            obj.Body.Children(3).ButtonDownFcn = @obj.bodyClick;
+            body_rect.ButtonDownFcn = @obj.bodyClick;
+            body_line.ButtonDownFcn = @obj.bodyClick;
             obj.Fig.SizeChangedFcn = @obj.setAxes;
             obj.Fig.WindowScrollWheelFcn = @obj.scrollWheel;
+            obj.Fig.WindowButtonDownFcn = @obj.figMouseDown;
+            obj.Fig.WindowButtonUpFcn = @obj.figMouseUp;
         end
         
         
@@ -181,10 +188,6 @@ classdef BiSLIPGraphics < handle
             switch data.Button
                 case 1 % LMB
                     obj.disableDrag();
-                case 2 % MMB
-                    
-                case 3 % RMB
-                    
             end
         end
         
@@ -193,42 +196,62 @@ classdef BiSLIPGraphics < handle
             switch data.Button
                 case 1 % LMB
                     obj.toggleDrag();
-                case 2 % MMB
-                    
-                case 3 % RMB
-                    
+            end
+        end
+        
+        
+        function figMouseDown(obj, ~, data)
+            switch data.Source.SelectionType
+                case 'extend' % MMB
+                    if obj.dragEnabled()
+                        obj.PanEnabled = true;
+                        obj.PanAnchor = obj.Axes.CurrentPoint(1, 1:2)';
+                    end
+            end
+        end
+        
+        
+        function figMouseUp(obj, ~, data)
+            switch data.Source.SelectionType
+                case 'extend' % MMB
+                    obj.PanEnabled = false;
             end
         end
         
         
         function mouseMove(obj, ~, ~)
-            mxy = obj.Axes.CurrentPoint(1, 1:2);
-            bxy = obj.Body.Matrix(1:2, 4);
-            set(obj.MouseLine, 'XData', [bxy(1) mxy(1)], 'YData', [bxy(2) mxy(2)]);
+            mouse = obj.Axes.CurrentPoint(1, 1:2)';
+            if obj.dragEnabled() && obj.PanEnabled
+                position_diff = mouse - obj.PanAnchor;
+                obj.ViewCenter = obj.ViewCenter - position_diff;
+                obj.setAxes();
+            end
+            body = obj.Body.Matrix(1:2, 4);
+            set(obj.DragLine, 'XData', [body(1) mouse(1)], 'YData', [body(2) mouse(2)]);
         end
         
         
         function setAxes(obj, ~, ~)
             if ~obj.dragEnabled()
-                obj.Center = obj.Body.Matrix(1:2, 4);
+                obj.ViewCenter = obj.Body.Matrix(1:2, 4);
             end
             fr = obj.Fig.Position(3)/obj.Fig.Position(4);
-            yw = obj.Scale;
+            yw = obj.ViewScale;
             xw = yw*fr;
-            obj.Axes.XLim = [obj.Center(1) - xw, obj.Center(1) + xw];
-            obj.Axes.YLim = [obj.Center(2) - yw, obj.Center(2) + yw];
+            obj.Axes.XLim = [obj.ViewCenter(1) - xw, obj.ViewCenter(1) + xw];
+            obj.Axes.YLim = [obj.ViewCenter(2) - yw, obj.ViewCenter(2) + yw];
             obj.Axes.PlotBoxAspectRatio = [fr 1 1];
         end
         
         
         function scrollWheel(obj, ~, data)
             sc = 2^(0.5*data.VerticalScrollCount);
-            obj.Scale = obj.Scale*sc;
+            obj.ViewScale = obj.ViewScale*sc;
             if obj.dragEnabled()
                 % Keep Axes.CurrentPoint constant during scaling
                 mouse = obj.Axes.CurrentPoint(1, 1:2)';
-                offset = mouse - obj.Center;
-                obj.Center = mouse - offset*sc;
+                offset = mouse - obj.ViewCenter;
+                obj.ViewCenter = mouse - offset*sc;
             end
             obj.setAxes();
         end
@@ -240,39 +263,34 @@ classdef BiSLIPGraphics < handle
         
         function toggleDrag(obj)
             if obj.dragEnabled()
-                obj.disableDrag();
+                obj.disableDragUnchecked();
             else
-                obj.enableDrag();
+                obj.enableDragUnchecked();
             end
         end
         
         
-        function enableDrag(obj)
-            obj.MouseLine.Visible = 'on';
-            obj.ClickIndicator.Visible = 'on';
+        function disableDrag(obj)
+            if obj.dragEnabled()
+                obj.disableDragUnchecked();
+            end
+        end
+        
+        
+        function enableDragUnchecked(obj)
+            obj.DragLine.Visible = 'on';
+            obj.DragIndicator.Visible = 'on';
             obj.Fig.WindowButtonMotionFcn = @obj.mouseMove;
+            obj.PanEnabled = false;
             obj.mouseMove();
         end
         
         
-        function disableDrag(obj)
-            obj.MouseLine.Visible = 'off';
-            obj.ClickIndicator.Visible = 'off';
+        function disableDragUnchecked(obj)
+            obj.DragLine.Visible = 'off';
+            obj.DragIndicator.Visible = 'off';
             obj.Fig.WindowButtonMotionFcn = '';
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Pan Functions
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-        function enablePan(obj)
-            
-        end
-        
-        
-        function disablePan(obj)
-            
+            obj.PanEnabled = false;
         end
     end
     

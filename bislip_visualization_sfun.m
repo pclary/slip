@@ -63,8 +63,8 @@ if block.IsMajorTimeStep
     vis.setState(block.InputPort(1).Data);
     
     if vis.dragEnabled()
-        x = vis.MouseLine.XData;
-        y = vis.MouseLine.YData;
+        x = vis.DragLine.XData;
+        y = vis.DragLine.YData;
         v = [x(2) - x(1); y(2) - y(1)];
     else
         v = [0; 0];
