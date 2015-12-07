@@ -16,12 +16,7 @@ framecount = 0;
 while toc*rate < t(end) && vis.isAlive()
     tt = t0 + toc*rate;
     i = find(t <= tt, 1, 'last');
-    XX = X.Data(i, :)';
-    body = XX([1 3]);
-    angle = XX(5);
-    toeA = body + XX(9)*[sin(XX(11) + XX(5)); -cos(XX(11) + XX(5))];
-    toeB = body + XX(15)*[sin(XX(17) + XX(5)); -cos(XX(17) + XX(5))];
-    vis.setState(body, angle, toeA, toeB);
+    vis.setState(X.Data(i, :));
     
     microsecs = floor((tt - floor(tt))*1000);
     seconds = mod(floor(tt), 60);

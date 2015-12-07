@@ -60,15 +60,9 @@ if block.IsMajorTimeStep
         return;
     end
     
-    X = block.InputPort(1).Data;
-    body = X([1 3]);
-    angle = X(5);
-    toeA = body + X(9)*[sin(X(11) + X(5)); -cos(X(11) + X(5))];
-    toeB = body + X(15)*[sin(X(17) + X(5)); -cos(X(17) + X(5))];
+    vis.setState(block.InputPort(1).Data);
     
-    vis.setState(body, angle, toeA, toeB);
-    
-    if vis.ClickActive
+    if vis.dragEnabled()
         x = vis.MouseLine.XData;
         y = vis.MouseLine.YData;
         v = [x(2) - x(1); y(2) - y(1)];
