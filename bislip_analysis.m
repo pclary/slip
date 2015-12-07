@@ -12,7 +12,8 @@ t0 = 0;
 rate = 1;
 
 tic;
-while toc*rate < t(end)
+framecount = 0;
+while toc*rate < t(end) && vis.isAlive()
     tt = t0 + toc*rate;
     i = find(t <= tt, 1, 'last');
     XX = X.Data(i, :)';
@@ -27,11 +28,13 @@ while toc*rate < t(end)
     minutes = floor(tt/60);
     timedisp.String = sprintf('%.2d:%.2d.%.3d', minutes, seconds, microsecs);
     drawnow;
+    framecount = framecount + 1;
 end
+framerate = framecount/toc
 
 %% Make gif
 if exist('vis', 'var') && isa(vis, 'BiSLIPGraphics') && vis.isAlive()
-    vis.clearTrace();
+    vis.reset();
 else
     vis = BiSLIPGraphics();
 end

@@ -168,12 +168,11 @@ classdef BiSLIPGraphics < handle
             obj.ClickIndicator.HitTest = 'off';
             
             % Register callbacks
-            obj.Axes.ButtonDownFcn = @(varargin) obj.axesClick();
-            obj.BodyVis.Children(1).ButtonDownFcn = @(varargin) obj.bodyClick();
-            obj.BodyVis.Children(end).ButtonDownFcn = @(varargin) obj.bodyClick();
-            obj.Fig.WindowButtonMotionFcn = @(varargin) obj.mouseMove();
-            obj.Fig.SizeChangedFcn = @(varargin) obj.setAxes();
-            obj.Fig.WindowScrollWheelFcn = @(~, data) obj.scrollWheel(data);
+            obj.Axes.ButtonDownFcn = @obj.axesClick;
+            obj.BodyVis.Children(1).ButtonDownFcn = @obj.bodyClick;
+            obj.BodyVis.Children(end).ButtonDownFcn = @obj.bodyClick;
+            obj.Fig.SizeChangedFcn = @obj.setAxes;
+            obj.Fig.WindowScrollWheelFcn = @obj.scrollWheel;
         end
         
         function updateTransforms(obj)
@@ -192,7 +191,9 @@ classdef BiSLIPGraphics < handle
                 obj.LegB.Matrix = makehgtform('zrotate', thetaB)*makehgtform('scale', [1 lengthB 1]);
             end
             obj.setAxes();
-            obj.mouseMove();
+            if obj.ClickActive
+                obj.mouseMove();
+            end
         end
         
         function addTracePoints(obj)
@@ -201,33 +202,37 @@ classdef BiSLIPGraphics < handle
             obj.ToeBTrace.addpoints(obj.ToeBPos(1), obj.ToeBPos(2));
         end
         
-        function axesClick(obj)
+        function axesClick(obj, ~, ~)
             if obj.ClickActive
                 obj.ClickActive = false;
                 obj.MouseLine.Visible = 'off';
                 obj.ClickIndicator.Visible = 'off';
+                obj.Fig.WindowButtonMotionFcn = '';
             end
         end
         
-        function bodyClick(obj)
+        function bodyClick(obj, ~, ~)
             if ~obj.ClickActive
                 obj.ClickActive = true;
                 obj.MouseLine.Visible = 'on';
                 obj.ClickIndicator.Visible = 'on';
+                obj.Fig.WindowButtonMotionFcn = @obj.mouseMove;
+                obj.mouseMove();
             else
                 obj.ClickActive = false;
                 obj.MouseLine.Visible = 'off';
                 obj.ClickIndicator.Visible = 'off';
+                obj.Fig.WindowButtonMotionFcn = '';
             end
         end
         
-        function mouseMove(obj)
+        function mouseMove(obj, ~, ~)
             mxy = obj.Axes.CurrentPoint(1, 1:2);
             bxy = obj.Body.Matrix(1:2, 4);
             set(obj.MouseLine, 'XData', [bxy(1) mxy(1)], 'YData', [bxy(2) mxy(2)]);
         end
         
-        function setAxes(obj)
+        function setAxes(obj, ~, ~)
             if ~obj.ClickActive
                 obj.Center = obj.Body.Matrix(1:2, 4);
             end
@@ -235,11 +240,11 @@ classdef BiSLIPGraphics < handle
             yw = obj.Scale;
             xw = yw*fr;
             obj.Axes.XLim = [obj.Center(1) - xw, obj.Center(1) + xw];
-            obj.Axes.YLim = [obj.Center(2) - yw*1.5, obj.Center(2) + yw*0.5];
+            obj.Axes.YLim = [obj.Center(2) - yw, obj.Center(2) + yw];
             obj.Axes.PlotBoxAspectRatio = [fr 1 1];
         end
         
-        function scrollWheel(obj, data)
+        function scrollWheel(obj, ~, data)
             sc = 2^(0.5*data.VerticalScrollCount);
             obj.Scale = obj.Scale*sc;
             if obj.ClickActive
