@@ -1,4 +1,4 @@
-function [dX, ground_force_a, ground_force_b] = bislip_dynamics(X, u, params, ground_data, body_ext_force)
+function [dX, ground_force_a, ground_force_b, u_limit] = bislip_dynamics(X, u, params, ground_data, body_ext_force)
 % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
 %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
 %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
@@ -26,21 +26,52 @@ ground_force_b = ground_contact_model(leg_b([7 9]), leg_b([8 10]), body([1 3]), 
 % Calculate ground force on body
 body_ground_force = ground_contact_model(body([1 3]) + [0; -0.1], body([2 4]), body([1 3]) + [0; 1e3], ground_data);
 
-% Use big ugly jacobian to get most of the derivatives
-ufull = [u; body_ground_force + body_ext_force; 0; ground_force_a; ground_force_b];
-dX = bislip_eom(X, ufull, params);
+% Hard stop forces
+u_limit = limit_forces(X);
 
-persistent i
-if isempty(i)
-    i = 0;
-end
-if mod(i, 8.851*1000*16*3) == 0
-    0;
-end
-if mod(i, 0.001*1000*16*3) == 0
-    0;
-end
-i = i + 1;
+% Use big ugly jacobian to get most of the derivatives
+u_full = [u + u_limit; body_ground_force + body_ext_force; 0; ground_force_a; ground_force_b];
+dX = bislip_eom(X, u_full, params);
+
+
+function u_limit = limit_forces(X)
+% Calculate hard stop forces
+kp_leq = 4e5;
+kd_leq = 4e3;
+kp_th = 1e4;
+kd_th = 1e3;
+dfade_leq = 0.001;
+dfade_th = 0.001;
+
+leq_max = 1.5;
+leq_min = 0.5;
+th_max = pi/2;
+th_min = -pi/2;
+
+leq_a_over = min(X(7) - leq_min, max(X(7) - leq_max, 0));
+leq_b_over = min(X(13) - leq_min, max(X(13) - leq_max, 0));
+th_a_over = min(X(11) - th_min, max(X(11) - th_max, 0));
+th_b_over = min(X(17) - th_min, max(X(17) - th_max, 0));
+
+leq_a_dfade = fade_derivative(X(7), leq_min, leq_max, dfade_leq);
+leq_b_dfade = fade_derivative(X(13), leq_min, leq_max, dfade_leq);
+th_a_dfade = fade_derivative(X(11), th_min, th_max, dfade_th);
+th_b_dfade = fade_derivative(X(17), th_min, th_max, dfade_th);
+
+leq_a_limit_force = -kp_leq*leq_a_over - kd_leq*X(8)*leq_a_dfade;
+leq_b_limit_force = -kp_leq*leq_b_over - kd_leq*X(14)*leq_b_dfade;
+th_a_limit_torque = -kp_th*th_a_over - kd_th*X(12)*th_a_dfade;
+th_b_limit_torque = -kp_th*th_b_over - kd_th*X(18)*th_b_dfade;
+
+limit_force_max = [1e6; 1e4];
+
+u_limit = [leq_a_limit_force; th_a_limit_torque; leq_b_limit_force; th_b_limit_torque];
+u_limit = min(max(u_limit, -[limit_force_max; limit_force_max]), [limit_force_max; limit_force_max]);
+
+
+function dfade = fade_derivative(x, x_min, x_max, fade_width)
+dfade = abs(min(max((x - x_min - fade_width)/fade_width, -1), ...
+                max(min((x - x_max + fade_width)/fade_width, 1), 0)));
 
 
 function leg = leg_kinematics(X_leg, body)

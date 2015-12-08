@@ -182,6 +182,13 @@ classdef LegController < matlab.System
             target(isnan(target)) = 0;
             dtarget(isnan(dtarget)) = 0;
             
+            %
+            target(1) = 1;
+            dtarget(1) = 0;
+            kp = obj.kp_ground;
+            kd = obj.kd_ground;
+            %
+            
             leq = X(7);
             dleq = X(8);
             th_body = X(5);
@@ -200,6 +207,9 @@ classdef LegController < matlab.System
             slip_margin = 2;
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
+            
+            u(1) = 0;
+            u(2) = 0;
             
             obj.err_last = err;
             obj.kp_last = kp;

@@ -68,7 +68,8 @@ classdef BiSLIPGraphics < handle
         
         
         function out = isAlive(obj)
-            out = obj.isvalid() && obj.Fig.isvalid() && obj.Axes.isvalid();
+            out = obj.isvalid() && obj.Fig.isvalid() && ...
+                obj.Axes.isvalid() && obj.Body.isvalid();
         end
     end
     
