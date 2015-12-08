@@ -8,8 +8,12 @@ classdef BiSLIPGraphics < handle
         Fig = gobjects();
         Axes = gobjects();
         Body = gobjects();
-        LegA = gobjects();
-        LegB = gobjects();
+        AngleA = gobjects();
+        AngleB = gobjects();
+        LengthA = gobjects();
+        LengthB = gobjects();
+        SpringA = gobjects();
+        SpringB = gobjects();
         Ground = gobjects();
         BodyTrace = gobjects();
         ToeATrace = gobjects();
@@ -96,19 +100,22 @@ classdef BiSLIPGraphics < handle
             obj.Ground.YData = [];
             
             obj.Body = hgtransform('Parent', ax);
-            obj.LegA = hgtransform('Parent', obj.Body);
-            obj.LegB = hgtransform('Parent', obj.Body);
             
             % Leg
-            l1 = 0.25;
-            l2 = 0.15;
-            coils = 5;
-            hpitch = (1-l1-l2)/coils/2;
-            spring_width = 0.1;
-            xs =  [0, 0, repmat([1  -1], 1, coils), 0, 0]*spring_width/2;
-            ys = -[0, l1, (l1+hpitch/2):hpitch:(1-l2-hpitch/2), 1-l2, 1];
-            line(xs, ys, 'Parent', obj.LegA);
-            line(xs, ys, 'Parent', obj.LegB);
+            obj.AngleA = hgtransform('Parent', obj.Body);
+            obj.AngleB = hgtransform('Parent', obj.Body);
+            obj.LengthA = hgtransform('Parent', obj.AngleA);
+            obj.LengthB = hgtransform('Parent', obj.AngleB);
+            line([0 0], [0 -1], 'Parent', obj.LengthA);
+            line([0 0], [0 -1], 'Parent', obj.LengthB);
+            obj.SpringA = hgtransform('Parent', obj.AngleA);
+            obj.SpringB = hgtransform('Parent', obj.AngleB);
+            ncoils = 5;
+            coilres = 16;
+            spring_y = linspace(0, -1, (4*coilres)*ncoils+1);
+            spring_x = sin(spring_y*2*pi*ncoils)*0.4;
+            line(spring_x, spring_y, 'Parent', obj.SpringA);
+            line(spring_x, spring_y, 'Parent', obj.SpringB);
             
             % Body
             body_rect = rectangle('Parent', obj.Body);
@@ -135,8 +142,8 @@ classdef BiSLIPGraphics < handle
             obj.BodyTrace.HitTest = 'off';
             obj.ToeATrace.HitTest = 'off';
             obj.ToeBTrace.HitTest = 'off';
-            obj.LegA.Children(1).HitTest = 'off';
-            obj.LegB.Children(1).HitTest = 'off';
+            obj.AngleA.Children(1).HitTest = 'off';
+            obj.AngleB.Children(1).HitTest = 'off';
             obj.DragLine.HitTest = 'off';
             obj.DragIndicator.HitTest = 'off';
             
@@ -156,8 +163,12 @@ classdef BiSLIPGraphics < handle
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
             %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
             obj.Body.Matrix = makehgtform('translate', [X(1); X(3); 0])*makehgtform('zrotate', X(5));
-            obj.LegA.Matrix = makehgtform('zrotate', X(11))*makehgtform('scale', [1 X(9) 1]);
-            obj.LegB.Matrix = makehgtform('zrotate', X(17))*makehgtform('scale', [1 X(15) 1]);
+            obj.AngleA.Matrix = makehgtform('zrotate', X(11));
+            obj.AngleB.Matrix = makehgtform('zrotate', X(17));
+            obj.LengthA.Matrix = makehgtform('scale', [1 max(X(9), 1e-3) 1]);
+            obj.LengthB.Matrix = makehgtform('scale', [1 max(X(15), 1e-3) 1]);
+            obj.SpringA.Matrix = springTransform(X(7), X(9));
+            obj.SpringB.Matrix = springTransform(X(13), X(15));
             
             obj.setAxes();
             
@@ -294,4 +305,24 @@ classdef BiSLIPGraphics < handle
         end
     end
     
+end
+
+
+function T = springTransform(leq, l)
+
+ncoils = 5;
+
+leq_spring = 0.5;
+weq_spring = 0.1;
+l_spring = leq_spring + l - leq;
+w_spring = real(sqrt(leq_spring^2 - l_spring^2 + (5*weq_spring*2*pi)^2)/ncoils/2/pi);
+
+end_offset = 0.05;
+spring_translation = l - l_spring - end_offset;
+
+l_spring = max(l_spring, 1e-3);
+w_spring = max(w_spring, 1e-3);
+
+T = makehgtform('translate', [0 -spring_translation 0])*makehgtform('scale', [w_spring l_spring 1]);
+
 end

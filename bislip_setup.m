@@ -27,8 +27,8 @@ params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping;
 
 % [length, angle, body_angle]
 kp_ground = [1e5, 0, 4e2];
-kd_ground = 0.1*[4e3, 0, 60];
-kp_air = [4e3, 80, 0];
+kd_ground = [4e3, 0, 60];
+kp_air = [4e2, 80, 0];
 kd_air = [40, 15, 0];
 length_nonlin_width = inf;
 
@@ -36,7 +36,7 @@ length_nonlin_width = inf;
 kp_f_ext = 1e4;
 kd_f_ext = 2*sqrt(kp_f_ext*body_mass);
 
-ground_x = [0; 0];%[-1e3; 1e3];
+ground_x = [-1e3; 1e3];
 ground_y = [0; 0];
 ground_stiffness = 1e6*ones(size(ground_x));
 ground_damping = 1.5*2*sqrt(ground_stiffness*foot_mass).*ones(size(ground_x));
