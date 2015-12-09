@@ -10,7 +10,6 @@ classdef LegController < matlab.System
         kd_ground = zeros(3, 1);
         kp_air = zeros(3, 1);
         kd_air = zeros(3, 1);
-        length_nonlin_width = inf;
     end
     
     properties (Access = private)
@@ -182,13 +181,6 @@ classdef LegController < matlab.System
             target(isnan(target)) = 0;
             dtarget(isnan(dtarget)) = 0;
             
-            %
-            target(1) = 1;
-            dtarget(1) = 0;
-            kp = obj.kp_ground;
-            kd = obj.kd_ground;
-            %
-            
             leq = X(7);
             dleq = X(8);
             th_body = X(5);
@@ -208,7 +200,6 @@ classdef LegController < matlab.System
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
             
-            u(1) = 0;
             u(2) = 0;
             
             obj.err_last = err;
@@ -290,13 +281,6 @@ classdef LegController < matlab.System
             
             kp = obj.kp_air;
             kd = obj.kd_air;
-            
-            % Length stiffening
-            kpg = obj.kp_ground(1);
-            kpa = obj.kp_air(1);
-            width = obj.length_nonlin_width;
-            x = target(1) - X(7);
-            kp(1) = min(kpa*exp(abs(x)*log(kpg/kpa)/width), kpg);
         end
         
         function [target, dtarget, kp, kd] = touchdown_controller(obj, X)
@@ -315,13 +299,6 @@ classdef LegController < matlab.System
             
             kp = obj.kp_air;
             kd = obj.kd_air;
-            
-            % Length stiffening
-            kpg = obj.kp_ground(1);
-            kpa = obj.kp_air(1);
-            width = obj.length_nonlin_width;
-            x = target(1) - X(7);
-            kp(1) = min(kpa*exp(abs(x)*log(kpg/kpa)/width), kpg);
         end
     end
 end

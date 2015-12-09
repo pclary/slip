@@ -27,10 +27,9 @@ params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping;
 
 % [length, angle, body_angle]
 kp_ground = [1e5, 0, 4e2];
-kd_ground = [4e3, 0, 60];
-kp_air = [4e2, 80, 0];
-kd_air = [40, 15, 0];
-length_nonlin_width = inf;
+kd_ground = [4e2, 0, 30];
+kp_air = [1e5, 4e3, 0];
+kd_air = [5e2, 30, 0];
 
 % Stiffness of external body force (dragging body around with mouse)
 kp_f_ext = 1e4;
