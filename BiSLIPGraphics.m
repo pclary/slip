@@ -16,6 +16,8 @@ classdef BiSLIPGraphics < handle
         SpringB = gobjects();
         Ground = gobjects();
         BodyTrace = gobjects();
+        VToeATrace = gobjects();
+        VToeBTrace = gobjects();
         ToeATrace = gobjects();
         ToeBTrace = gobjects();
         DragLine = gobjects();
@@ -38,8 +40,8 @@ classdef BiSLIPGraphics < handle
         end
         
         
-        function setState(obj, X)
-            obj.addTracePoints(X);
+        function setState(obj, X, leg_targets)
+            obj.addTracePoints(X, leg_targets);
             obj.updateTransforms(X);
         end
         
@@ -53,6 +55,8 @@ classdef BiSLIPGraphics < handle
             obj.BodyTrace.clearpoints();
             obj.ToeATrace.clearpoints();
             obj.ToeBTrace.clearpoints();
+            obj.VToeATrace.clearpoints();
+            obj.VToeBTrace.clearpoints();
             obj.ViewScale = 1;
             obj.ViewCenter = [0; 0];
             obj.PanEnabled = false;
@@ -91,6 +95,8 @@ classdef BiSLIPGraphics < handle
             obj.Axes.YRuler.Visible = 'off';
             
             % Traces
+            obj.VToeATrace = animatedline('Parent', ax, 'Color', 'blue', 'LineStyle', ':');
+            obj.VToeBTrace = animatedline('Parent', ax, 'Color', 'red', 'LineStyle', ':');
             obj.BodyTrace = animatedline('Parent', ax, 'Color', 'green');
             obj.ToeATrace = animatedline('Parent', ax, 'Color', 'blue');
             obj.ToeBTrace = animatedline('Parent', ax, 'Color', 'red');
@@ -179,7 +185,7 @@ classdef BiSLIPGraphics < handle
         end
         
         
-        function addTracePoints(obj, X)
+        function addTracePoints(obj, X, leg_targets)
             obj.BodyTrace.addpoints(X(1), X(3));
             
             toe_a_x = X(1) + X(9)*sin(X(5) + X(11));
@@ -189,6 +195,14 @@ classdef BiSLIPGraphics < handle
             toe_b_x = X(1) + X(15)*sin(X(5) + X(17));
             toe_b_y = X(3) - X(15)*cos(X(5) + X(17));
             obj.ToeBTrace.addpoints(toe_b_x, toe_b_y);
+            
+            vtoe_a_x = X(1) + leg_targets(1)*sin(X(5) + leg_targets(2));
+            vtoe_a_y = X(3) - leg_targets(1)*cos(X(5) + leg_targets(2));
+            obj.VToeATrace.addpoints(vtoe_a_x, vtoe_a_y);
+            
+            vtoe_b_x = X(1) + leg_targets(3)*sin(X(5) + leg_targets(4));
+            vtoe_b_y = X(3) - leg_targets(3)*cos(X(5) + leg_targets(4));
+            obj.VToeBTrace.addpoints(vtoe_b_x, vtoe_b_y);
         end
         
         

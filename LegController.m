@@ -36,7 +36,7 @@ classdef LegController < matlab.System
             obj.step_optimizer.params = obj.params;
         end
         
-        function [u, err, kp, debug] = stepImpl(obj, control, t, X, phase, feet)
+        function [u, target, kp, debug] = stepImpl(obj, control, t, X, phase, feet)
             % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
@@ -188,19 +188,24 @@ classdef LegController < matlab.System
             th_a = X(11);
             dth_a = X(12);
             
+            %
+            target = [1 0 0];
+            dtarget = [0 0 0];
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+            %
+            
             err = target - [leq, th_a, th_body];
             derr = dtarget - [dleq, dth_a, dth_body];
             
             u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr)';
             
             % Prevent ground slip
-            ground_force = max(obj.params(4)*(X(9) - X(7)), 0);
+            ground_force = max(obj.params(4)*(X(7) - X(9)), 0);
             friction = 1;
             slip_margin = 2;
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
-            
-            u(2) = 0;
             
             obj.err_last = err;
             obj.kp_last = kp;

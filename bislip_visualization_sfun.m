@@ -6,7 +6,7 @@ setup(block)
 
 function setup(block)
 
-block.NumInputPorts  = 1;
+block.NumInputPorts  = 2;
 block.NumOutputPorts = 1;
 
 block.SetPreCompInpPortInfoToDynamic;
@@ -15,6 +15,11 @@ block.InputPort(1).Dimensions = 18;
 block.InputPort(1).DatatypeID = 0;  % double
 block.InputPort(1).Complexity = 'Real';
 block.InputPort(1).DirectFeedthrough = true;
+
+block.InputPort(2).Dimensions = 4;
+block.InputPort(2).DatatypeID = 0;  % double
+block.InputPort(2).Complexity = 'Real';
+block.InputPort(2).DirectFeedthrough = true;
 
 block.OutputPort(1).Dimensions = 2;
 block.OutputPort(1).DatatypeID = 0;  % double
@@ -60,7 +65,7 @@ if block.IsMajorTimeStep
         return;
     end
     
-    vis.setState(block.InputPort(1).Data);
+    vis.setState(block.InputPort(1).Data, block.InputPort(2).Data);
     
     if vis.dragEnabled()
         x = vis.DragLine.XData;
