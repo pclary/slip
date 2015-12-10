@@ -116,6 +116,8 @@ classdef BiSLIPGraphics < handle
             obj.LengthA = hgtransform('Parent', obj.AngleA);
             obj.LengthB = hgtransform('Parent', obj.AngleB);
             line([0 0], [0 -1], 'Parent', obj.LengthA);
+            line(0, -1, 'Marker', '.', 'MarkerFaceColor', 'Black', 'Parent', obj.LengthA);
+            line(0, -1, 'Marker', '.', 'MarkerFaceColor', 'Black', 'Parent', obj.LengthB);
             line([0 0], [0 -1], 'Parent', obj.LengthB);
             obj.SpringA = hgtransform('Parent', obj.AngleA);
             obj.SpringB = hgtransform('Parent', obj.AngleB);
