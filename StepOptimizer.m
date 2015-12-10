@@ -28,6 +28,14 @@ classdef StepOptimizer < matlab.System
                 obj.state = 0;
             end
             
+            % At very low speeds, use a heuristic instead of the optimizer
+            if abs(dx0) < 0.01 && abs(dy0) < 0.01
+                obj.th = 0.1*dx0;
+                obj.state = 0;
+                u = obj.th;
+                return
+            end
+            
             switch obj.state
                 case 0
                     % Calculate objective function at current angle
@@ -56,7 +64,7 @@ classdef StepOptimizer < matlab.System
                     else
                         df = obj.f2 - obj.f;
                         thstep = (target - obj.f)/(df/obj.dth);
-                        maxstep = pi/16;
+                        maxstep = pi/64;
                         thstep = min(max(thstep, -maxstep), maxstep);
                         obj.th = min(max(obj.th + thstep, -pi/2), pi/2);
                     end

@@ -98,12 +98,6 @@ classdef LegController < matlab.System
             end
             
             % Angle controller
-            dx = X(2);
-            dx_target = control(2);
-            ff = 0.1/obj.touchdown_length;
-            kp = 0.2;
-            obj.th_target = ff*dx + kp*(dx - dx_target);
-            
             dx0 = X(2);
             dy0 = min(X(4), 0);
             leq0 = 1;
@@ -183,17 +177,10 @@ classdef LegController < matlab.System
             
             leq = X(7);
             dleq = X(8);
-            th_body = X(5);
+            th_body = mod(X(5) + pi, 2*pi) - pi;
             dth_body = X(6);
             th_a = X(11);
             dth_a = X(12);
-            
-            %
-            target = [1 0 0];
-            dtarget = [0 0 0];
-            kp = obj.kp_air;
-            kd = obj.kd_air;
-            %
             
             err = target - [leq, th_a, th_body];
             derr = dtarget - [dleq, dth_a, dth_body];
@@ -213,7 +200,7 @@ classdef LegController < matlab.System
 %             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = [obj.energy_last; obj.ratio_last*100];
 %             debug = obj.th_target;
-            debug = obj.touchdown_length;
+            debug = p_sub2phase'*p_phase2eff';
             if t > 0.3
                 0;
             end
