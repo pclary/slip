@@ -232,8 +232,7 @@ classdef BiSLIPGraphics < handle
         function figMouseDown(obj, ~, data)
             switch data.Source.SelectionType
                 case 'extend' % MMB
-                    obj.PanEnabled = true;
-                    obj.PanAnchor = obj.Axes.CurrentPoint(1, 1:2)';
+                    obj.enablePan();
             end
         end
         
@@ -241,7 +240,7 @@ classdef BiSLIPGraphics < handle
         function figMouseUp(obj, ~, data)
             switch data.Source.SelectionType
                 case 'extend' % MMB
-                    obj.PanEnabled = false;
+                    obj.disablePan();
             end
         end
         
@@ -259,7 +258,7 @@ classdef BiSLIPGraphics < handle
         
         
         function setAxes(obj, ~, ~)
-            if ~obj.dragEnabled()
+            if ~obj.dragEnabled() && ~obj.PanEnabled
                 obj.ViewCenter = obj.Body.Matrix(1:2, 4);
             end
             fr = obj.Fig.Position(3)/obj.Fig.Position(4);
@@ -292,7 +291,7 @@ classdef BiSLIPGraphics < handle
         
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Drag Functions
+        % Drag/Pan Functions
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         function toggleDrag(obj)
@@ -314,7 +313,7 @@ classdef BiSLIPGraphics < handle
         function enableDragUnchecked(obj)
             obj.DragLine.Visible = 'on';
             obj.DragIndicator.Visible = 'on';
-            obj.PanEnabled = false;
+            obj.disablePan();
             obj.mouseMove();
         end
         
@@ -324,7 +323,26 @@ classdef BiSLIPGraphics < handle
             obj.ViewCenterOffset = obj.ViewCenterOffset + vcdiff;
             obj.DragLine.Visible = 'off';
             obj.DragIndicator.Visible = 'off';
-            obj.PanEnabled = false;
+            obj.disablePan();
+        end
+        
+        
+        function enablePan(obj)
+            if ~obj.PanEnabled
+                obj.PanEnabled = true;
+                obj.PanAnchor = obj.Axes.CurrentPoint(1, 1:2)';
+            end
+        end
+        
+        
+        function disablePan(obj)
+            if obj.PanEnabled
+                if ~obj.dragEnabled()
+                    vcdiff = obj.ViewCenter - obj.Body.Matrix(1:2, 4);
+                    obj.ViewCenterOffset = obj.ViewCenterOffset + vcdiff;
+                end
+                obj.PanEnabled = false;
+            end
         end
     end
     
