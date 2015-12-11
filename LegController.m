@@ -182,12 +182,17 @@ classdef LegController < matlab.System
             th_a = X(11);
             dth_a = X(12);
             
+            %
+            target = [1 0 0];
+            dtarget = [0 0 0];
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+            %
+            
             err = target - [leq, th_a, th_body];
             derr = dtarget - [dleq, dth_a, dth_body];
             
             u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr)';
-            
-            u(2) = 0;
             
             % Prevent ground slip
             ground_force = max(obj.params(4)*(X(7) - X(9)), 0);

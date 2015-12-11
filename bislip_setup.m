@@ -13,8 +13,8 @@ u0 = [0; 0; 0; 0];
 body_mass = 50;
 body_inertia = 2; % 20cm radius of gyration
 foot_mass = 0.5;
-leg_stiffness = 1e4;%1e4; % 5cm deflection caused by gravity (one leg)
-leg_damping = 1e3;%0.01*2*sqrt(leg_stiffness*body_mass); % damping ratio of 0.01 (~94% efficiency)
+leg_stiffness = 1e4; % 5cm deflection caused by gravity (one leg)
+leg_damping = 0.01*2*sqrt(leg_stiffness*body_mass); % damping ratio of 0.01 (~94% efficiency)
 length_motor_inertia = 1e-3*16^2; % 1e-3 rotational inertia, 16:1 gearbox
 length_motor_damping = 4; % time constant of ~0.2s (with foot mass)
 angle_motor_inertia = 1e-3; % 0.5 kg with ~4cm radius of gyration
@@ -30,7 +30,7 @@ kp_ground = [1e5, 0, 4e2];
 kd_ground = [5e2, 0, 30];
 kp_air = [3e4, 4e2, 0];
 kd_air = [2e2, 20, 0];
-
+    
 % Stiffness of external body force (dragging body around with mouse)
 kp_f_ext = 1e4;
 kd_f_ext = 2*sqrt(kp_f_ext*body_mass);
