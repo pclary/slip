@@ -22,6 +22,8 @@ classdef BiSLIPGraphics < handle
         ToeBTrace = gobjects();
         DragLine = gobjects();
         DragIndicator = gobjects();
+        DragPinIndicator = gobjects();
+        DragPinned = false;
         ViewScale = 1;
         ViewCenter = [0; 0];
         ViewCenterOffset = [0; 0];
@@ -148,20 +150,27 @@ classdef BiSLIPGraphics < handle
             obj.DragIndicator.Curvature = [1 1];
             obj.DragIndicator.Position = [-0.01 -0.01 0.02 0.02];
             obj.DragIndicator.Visible = 'off';
+            obj.DragPinIndicator = line(0, 0, 'Parent', ax);
+            obj.DragPinIndicator.Visible = 'off';
+            obj.DragPinIndicator.Marker = 'x';
+            obj.DragPinIndicator.MarkerEdgeColor = 'Magenta';
             
             % Turn off hit test
             obj.BodyTrace.HitTest = 'off';
             obj.ToeATrace.HitTest = 'off';
             obj.ToeBTrace.HitTest = 'off';
+            obj.VToeATrace.HitTest = 'off';
+            obj.VToeBTrace.HitTest = 'off';
             obj.AngleA.Children(1).HitTest = 'off';
             obj.AngleB.Children(1).HitTest = 'off';
             obj.DragLine.HitTest = 'off';
             obj.DragIndicator.HitTest = 'off';
+            obj.DragPinIndicator.HitTest = 'off';
             
             % Register callbacks
             obj.Axes.ButtonDownFcn = @obj.axesClick;
-            body_rect.ButtonDownFcn = @obj.bodyClick;
-            body_line.ButtonDownFcn = @obj.bodyClick;
+            body_rect.ButtonDownFcn = @obj.axesClick;
+            body_line.ButtonDownFcn = @obj.axesClick;
             obj.Fig.SizeChangedFcn = @obj.setAxes;
             obj.Fig.WindowScrollWheelFcn = @obj.scrollWheel;
             obj.Fig.WindowButtonDownFcn = @obj.figMouseDown;
@@ -218,15 +227,10 @@ classdef BiSLIPGraphics < handle
         function axesClick(obj, ~, data)
             switch data.Button
                 case 1 % LMB
-                    obj.disableDrag();
-            end
-        end
-        
-        
-        function bodyClick(obj, ~, data)
-            switch data.Button
-                case 1 % LMB
                     obj.toggleDrag();
+                case 3 % RMB
+                    obj.enableDrag();
+                    obj.toggleDragPinned();
             end
         end
         
@@ -255,7 +259,13 @@ classdef BiSLIPGraphics < handle
                 obj.setAxes();
             end
             body = obj.Body.Matrix(1:2, 4);
-            set(obj.DragLine, 'XData', [body(1) mouse(1)], 'YData', [body(2) mouse(2)]);
+            if ~obj.DragPinned
+                set(obj.DragLine, 'XData', [body(1) mouse(1)], 'YData', [body(2) mouse(2)]);
+            else
+                x_pin = obj.DragLine.XData(2);
+                y_pin = obj.DragLine.YData(2);
+                set(obj.DragLine, 'XData', [body(1) x_pin], 'YData', [body(2) y_pin]);
+            end
         end
         
         
@@ -305,6 +315,13 @@ classdef BiSLIPGraphics < handle
         end
         
         
+        function enableDrag(obj)
+            if ~obj.dragEnabled()
+                obj.enableDragUnchecked();
+            end
+        end
+        
+        
         function disableDrag(obj)
             if obj.dragEnabled()
                 obj.disableDragUnchecked();
@@ -315,6 +332,7 @@ classdef BiSLIPGraphics < handle
         function enableDragUnchecked(obj)
             obj.DragLine.Visible = 'on';
             obj.DragIndicator.Visible = 'on';
+            obj.DragPinIndicator.Visible = 'off';
             obj.disablePan();
             obj.mouseMove();
         end
@@ -325,6 +343,7 @@ classdef BiSLIPGraphics < handle
             obj.ViewCenterOffset = obj.ViewCenterOffset + vcdiff;
             obj.DragLine.Visible = 'off';
             obj.DragIndicator.Visible = 'off';
+            obj.disableDragPinned();
             obj.disablePan();
         end
         
@@ -345,6 +364,26 @@ classdef BiSLIPGraphics < handle
                 end
                 obj.PanEnabled = false;
             end
+        end
+        
+        function toggleDragPinned(obj)
+            if obj.DragPinned
+                obj.disableDragPinned();
+            else
+                obj.enableDragPinned();
+            end
+        end
+        
+        function disableDragPinned(obj)
+            obj.DragPinned = false;
+            obj.DragPinIndicator.Visible = 'off';
+        end
+        
+        function enableDragPinned(obj)
+            obj.DragPinned = true;
+            mouse = obj.Axes.CurrentPoint(1, 1:2)';
+            set(obj.DragPinIndicator, 'XData', mouse(1), 'YData', mouse(2));
+            obj.DragPinIndicator.Visible = 'on';
         end
     end
     

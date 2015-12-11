@@ -187,6 +187,8 @@ classdef LegController < matlab.System
             
             u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr)';
             
+            u(2) = 0;
+            
             % Prevent ground slip
             ground_force = max(obj.params(4)*(X(7) - X(9)), 0);
             friction = 1;
