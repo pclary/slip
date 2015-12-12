@@ -138,8 +138,8 @@ classdef LegController < matlab.System
             %
             target = [1 0 0];
             dtarget = [0 0 0];
-            kp = obj.kp_air;
-            kd = obj.kd_air;
+            kp = obj.kp_air*(1 - feet(1)) + obj.kp_ground*feet(1);
+            kd = obj.kd_air*(1 - feet(1)) + obj.kd_ground*feet(1);
             %
             
             err = target - [leq, th_a, th_body];
