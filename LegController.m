@@ -1,7 +1,11 @@
 classdef LegController < matlab.System
     % Single leg controller for planar biped
     % Controls leg A
-    % Rearrange inputs to control leg B
+    % Rearrange inputs in order to control leg B
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Block Parameters
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     properties
         Ts = 1e-3;
@@ -12,23 +16,37 @@ classdef LegController < matlab.System
         kd_air = zeros(3, 1);
     end
     
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Private Properties
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     properties (Access = private)
+        step_optimizer;
+        
         th_target;
+        energy_input;
+        
         energy_last;
         energy_accumulator;
-        acc_count;
+        energy_accumulator_count;
+        
         feet_latched;
-        ratio_last;
         touchdown_length;
-        energy_input;
         post_midstance_latched;
-        dcomp_last;
         extension_length;
-        comp_peak;
-        step_optimizer;
+        
         err_last;
         kp_last;
+        forces_last;
+        dforces_last;
     end
+    
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Matlab System Methods
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     methods (Access = protected)
         function setupImpl(obj)
@@ -36,7 +54,8 @@ classdef LegController < matlab.System
             obj.step_optimizer.params = obj.params;
         end
         
-        function [u, target, kp, debug] = stepImpl(obj, control, t, X, phase, feet)
+        
+        function [u, target, kp, debug] = stepImpl(obj, control, t, X, phase, feet, forces)
             % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
@@ -44,12 +63,13 @@ classdef LegController < matlab.System
             % phase: [alpha; beta]
             %   alpha: bias towards leg A or leg B, [-1, 1]
             %   betap: proportion total leg forces, depends on alpha, [0, 1]
-            %   beta: unwrapped betap, [0, 3)
+            %   beta: unwrapped betap, [0, 4)
             %     0 is flight, A to front
             %     1 is double support, A in front
             %     2 is flight, B to front
             %     3 is double support, B in front
             % feet: [foot_a_contact; foot_b_contact];
+            % forces: [leg_a_force; leg_b_force];
             % params: [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping;
             %          length_motor_inertia; length_motor_damping; angle_motor_inertia;
             %          angle_motor_damping; angle_motor_ratio; gravity]
@@ -57,13 +77,11 @@ classdef LegController < matlab.System
             % Initialization
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
-                obj.dcomp_last = [X(8) - X(10); X(14) - X(16)];
             end
             
-            % Find midstance events either based on leg compression
-            dcomp = [X(8) - X(10); X(14) - X(16)];
-            compression_triggers = dcomp < 0 & obj.dcomp_last >= 0;
-            obj.dcomp_last = dcomp;
+            % Find midstance events based on leg compression
+            dforces = (forces - obj.forces_last)/obj.Ts;
+            compression_triggers = forces < 0 & obj.dforces_last >= 0;
             post_midstance = feet == 1 & (compression_triggers);
             midstance_events = obj.post_midstance_latched == false & post_midstance == true;
             obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
@@ -71,13 +89,12 @@ classdef LegController < matlab.System
             % Use average values of gait energy and forward velocity over
             % last cycle for speed/energy regulation
             if any(midstance_events)
-                obj.energy_last = obj.energy_accumulator/obj.acc_count;
-                obj.ratio_last = abs(X(4))/(abs(X(2)) + abs(X(4)));
-                obj.acc_count = 0;
+                obj.energy_last = obj.energy_accumulator/obj.energy_accumulator_count;
+                obj.energy_accumulator_count = 0;
                 obj.energy_accumulator = 0;
             end
             obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
-            obj.acc_count = obj.acc_count + 1;
+            obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
             % Record leg length at touchdown
             touchdown_events = obj.feet_latched == false & logical(floor(feet)) == true;
@@ -90,11 +107,6 @@ classdef LegController < matlab.System
             
             if takeoff_events(1)
                 obj.step_optimizer.reset();
-            end
-            
-            % Record compression at midstance
-            if compression_triggers(1) && feet(1) == 1
-                obj.comp_peak = X(7) - X(9);
             end
             
             % Angle controller
@@ -113,6 +125,149 @@ classdef LegController < matlab.System
             ff = 0.05;
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
+            % Get trajectories from subcontrollers and interpolate
+            [target, dtarget, kp, kd] = obj.subcontroller_interpolation(X, phase);
+            
+            leq = X(7);
+            dleq = X(8);
+            th_body = mod(X(5) + pi, 2*pi) - pi;
+            dth_body = X(6);
+            th_a = X(11);
+            dth_a = X(12);
+            
+            %
+            target = [1 0 0];
+            dtarget = [0 0 0];
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+            %
+            
+            err = target - [leq, th_a, th_body];
+            derr = dtarget - [dleq, dth_a, dth_body];
+            
+            u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr)';
+            
+            % Prevent ground slip
+            ground_force = max(obj.params(4)*(X(7) - X(9)), 0);
+            friction = 1;
+            slip_margin = 2;
+            torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
+            u(2) = u(2) - feet(1)*torque_over;
+            
+            obj.err_last = err;
+            obj.kp_last = kp;
+            obj.forces_last = forces;
+            obj.dforces_last = dforces;
+            
+%             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
+%             debug = obj.th_target;
+            debug = 0;
+            if t > 0.3
+                0;
+            end
+        end
+        
+            
+        function resetImpl(obj)
+            obj.step_optimizer.reset();
+            
+            obj.th_target = 0;
+            obj.energy_input = 0;
+            
+            obj.energy_accumulator_count = 0;
+            obj.energy_accumulator = 0;
+            obj.energy_last = NaN;
+            
+            obj.feet_latched = [false; false];
+            obj.touchdown_length = 1;
+            obj.post_midstance_latched = [false; false];
+            obj.extension_length = 0;
+            
+            obj.err_last = [0 0 0];
+            obj.kp_last = [0 0 0];
+            obj.forces_last = [0; 0];
+            obj.dforces_last = [0; 0];
+        end
+    end
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Private Methods
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    methods (Access = private)
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Subcontrollers
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        function [target, dtarget, kp, kd] = support_controller(obj, X)
+            % Use angle torque to keep body upright, maintain leg length
+            
+            extension_time = 0.2;
+            if any(obj.post_midstance_latched)
+                extension_rate = obj.energy_input/extension_time;
+                obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
+                leq_target = obj.touchdown_length + obj.extension_length;
+                dleq_target = extension_rate;
+            else
+                obj.extension_length = 0;
+                leq_target = obj.touchdown_length;
+                dleq_target = 0;
+            end
+            
+            target = [leq_target, 0, 0];
+            dtarget = [dleq_target, 0, 0];
+            
+            kp = obj.kp_ground;
+            kd = obj.kd_ground;
+        end
+        
+        
+        function [target, dtarget, kp, kd] = mirror_controller(obj, X)
+            % Mirror other leg angle and keep foot clear of ground
+            
+            th_body = X(5);
+            dth_body = X(6);
+            th_b = X(17);
+            dth_b = X(18);
+            
+            [leq_target, dleq_target] = get_clearance_length(X);
+            th_a_target = -th_b - 2*th_body;
+            dth_a_target = -dth_b - 2*dth_body;
+            
+            target = [leq_target, th_a_target, 0];
+            dtarget = [dleq_target, dth_a_target, 0];
+            
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+        end
+        
+        
+        function [target, dtarget, kp, kd] = touchdown_controller(obj, X)
+            % Set length to normal leg length, angle to touchdown angle
+            
+            th_body = X(5);
+            dth_body = X(6);
+            
+            leq_target = min(X(7), 1);
+            dleq_target = 2;
+            th_a_target = obj.th_target - th_body;
+            dth_a_target = 0 - dth_body;
+            
+            target = [leq_target, th_a_target, 0];
+            dtarget = [dleq_target, dth_a_target, 0];
+            
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+        end
+        
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Interpolation
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        function [target, dtarget, kp, kd] = subcontroller_interpolation(obj, X, phase)
             % Compute sub-controlers
             % [support; mirror; touchdown]
             target_sub = zeros(3, 3);
@@ -174,135 +329,15 @@ classdef LegController < matlab.System
             dtarget = p_phase2eff*(dtarget_phase.*kd_phase)./kd;
             target(isnan(target)) = 0;
             dtarget(isnan(dtarget)) = 0;
-            
-            leq = X(7);
-            dleq = X(8);
-            th_body = mod(X(5) + pi, 2*pi) - pi;
-            dth_body = X(6);
-            th_a = X(11);
-            dth_a = X(12);
-            
-            %
-            target = [1 0 0];
-            dtarget = [0 0 0];
-            kp = obj.kp_air;
-            kd = obj.kd_air;
-            %
-            
-            err = target - [leq, th_a, th_body];
-            derr = dtarget - [dleq, dth_a, dth_body];
-            
-            u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr)';
-            
-            % Prevent ground slip
-            ground_force = max(obj.params(4)*(X(7) - X(9)), 0);
-            friction = 1;
-            slip_margin = 2;
-            torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
-            u(2) = u(2) - feet(1)*torque_over;
-            
-            obj.err_last = err;
-            obj.kp_last = kp;
-            
-%             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
-%             debug = [obj.energy_last; obj.ratio_last*100];
-%             debug = obj.th_target;
-            debug = p_sub2phase'*p_phase2eff';
-            if t > 0.3
-                0;
-            end
-        end
-            
-        function resetImpl(obj)
-            % Initialize discrete-state properties.
-            obj.th_target = 0;
-            obj.acc_count = 0;
-            obj.energy_accumulator = 0;
-            
-            obj.energy_last = NaN;
-            
-            obj.feet_latched = [false; false];
-            obj.ratio_last = 1;
-            obj.touchdown_length = 1;
-            
-            obj.energy_input = 0;
-            obj.post_midstance_latched = [false; false];
-            
-            obj.dcomp_last = [0; 0];
-            obj.comp_peak = 0;
-            
-            obj.extension_length = 0;
-            
-            obj.step_optimizer.reset();
-            
-            obj.err_last = [0 0 0];
-            obj.kp_last = [0 0 0];
-        end
-    end
-    
-    methods (Access = private)
-        function [target, dtarget, kp, kd] = support_controller(obj, X)
-            % Use angle torque to keep body upright, maintain leg length
-            
-            extension_time = 0.2;
-            if any(obj.post_midstance_latched)
-                extension_rate = obj.energy_input/extension_time;
-                obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
-                leq_target = obj.touchdown_length + obj.extension_length;
-                dleq_target = extension_rate;
-            else
-                obj.extension_length = 0;
-                leq_target = obj.touchdown_length;
-                dleq_target = 0;
-            end
-            
-            target = [leq_target, 0, 0];
-            dtarget = [dleq_target, 0, 0];
-            
-            kp = obj.kp_ground;
-            kd = obj.kd_ground;
-        end
-        
-        function [target, dtarget, kp, kd] = mirror_controller(obj, X)
-            % Mirror other leg angle and keep foot clear of ground
-            
-            th_body = X(5);
-            dth_body = X(6);
-            th_b = X(17);
-            dth_b = X(18);
-            
-            [leq_target, dleq_target] = get_clearance_length(X);
-            th_a_target = -th_b - 2*th_body;
-            dth_a_target = -dth_b - 2*dth_body;
-            
-            target = [leq_target, th_a_target, 0];
-            dtarget = [dleq_target, dth_a_target, 0];
-            
-            kp = obj.kp_air;
-            kd = obj.kd_air;
-        end
-        
-        function [target, dtarget, kp, kd] = touchdown_controller(obj, X)
-            % Set length to normal leg length, angle to touchdown angle
-            
-            th_body = X(5);
-            dth_body = X(6);
-            
-            leq_target = min(X(7), 1);
-            dleq_target = 2;
-            th_a_target = obj.th_target - th_body;
-            dth_a_target = 0 - dth_body;
-            
-            target = [leq_target, th_a_target, 0];
-            dtarget = [dleq_target, dth_a_target, 0];
-            
-            kp = obj.kp_air;
-            kd = obj.kd_air;
         end
     end
 end
 
-        
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Helper Functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 function [l, dl] = get_clearance_length(X)
 % Get leg length required to clear ground
 
