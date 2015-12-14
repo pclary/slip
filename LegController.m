@@ -36,8 +36,9 @@ classdef LegController < matlab.System
         post_midstance_latched;
         extension_length;
         touchdown_latched;
-        td_extending_length;
+        td_leq_target;
         
+        X_last;
         err_last;
         kp_last;
         forces_last;
@@ -79,6 +80,7 @@ classdef LegController < matlab.System
             % Initialization
             if isnan(obj.energy_last)
                 obj.energy_last = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
+                obj.X_last = X;
             end
             
             % Find midstance events based on leg compression
@@ -119,6 +121,7 @@ classdef LegController < matlab.System
             leq_ext = obj.energy_input;
             target = control(2);
             obj.th_target = obj.step_optimizer.step(dx0, dy0, leq0, leq_ext, target);
+            obj.th_target = 0.1*target + 0.05*(dx0 - target);
 
             % Energy controller
             energy_target = control(1);
@@ -129,7 +132,7 @@ classdef LegController < matlab.System
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
             % Get trajectories from subcontrollers and interpolate
-            [target, dtarget, kp, kd, p_ctrl] = obj.subcontroller_interpolation(X, phase);
+            [target, dtarget, kp, kd] = obj.subcontroller_interpolation(X, phase);
             
             leq = X(7);
             dleq = X(8);
@@ -150,6 +153,7 @@ classdef LegController < matlab.System
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
             u(2) = u(2) - feet(1)*torque_over;
             
+            obj.X_last = X;
             obj.err_last = err;
             obj.kp_last = kp;
             obj.forces_last = forces;
@@ -157,7 +161,7 @@ classdef LegController < matlab.System
             
 %             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = obj.th_target;
-            debug = p_ctrl;
+            debug = 0;
             if t > 0.3
                 0;
             end
@@ -179,8 +183,9 @@ classdef LegController < matlab.System
             obj.post_midstance_latched = [false; false];
             obj.extension_length = 0;
             obj.touchdown_latched = false;
-            obj.td_extending_length = 0;
+            obj.td_leq_target = 0;
             
+            obj.X_last = zeros(18, 1);
             obj.err_last = [0 0 0];
             obj.kp_last = [0 0 0];
             obj.forces_last = [0; 0];
@@ -196,11 +201,36 @@ classdef LegController < matlab.System
     methods (Access = private)
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Subcontrollers
+        % Phase controllers
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        function [target, dtarget, kp, kd] = support_controller(obj, X)
-            % Use angle torque to keep body upright, maintain leg length
+        function [target, dtarget, kp, kd] = fa_controller(obj, X)
+            % Angle to target, length to nominal
+            % Let d terms damp movement
+            
+            th_a_target = obj.th_target - X(5);
+            target = [1, th_a_target, 0];
+            dtarget = [0, 0, 0];
+            
+            kp = obj.kp_air;
+            kd = obj.kd_air;
+        end
+        
+        
+        function [target, dtarget, kp, kd] = da_controller(obj, X)
+            % Support leg and stabilize body
+            % TODO: push controller on COM velocity
+            
+            target = [obj.touchdown_length, 0, 0];
+            dtarget = [0, 0, 0];
+            
+            kp = obj.kp_ground;
+            kd = obj.kd_ground;
+        end
+        
+        
+        function [target, dtarget, kp, kd] = sa_controller(obj, X)
+            % Support leg and stabilize body, and extend after midstance
             
             extension_time = 0.2;
             if any(obj.post_midstance_latched)
@@ -222,18 +252,12 @@ classdef LegController < matlab.System
         end
         
         
-        function [target, dtarget, kp, kd] = mirror_controller(obj, X)
-            % Mirror other leg angle and keep foot clear of ground
-            
-            th_body = X(5);
-            dth_body = X(6);
-            th_b = X(17);
-            dth_b = X(18);
+        function [target, dtarget, kp, kd] = fb_controller(obj, X)
+            % Mirror and keep out of ground
             
             [leq_target, dleq_target] = get_clearance_length(X);
-            th_a_target = -th_b - 2*th_body;
-            dth_a_target = -dth_b - 2*dth_body;
-            
+            th_a_target = -X(17) - 2*X(5);
+            dth_a_target = -X(18) - 2*X(6);
             target = [leq_target, th_a_target, 0];
             dtarget = [dleq_target, dth_a_target, 0];
             
@@ -241,20 +265,37 @@ classdef LegController < matlab.System
             kd = obj.kd_air;
         end
         
+        function [target, dtarget, kp, kd] = db_controller(obj, X)
+            % Same as sa controller for now
+            
+            [target, dtarget, kp, kd] = obj.sa_controller(X);
+        end
         
-        function [target, dtarget, kp, kd] = touchdown_controller(obj, X)
-            % Set length to normal leg length, angle to touchdown angle
+        
+        function [target, dtarget, kp, kd] = sb_controller(obj, X)
+            % Mirror stance leg until target angle reached, then extend leg
+            % until touchdown
             
-            th_body = X(5);
-            dth_body = X(6);
+            movement_dir = sign(X(2));
+            p_td = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
             
-            leq_target = 1;%min(max(X(7), obj.td_extending_length), 1);
-            dleq_target = 2;
-            th_a_target = obj.th_target - th_body;
-            dth_a_target = 0 - dth_body;
+            if p_td <= 0 && ~obj.touchdown_latched
+                obj.td_leq_target = 0;
+            end
             
-            target = [leq_target, th_a_target, 0];
-            dtarget = [dleq_target, dth_a_target, 0];
+            [leq_target, dleq_target] = get_clearance_length(X);
+            th_a_target = -X(17) - 2*X(5);
+            dth_a_target = -X(18) - 2*X(6);
+            target_m = [leq_target, th_a_target, 0];
+            dtarget_m = [dleq_target, dth_a_target, 0];
+            
+            th_a_target = obj.th_target - X(5);
+            obj.td_leq_target = min(max(obj.td_leq_target, X(7)), 1);
+            target_td = [obj.td_leq_target, th_a_target, 0];
+            dtarget_td = [1, 0, 0];
+            
+            target = target_m*(1 - p_td) + target_td*p_td;
+            dtarget = dtarget_m*(1 - p_td) + dtarget_td*p_td;
             
             kp = obj.kp_air;
             kd = obj.kd_air;
@@ -265,50 +306,25 @@ classdef LegController < matlab.System
         % Interpolation
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        function [target, dtarget, kp, kd, p_controller] = subcontroller_interpolation(obj, X, phase)
-            % Compute sub-controlers
-            % [support; mirror; touchdown]
-            target_sub = zeros(3, 3);
-            dtarget_sub = zeros(3, 3);
-            kp_sub = zeros(3, 3);
-            kd_sub = zeros(3, 3);
-            [target_sub(1, :), dtarget_sub(1, :), kp_sub(1, :), kd_sub(1, :)] ...
-                = obj.support_controller(X);
-            [target_sub(2, :), dtarget_sub(2, :), kp_sub(2, :), kd_sub(2, :)] ...
-                = obj.mirror_controller(X);
-            [target_sub(3, :), dtarget_sub(3, :), kp_sub(3, :), kd_sub(3, :)] ...
-                = obj.touchdown_controller(X);
-            
-            % Parameters used to interpolate between sub-controllers
-            movement_dir = sign(X(2));
-            % 0 before target angle, 1 close to and after
-            if ~obj.touchdown_latched
-                p_angle = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
-                if p_angle >= 1
-                    obj.touchdown_latched = true;
-                    obj.td_extending_length = X(7);
-                end
-            else
-                obj.td_extending_length = target_sub(1, 1);
-                p_angle = 1;
-            end
-            % 1 before support transfer, 0 after
-            p_push = 1 - min(max(-movement_dir*(X(11) + X(17) + 2*X(5))/0.05, 0), 1);
-            
+        function [target, dtarget, kp, kd] = subcontroller_interpolation(obj, X, phase)
             % Phase controllers
             % [flight_a; double_a; stance_a; flight_b; double_b; stance_b]
-            p_sub2phase = [0      0         1;
-                           1      0         0;
-                           1      0         0;
-                           0      1         0;
-                           p_push 1-p_push  0;
-                           0      1-p_angle p_angle];
-            kp_phase = p_sub2phase*kp_sub;
-            kd_phase = p_sub2phase*kd_sub;
-            target_phase = p_sub2phase*(target_sub.*kp_sub)./kp_phase;
-            dtarget_phase = p_sub2phase*(dtarget_sub.*kd_sub)./kd_phase;
-            target_phase(isnan(target_phase)) = 0;
-            dtarget_phase(isnan(dtarget_phase)) = 0;
+            target_phase = zeros(6, 3);
+            dtarget_phase = zeros(6, 3);
+            kp_phase = zeros(6, 3);
+            kd_phase = zeros(6, 3);
+            [target_phase(1, :), dtarget_phase(1, :), kp_phase(1, :), kd_phase(1, :)] ...
+                = obj.fa_controller(X);
+            [target_phase(2, :), dtarget_phase(2, :), kp_phase(2, :), kd_phase(2, :)] ...
+                = obj.da_controller(X);
+            [target_phase(3, :), dtarget_phase(3, :), kp_phase(3, :), kd_phase(3, :)] ...
+                = obj.sa_controller(X);
+            [target_phase(4, :), dtarget_phase(4, :), kp_phase(4, :), kd_phase(4, :)] ...
+                = obj.fb_controller(X);
+            [target_phase(5, :), dtarget_phase(5, :), kp_phase(5, :), kd_phase(5, :)] ...
+                = obj.db_controller(X);
+            [target_phase(6, :), dtarget_phase(6, :), kp_phase(6, :), kd_phase(6, :)] ...
+                = obj.sb_controller(X);
             
             % Phase interpolation
             alpha = phase(1);
@@ -336,8 +352,6 @@ classdef LegController < matlab.System
             dtarget = p_phase2eff*(dtarget_phase.*kd_phase)./kd;
             target(isnan(target)) = 0;
             dtarget(isnan(dtarget)) = 0;
-            
-            p_controller = p_sub2phase'*p_phase2eff';
         end
     end
 end

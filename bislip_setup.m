@@ -4,7 +4,7 @@ l0 = 1;
 h0 = 0.1;
 tha0 = 0.1;
 thb0 = -0.1;
-v0 = 0;
+v0 = 1;
 X0 = [0; v0; l0+h0; 0; 0;    0;
      l0; 0;  l0;    0; tha0; 0;
      l0; 0;  l0;    0; thb0; 0];
@@ -26,9 +26,9 @@ params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping;
           angle_motor_damping; angle_motor_ratio; gravity];
 
 % [length, angle, body_angle]
-kp_ground = [6e4, 0, 4e2];
-kd_ground = [2e2, 0, 30];
-kp_air = [3e4, 4e2, 0];
+kp_ground = [6e4, 0, 1e1];
+kd_ground = [2e2, 0, 4];
+kp_air = [3e4, 1e2, 0];
 kd_air = [2e2, 20, 0];
     
 % Stiffness of external body force (dragging body around with mouse)
