@@ -35,6 +35,8 @@ classdef LegController < matlab.System
         touchdown_length;
         post_midstance_latched;
         extension_length;
+        touchdown_latched;
+        td_extending_length;
         
         err_last;
         kp_last;
@@ -103,6 +105,7 @@ classdef LegController < matlab.System
             obj.feet_latched(feet == 1) = true;
             if touchdown_events(1)
                 obj.touchdown_length = X(9);
+                obj.touchdown_latched = false;
             end
             
             if takeoff_events(1)
@@ -126,7 +129,7 @@ classdef LegController < matlab.System
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
             % Get trajectories from subcontrollers and interpolate
-            [target, dtarget, kp, kd] = obj.subcontroller_interpolation(X, phase);
+            [target, dtarget, kp, kd, p_ctrl] = obj.subcontroller_interpolation(X, phase);
             
             leq = X(7);
             dleq = X(8);
@@ -134,13 +137,6 @@ classdef LegController < matlab.System
             dth_body = X(6);
             th_a = X(11);
             dth_a = X(12);
-            
-            %
-            target = [1 0 0];
-            dtarget = [0 0 0];
-            kp = obj.kp_air*(1 - feet(1)) + obj.kp_ground*feet(1);
-            kd = obj.kd_air*(1 - feet(1)) + obj.kd_ground*feet(1);
-            %
             
             err = target - [leq, th_a, th_body];
             derr = dtarget - [dleq, dth_a, dth_body];
@@ -161,7 +157,7 @@ classdef LegController < matlab.System
             
 %             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = obj.th_target;
-            debug = 0;
+            debug = p_ctrl;
             if t > 0.3
                 0;
             end
@@ -182,6 +178,8 @@ classdef LegController < matlab.System
             obj.touchdown_length = 1;
             obj.post_midstance_latched = [false; false];
             obj.extension_length = 0;
+            obj.touchdown_latched = false;
+            obj.td_extending_length = 0;
             
             obj.err_last = [0 0 0];
             obj.kp_last = [0 0 0];
@@ -250,7 +248,7 @@ classdef LegController < matlab.System
             th_body = X(5);
             dth_body = X(6);
             
-            leq_target = min(X(7), 1);
+            leq_target = 1;%min(max(X(7), obj.td_extending_length), 1);
             dleq_target = 2;
             th_a_target = obj.th_target - th_body;
             dth_a_target = 0 - dth_body;
@@ -267,7 +265,7 @@ classdef LegController < matlab.System
         % Interpolation
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        function [target, dtarget, kp, kd] = subcontroller_interpolation(obj, X, phase)
+        function [target, dtarget, kp, kd, p_controller] = subcontroller_interpolation(obj, X, phase)
             % Compute sub-controlers
             % [support; mirror; touchdown]
             target_sub = zeros(3, 3);
@@ -284,7 +282,16 @@ classdef LegController < matlab.System
             % Parameters used to interpolate between sub-controllers
             movement_dir = sign(X(2));
             % 0 before target angle, 1 close to and after
-            p_angle = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
+            if ~obj.touchdown_latched
+                p_angle = 1 - min(max(movement_dir*(obj.th_target - X(5) - X(11))/0.01, 0), 1);
+                if p_angle >= 1
+                    obj.touchdown_latched = true;
+                    obj.td_extending_length = X(7);
+                end
+            else
+                obj.td_extending_length = target_sub(1, 1);
+                p_angle = 1;
+            end
             % 1 before support transfer, 0 after
             p_push = 1 - min(max(-movement_dir*(X(11) + X(17) + 2*X(5))/0.05, 0), 1);
             
@@ -329,6 +336,8 @@ classdef LegController < matlab.System
             dtarget = p_phase2eff*(dtarget_phase.*kd_phase)./kd;
             target(isnan(target)) = 0;
             dtarget(isnan(dtarget)) = 0;
+            
+            p_controller = p_sub2phase'*p_phase2eff';
         end
     end
 end
