@@ -85,7 +85,7 @@ classdef LegController < matlab.System
             
             % Find midstance events based on leg compression
             dforces = (forces - obj.forces_last)/obj.Ts;
-            compression_triggers = forces < 0 & obj.dforces_last >= 0;
+            compression_triggers = dforces < 0 & obj.dforces_last >= 0;
             post_midstance = feet == 1 & (compression_triggers);
             midstance_events = obj.post_midstance_latched == false & post_midstance == true;
             obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
@@ -122,7 +122,7 @@ classdef LegController < matlab.System
             leq_ext = obj.energy_input;
             target = control(2);
             obj.th_target = obj.step_optimizer.step(dx0, dy0, leq0, leq_ext, target);
-            obj.th_target = 0.1*target + 0.05*(dx0 - target);
+            obj.th_target = 0.08*target + 0.2*(dx0 - target);
 
             % Energy controller
             energy_target = control(1);
@@ -160,9 +160,9 @@ classdef LegController < matlab.System
             obj.forces_last = forces;
             obj.dforces_last = dforces;
             
-%             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
+            [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = obj.th_target;
-            debug = p_phase;
+%             debug = p_phase;
             if t > 0.848
                 0;
             end
@@ -239,7 +239,7 @@ classdef LegController < matlab.System
             % Support leg and stabilize body, and extend after midstance
             
             extension_time = 0.2;
-            if any(obj.post_midstance_latched)
+            if obj.post_midstance_latched(1)
                 extension_rate = obj.energy_input/extension_time;
                 obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
                 leq_target = obj.touchdown_length + obj.extension_length;
