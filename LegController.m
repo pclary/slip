@@ -27,7 +27,7 @@ classdef LegController < matlab.System
         th_target;
         energy_input;
         
-        energy_last;
+        energy_last_cycle;
         energy_accumulator;
         energy_accumulator_count;
         
@@ -58,7 +58,7 @@ classdef LegController < matlab.System
         end
         
         
-        function [u, target, kp, debug] = stepImpl(obj, control, t, X, phase, feet, forces)
+        function [u, target, kp, debug] = stepImpl(obj, control, t, X, phase, feet, forces, energy)
             % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
@@ -78,8 +78,8 @@ classdef LegController < matlab.System
             %          angle_motor_damping; angle_motor_ratio; gravity]
             
             % Initialization
-            if isnan(obj.energy_last)
-                obj.energy_last = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
+            if isnan(obj.energy_last_cycle)
+                obj.energy_last_cycle = energy;
                 obj.X_last = X;
             end
             
@@ -93,11 +93,11 @@ classdef LegController < matlab.System
             % Use average values of gait energy and forward velocity over
             % last cycle for speed/energy regulation
             if any(midstance_events)
-                obj.energy_last = obj.energy_accumulator/obj.energy_accumulator_count;
+                obj.energy_last_cycle = obj.energy_accumulator/obj.energy_accumulator_count;
                 obj.energy_accumulator_count = 0;
                 obj.energy_accumulator = 0;
             end
-            obj.energy_accumulator = obj.energy_accumulator + get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
+            obj.energy_accumulator = obj.energy_accumulator + energy;
             obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
             % Record leg length at touchdown
@@ -116,17 +116,19 @@ classdef LegController < matlab.System
             end
             
             % Angle controller
-            dx0 = X(2);
-            dy0 = min(X(4), 0);
-            leq0 = 1;
-            leq_ext = obj.energy_input;
-            target = control(2);
-            obj.th_target = obj.step_optimizer.step(dx0, dy0, leq0, leq_ext, target);
-            obj.th_target = 0.08*target + 0.2*(dx0 - target);
+            if ~obj.td_attempt_latched
+                dx0 = X(2);
+                dy0 = min(X(4), 0);
+                leq0 = 1;
+                leq_ext = obj.energy_input;
+                target = control(2);
+                %obj.th_target = obj.step_optimizer.step(dx0, dy0, leq0, leq_ext, target);
+                obj.th_target = 0.08*target + 0.2*(dx0 - target);
+            end
 
             % Energy controller
             energy_target = control(1);
-            err = energy_target - obj.energy_last;
+            err = energy_target - obj.energy_last_cycle;
             max_extension = 0.15;
             kp = 1e-3;
             ff = 0.05;
@@ -160,9 +162,8 @@ classdef LegController < matlab.System
             obj.forces_last = forces;
             obj.dforces_last = dforces;
             
-            [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = obj.th_target;
-%             debug = p_phase;
+            debug = p_phase;
             if t > 0.848
                 0;
             end
@@ -177,7 +178,7 @@ classdef LegController < matlab.System
             
             obj.energy_accumulator_count = 0;
             obj.energy_accumulator = 0;
-            obj.energy_last = NaN;
+            obj.energy_last_cycle = NaN;
             
             obj.feet_latched = [false; false];
             obj.touchdown_length = NaN;
@@ -399,20 +400,4 @@ if isnan(l)
 end
 
 l = min(max(l, l_min), l_max);
-end
-
-
-function [gait_energy, energies] = get_gait_energy(X, err_eff, kp_eff, params)
-m = params(1);
-k = params(4);
-g = params(11);
-spring_a_energy = 1/2*k*(X(7) - X(9))^2;
-spring_b_energy = 1/2*k*(X(13) - X(15))^2;
-kinetic_energy = 1/2*m*(X(2)^2 + X(4)^2);
-gravitational_energy = m*g*(X(3) - 1);
-controller_energy = sum(1/2*kp_eff.*err_eff.^2);
-energies = [spring_a_energy; spring_b_energy; kinetic_energy; gravitational_energy; controller_energy; 0; 0];
-gait_energy = sum(energies);
-energies(6) = gait_energy;
-energies(7) = gait_energy - controller_energy;
 end
