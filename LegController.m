@@ -160,10 +160,10 @@ classdef LegController < matlab.System
             obj.forces_last = forces;
             obj.dforces_last = dforces;
             
-            [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
+%             [~, debug] = get_gait_energy(X, obj.err_last, obj.kp_last, obj.params);
 %             debug = obj.th_target;
-%             debug = p_phase;
-            if t > 0.3
+            debug = p_phase;
+            if t > 0.848
                 0;
             end
         end
@@ -360,8 +360,15 @@ classdef LegController < matlab.System
             kd = p_phase*kd_phase;
             target = p_phase*(target_phase.*kp_phase)./kp;
             dtarget = p_phase*(dtarget_phase.*kd_phase)./kd;
-            target(isnan(target)) = 0;
-            dtarget(isnan(dtarget)) = 0;
+            
+            % If p_phase for nonzero kp_phase values is very small, don't
+            % weight the average; prevents NaN and spurious targets
+            target_unweighted = p_phase*target_phase;
+            dtarget_unweighted = p_phase*dtarget_phase;
+            target_invalid = p_phase*(abs(kp_phase) > 0) < 1e-3;
+            dtarget_invalid = p_phase*(abs(kd_phase) > 0) < 1e-3;
+            target(target_invalid) = target_unweighted(target_invalid);
+            dtarget(dtarget_invalid) = dtarget_unweighted(dtarget_invalid);
         end
     end
 end
