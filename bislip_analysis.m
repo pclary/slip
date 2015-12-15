@@ -8,7 +8,7 @@ end
 vis.setGround(ground_data);
 t0 = 0;
 
-rate = 1;
+rate = 0.1;
 
 tic;
 framecount = 0;

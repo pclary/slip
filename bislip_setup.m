@@ -26,7 +26,7 @@ params = [body_mass; body_inertia; foot_mass; leg_stiffness; leg_damping;
           angle_motor_damping; angle_motor_ratio; gravity];
 
 % [length, angle, body_angle]
-kp_ground = [6e4, 0, 1e1];
+kp_ground = [3e4, 0, 1e1];
 kd_ground = [2e2, 0, 4];
 kp_air = [3e4, 1e2, 0];
 kd_air = [2e2, 20, 0];
