@@ -33,6 +33,7 @@ classdef LegController < matlab.System
         
         feet_latched;
         touchdown_length;
+        takeoff_length;
         post_midstance_latched;
         extension_length;
         td_attempt_latched;
@@ -81,6 +82,8 @@ classdef LegController < matlab.System
             if isnan(obj.energy_last_cycle)
                 obj.energy_last_cycle = energy;
                 obj.X_last = X;
+                obj.takeoff_length = X(7);
+                obj.touchdown_length = X(7);
             end
             
             % Find midstance events based on leg compression
@@ -100,19 +103,15 @@ classdef LegController < matlab.System
             obj.energy_accumulator = obj.energy_accumulator + energy;
             obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
-            % Record leg length at touchdown
-            touchdown_events = obj.feet_latched == false & logical(floor(feet)) == true;
-            takeoff_events = obj.feet_latched == true & logical(ceil(feet)) == false;
+            % Update values that are latched/enabled during stance/swing
             obj.feet_latched(feet == 0) = false;
             obj.feet_latched(feet == 1) = true;
-            if touchdown_events(1)
+            if obj.feet_latched(1)
+                obj.takeoff_length = X(7);
+                obj.step_optimizer.reset();
+            else
                 obj.touchdown_length = X(7);
                 obj.td_attempt_latched = false;
-            end
-            
-            if takeoff_events(1)
-                obj.touchdown_length = NaN;
-                obj.step_optimizer.reset();
             end
             
             % Angle controller
@@ -131,7 +130,7 @@ classdef LegController < matlab.System
             err = energy_target - obj.energy_last_cycle;
             max_extension = 0.15;
             kp = 1e-3;
-            ff = 0.05;
+            ff = 0.03;
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
             % Get trajectories from subcontrollers and interpolate
@@ -182,6 +181,7 @@ classdef LegController < matlab.System
             
             obj.feet_latched = [false; false];
             obj.touchdown_length = NaN;
+            obj.takeoff_length = NaN;
             obj.post_midstance_latched = [false; false];
             obj.extension_length = 0;
             obj.td_attempt_latched = false;
@@ -210,8 +210,9 @@ classdef LegController < matlab.System
             % Angle to target, length to nominal
             % Let d terms damp movement
             
+            leq_target = obj.takeoff_length;
             th_a_target = obj.th_target - X(5);
-            target = [1, th_a_target, 0];
+            target = [leq_target, th_a_target, 0];
             dtarget = [0, 0, 0];
             
             kp = obj.kp_air;
@@ -223,11 +224,7 @@ classdef LegController < matlab.System
             % Support leg and stabilize body
             % TODO: push controller on COM velocity
             
-            if isnan(obj.touchdown_length)
-                leq_target = X(7);
-            else
-                leq_target = obj.touchdown_length;
-            end
+            leq_target = obj.touchdown_length;
             target = [leq_target, X(11), 0];
             dtarget = [0, X(12), 0];
             
