@@ -143,10 +143,10 @@ classdef LegController < matlab.System
             th_a = X(11);
             dth_a = X(12);
             
-            err = target - [leq, th_a, th_body];
-            derr = dtarget - [dleq, dth_a, dth_body];
+            err = target - [leq; th_a; th_body];
+            derr = dtarget - [dleq; dth_a; dth_body];
             
-            u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr)';
+            u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr);
             
             % Prevent ground slip
             ground_force = max(obj.params(4)*(X(7) - X(9)), 0);
@@ -188,10 +188,10 @@ classdef LegController < matlab.System
             obj.td_leq_target = 0;
             
             obj.X_last = zeros(18, 1);
-            obj.err_last = [0 0 0];
-            obj.kp_last = [0 0 0];
-            obj.forces_last = [0; 0];
-            obj.dforces_last = [0; 0];
+            obj.err_last = zeros(3, 1);
+            obj.kp_last = zeros(3, 1);
+            obj.forces_last = zeros(2, 1);
+            obj.dforces_last = zeros(2, 1);
         end
     end
     
@@ -212,8 +212,8 @@ classdef LegController < matlab.System
             
             leq_target = obj.takeoff_length;
             th_a_target = obj.th_target - X(5);
-            target = [leq_target, th_a_target, 0];
-            dtarget = [0, 0, 0];
+            target = [leq_target; th_a_target; 0];
+            dtarget = [0; 0; 0];
             
             kp = obj.kp_air;
             kd = obj.kd_air;
@@ -225,8 +225,8 @@ classdef LegController < matlab.System
             % TODO: push controller on COM velocity
             
             leq_target = obj.touchdown_length;
-            target = [leq_target, X(11), 0];
-            dtarget = [0, X(12), 0];
+            target = [leq_target; X(11); 0];
+            dtarget = [0; X(12); 0];
             
             kp = obj.kp_ground;
             kd = obj.kd_ground;
@@ -252,8 +252,8 @@ classdef LegController < matlab.System
                 dleq_target = 0;
             end
             
-            target = [leq_target, X(11), 0];
-            dtarget = [dleq_target, X(12), 0];
+            target = [leq_target; X(11); 0];
+            dtarget = [dleq_target; X(12); 0];
             
             kp = obj.kp_ground;
             kd = obj.kd_ground;
@@ -266,8 +266,8 @@ classdef LegController < matlab.System
             [leq_target, dleq_target] = get_clearance_length(X);
             th_a_target = -X(17) - 2*X(5);
             dth_a_target = -X(18) - 2*X(6);
-            target = [leq_target, th_a_target, 0];
-            dtarget = [dleq_target, dth_a_target, 0];
+            target = [leq_target; th_a_target; 0];
+            dtarget = [dleq_target; dth_a_target; 0];
             
             kp = obj.kp_air;
             kd = obj.kd_air;
@@ -317,21 +317,21 @@ classdef LegController < matlab.System
         function [target, dtarget, kp, kd, p_phase] = subcontroller_interpolation(obj, X, phase)
             % Phase controllers
             % [flight_a; double_a; stance_a; flight_b; double_b; stance_b]
-            target_phase = zeros(6, 3);
-            dtarget_phase = zeros(6, 3);
-            kp_phase = zeros(6, 3);
-            kd_phase = zeros(6, 3);
-            [target_phase(1, :), dtarget_phase(1, :), kp_phase(1, :), kd_phase(1, :)] ...
+            target_phase = zeros(3, 6);
+            dtarget_phase = zeros(3, 6);
+            kp_phase = zeros(3, 6);
+            kd_phase = zeros(3, 6);
+            [target_phase(:, 1), dtarget_phase(:, 1), kp_phase(:, 1), kd_phase(:, 1)] ...
                 = obj.fa_controller(X);
-            [target_phase(2, :), dtarget_phase(2, :), kp_phase(2, :), kd_phase(2, :)] ...
+            [target_phase(:, 2), dtarget_phase(:, 2), kp_phase(:, 2), kd_phase(:, 2)] ...
                 = obj.da_controller(X);
-            [target_phase(3, :), dtarget_phase(3, :), kp_phase(3, :), kd_phase(3, :)] ...
+            [target_phase(:, 3), dtarget_phase(:, 3), kp_phase(:, 3), kd_phase(:, 3)] ...
                 = obj.sa_controller(X);
-            [target_phase(4, :), dtarget_phase(4, :), kp_phase(4, :), kd_phase(4, :)] ...
+            [target_phase(:, 4), dtarget_phase(:, 4), kp_phase(:, 4), kd_phase(:, 4)] ...
                 = obj.fb_controller(X);
-            [target_phase(5, :), dtarget_phase(5, :), kp_phase(5, :), kd_phase(5, :)] ...
+            [target_phase(:, 5), dtarget_phase(:, 5), kp_phase(:, 5), kd_phase(:, 5)] ...
                 = obj.db_controller(X);
-            [target_phase(6, :), dtarget_phase(6, :), kp_phase(6, :), kd_phase(6, :)] ...
+            [target_phase(:, 6), dtarget_phase(:, 6), kp_phase(:, 6), kd_phase(:, 6)] ...
                 = obj.sb_controller(X);
             
             % Phase interpolation
@@ -353,18 +353,18 @@ classdef LegController < matlab.System
                 p_da = 0;
             end
             
-            p_phase = [p_fa, p_da, p_sa, p_fb, p_db, p_sb];
-            kp = p_phase*kp_phase;
-            kd = p_phase*kd_phase;
-            target = p_phase*(target_phase.*kp_phase)./kp;
-            dtarget = p_phase*(dtarget_phase.*kd_phase)./kd;
+            p_phase = [p_fa; p_da; p_sa; p_fb; p_db; p_sb];
+            kp = kp_phase*p_phase;
+            kd = kd_phase*p_phase;
+            target = bsxfun(@rdivide, (target_phase.*kp_phase), kp)*p_phase;
+            dtarget = bsxfun(@rdivide, (dtarget_phase.*kd_phase), kd)*p_phase;
             
             % If p_phase for nonzero kp_phase values is very small, don't
             % weight the average; prevents NaN and spurious targets
-            target_unweighted = p_phase*target_phase;
-            dtarget_unweighted = p_phase*dtarget_phase;
-            target_invalid = p_phase*(abs(kp_phase) > 0) < 1e-3;
-            dtarget_invalid = p_phase*(abs(kd_phase) > 0) < 1e-3;
+            target_unweighted = target_phase*p_phase;
+            dtarget_unweighted = dtarget_phase*p_phase;
+            target_invalid = (abs(kp_phase) > 0)*p_phase < 1e-3;
+            dtarget_invalid = (abs(kd_phase) > 0)*p_phase < 1e-3;
             target(target_invalid) = target_unweighted(target_invalid);
             dtarget(dtarget_invalid) = dtarget_unweighted(dtarget_invalid);
         end
