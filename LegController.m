@@ -59,7 +59,7 @@ classdef LegController < matlab.System
         end
         
         
-        function [u, target, kp, debug] = stepImpl(obj, control, t, X, phase, feet, forces, energy)
+        function [u, target, kp, debug] = stepImpl(obj, control, t, X, feet, phase, forces, energy)
             % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
