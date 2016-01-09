@@ -379,7 +379,7 @@ end
 function [l, dl] = get_clearance_length(X)
 % Get leg length required to clear ground
 
-ground_clearance = 0.05;
+ground_clearance = 0.1;
 
 y = X(3);
 dy = X(4);

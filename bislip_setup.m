@@ -36,7 +36,7 @@ kp_f_ext = 1e4;
 kd_f_ext = 2*sqrt(kp_f_ext*body_mass);
 
 ground_x = [-1e3; 5; 35; 65; 1e3];
-ground_y = [0; 0; 1; 0; 0];
+ground_y = [0; 0; 1.5; 0; 0];
 ground_stiffness = 1e6*ones(size(ground_x));
 ground_damping = 1.5*2*sqrt(ground_stiffness*foot_mass).*ones(size(ground_x));
 ground_friction = 1*ones(size(ground_x));
