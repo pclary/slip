@@ -15,6 +15,7 @@ classdef BiSLIPGraphics < handle
         SpringA = gobjects();
         SpringB = gobjects();
         Ground = gobjects();
+        GroundShading = gobjects();
         BodyTrace = gobjects();
         VToeATrace = gobjects();
         VToeBTrace = gobjects();
@@ -51,6 +52,7 @@ classdef BiSLIPGraphics < handle
         
         function setGround(obj, ground_data)
             set(obj.Ground, 'XData', ground_data(:, 1), 'YData', ground_data(:, 2));
+            obj.makeGroundShading(ground_data(:, 1:2));
         end
         
         
@@ -109,6 +111,9 @@ classdef BiSLIPGraphics < handle
             obj.Ground = line('Parent', ax);
             obj.Ground.XData = [];
             obj.Ground.YData = [];
+            obj.GroundShading = line('Parent', ax);
+            obj.GroundShading.XData = [];
+            obj.GroundShading.YData = [];
             
             obj.Body = hgtransform('Parent', ax);
             
@@ -217,6 +222,49 @@ classdef BiSLIPGraphics < handle
             vtoe_b_x = X(1) + leg_targets(3)*sin(X(5) + leg_targets(4));
             vtoe_b_y = X(3) - leg_targets(3)*cos(X(5) + leg_targets(4));
             obj.VToeBTrace.addpoints(vtoe_b_x, vtoe_b_y);
+        end
+        
+        
+        function makeGroundShading(obj, ground_data)
+            xgs = [];
+            ygs = [];
+            
+            mark_spacing = 0.2;
+            mark_length = 0.2;
+            mark_angle = 225;
+            x_mark = [0; mark_length*cosd(mark_angle)];
+            y_mark = [0; mark_length*sind(mark_angle)];
+            
+            for i = 1:length(ground_data)-1
+                segment_base = ground_data(i, :);
+                segment = ground_data(i+1, :) - segment_base;
+                segment_length = norm(segment);
+                segment_angle = atan2d(segment(2), segment(1));
+                segment_flip = mod(segment_angle - mark_angle, 360) > 180;
+                
+                nmarks = floor(segment_length/mark_spacing);
+                xgs_new = nan(nmarks*3, 1);
+                ygs_new = nan(nmarks*3, 1);
+                
+                for j = 1:nmarks
+                    if segment_flip
+                        p = (j-1)*mark_spacing/segment_length;
+                        offset = segment_base + p*segment;
+                        xgs_new(3*j:3*j+1) = offset(1) - x_mark;
+                        ygs_new(3*j:3*j+1) = offset(2) - y_mark;
+                    else
+                        p = j*mark_spacing/segment_length;
+                        offset = segment_base + p*segment;
+                        xgs_new(3*j:3*j+1) = offset(1) + x_mark;
+                        ygs_new(3*j:3*j+1) = offset(2) + y_mark;
+                    end
+                end
+                
+                xgs = [xgs; xgs_new];
+                ygs = [ygs; ygs_new];
+            end
+            
+            set(obj.GroundShading, 'XData', xgs, 'YData', ygs);
         end
         
         
