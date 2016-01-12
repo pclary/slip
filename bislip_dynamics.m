@@ -91,47 +91,22 @@ function ground_force = ground_contact_model(pos, vel, ground_data)
 % forces on the point, and the ground data structure
 % Returns the ground forces and a structure containing intermediate values
 
-% Find location on ground that point is contacting
-[xc, yc, ic, pc] = pointxpoly(pos(1), pos(2), ground_data(:, 1), ground_data(:, 2));
-offset_vector = [xc(1) - pos(1); yc(1) - pos(2)];
-if length(ic) > 1 && pc(1) == 1 && ic(2) == ic(1) + 1
-    % Special case for corners
-    gs1 = [diff(ground_data(ic(1):ic(1)+1, 1)); diff(ground_data(ic(1):ic(1)+1, 2))];
-    gs2 = [diff(ground_data(ic(2):ic(2)+1, 1)); diff(ground_data(ic(2):ic(2)+1, 2))];
-    gs = gs1/norm(gs1) + gs2/norm(gs2);
-    ov_rot = [offset_vector(2); -offset_vector(1)];
-    ground_segment = sign(dot(ov_rot, gs))*ov_rot/norm(ov_rot);
-elseif ~isempty(ic)
-    ground_segment = [diff(ground_data(ic(1):ic(1)+1, 1)); diff(ground_data(ic(1):ic(1)+1, 2))];
-else
-    % Should only happen if there are no ground points
-    ground_segment = [NaN; NaN];
-end
-
-% Right hand side of polyline is ground side
-inground = ground_segment(1)*offset_vector(2) - ground_segment(2)*offset_vector(1) > 0;
-
-if inground && (length(ic) > 1 && pc(1) == 1 && ic(2) == ic(1) + 1)
-    0;
-end
+[inground, ground_normal, xc, yc, ic, pc] = test_ground(pos, ground_data);
+ground_tangent = [ground_normal(2); -ground_normal(1)];
 
 if inground
     % Find depth into ground, speed, and ground properties at contact
-    ground_tangent = ground_segment/norm(ground_segment);
-    ground_normal = [-ground_tangent(2); ground_tangent(1)];
-    depth = norm(offset_vector);
+    depth = [xc - pos(1); yc - pos(2)];
     ddepth = -vel(1)*ground_normal(1) - vel(2)*ground_normal(2);
-    ground_stiffness = interpolate(ground_data(:, 3), ic(1), pc(1));
-    ground_damping = interpolate(ground_data(:, 4), ic(1), pc(1));
-    ground_friction = interpolate(ground_data(:, 5), ic(1), pc(1));
+    ground_stiffness = interpolate(ground_data(:, 3), ic, pc);
+    ground_damping = interpolate(ground_data(:, 4), ic, pc);
+    ground_friction = interpolate(ground_data(:, 5), ic, pc);
     
     % Ramp up damping with depth
     damping_threshold = 1e-5;
     ground_damping = ground_damping*depth/(depth + damping_threshold);
 else
     % No ground contact
-    ground_tangent = [1; 0];
-    ground_normal = [0; 1];
     depth = 0;
     ddepth = 0;
     ground_stiffness = 0;
@@ -161,24 +136,3 @@ ground_force = spring_force + friction_force;
 function out = interpolate(v, i, p)
 % Interpolation function for ground properties
 out = v(i) + p*(v(i+1) - v(i));
-
-
-function [xc, yc, ic, pc] = pointxpoly(xpt, ypt, xpl, ypl)
-% Find closest point on polyline to a given point
-dxpl = xpl(2:end) - xpl(1:end-1);
-dypl = ypl(2:end) - ypl(1:end-1);
-dxptpl = xpt(1) - xpl(1:end-1);
-dyptpl = ypt(1) - ypl(1:end-1);
-
-p = (dxpl.*dxptpl + dypl.*dyptpl)./(dxpl.*dxpl + dypl.*dypl);
-p(p < 0) = 0;
-p(p > 1) = 1;
-
-xlpt = xpl(1:end-1) + p.*dxpl;
-ylpt = ypl(1:end-1) + p.*dypl;
-
-d2 = (xlpt - xpt).^2 + (ylpt - ypt).^2;
-ic = find(d2 == min(d2));
-xc = xlpt(ic);
-yc = ylpt(ic);
-pc = p(ic);
