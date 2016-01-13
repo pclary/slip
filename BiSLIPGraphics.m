@@ -62,6 +62,10 @@ classdef BiSLIPGraphics < handle
             obj.ToeBTrace.clearpoints();
             obj.VToeATrace.clearpoints();
             obj.VToeBTrace.clearpoints();
+            obj.Ground.XData = [];
+            obj.Ground.YData = [];
+            obj.GroundShading.XData = [];
+            obj.GroundShading.YData = [];
             obj.ViewScale = 1;
             obj.ViewCenter = [0; 0];
             obj.ViewCenterOffset = [0; 0];
@@ -93,6 +97,8 @@ classdef BiSLIPGraphics < handle
             fig = figure;
             obj.Fig = fig;
             ax = axes('Parent', fig);
+            grid(ax, 'on');
+            ax.GridColor = [1 1 1]*0.5;
             obj.Axes = ax;
             obj.Axes.DataAspectRatio = [1 1 1];
             obj.Axes.PlotBoxAspectRatio = [obj.Fig.Position(3:4) 1];

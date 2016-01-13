@@ -7,4 +7,6 @@
 *.mexa64
 slprj/
 *_grt_rtw/
+*.exp
+*.lib
 codegen/

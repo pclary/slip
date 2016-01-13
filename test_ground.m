@@ -4,7 +4,7 @@ function [inground, normal, xc, yc, ic, pc] = test_ground(point, ground_data)
 [xcc, ycc, icc, pcc] = pointxpoly(point(1), point(2), ground_data(:, 1), ground_data(:, 2));
 offset_vector = [xcc(1) - point(1); ycc(1) - point(2)];
 if isempty(icc)
-    inground = 0;
+    inground = false;
     normal = [0; 1];
     xc = 0;
     yc = 0;

@@ -162,7 +162,7 @@ classdef LegController < matlab.System
             obj.dforces_last = dforces;
             
 %             debug = obj.th_target;
-            debug = p_phase;
+            debug = obj.energy_input;
             if t > 0.848
                 0;
             end

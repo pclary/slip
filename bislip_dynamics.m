@@ -96,7 +96,7 @@ ground_tangent = [ground_normal(2); -ground_normal(1)];
 
 if inground
     % Find depth into ground, speed, and ground properties at contact
-    depth = [xc - pos(1); yc - pos(2)];
+    depth = norm([xc - pos(1); yc - pos(2)]);
     ddepth = -vel(1)*ground_normal(1) - vel(2)*ground_normal(2);
     ground_stiffness = interpolate(ground_data(:, 3), ic, pc);
     ground_damping = interpolate(ground_data(:, 4), ic, pc);
