@@ -31,7 +31,6 @@ classdef LegController < matlab.System
         energy_accumulator;
         energy_accumulator_count;
         
-        feet_latched;
         touchdown_length;
         takeoff_length;
         post_midstance_latched;
@@ -42,8 +41,6 @@ classdef LegController < matlab.System
         X_last;
         err_last;
         kp_last;
-        forces_last;
-        dforces_last;
     end
     
     
@@ -59,7 +56,7 @@ classdef LegController < matlab.System
         end
         
         
-        function [u, target, kp, debug] = stepImpl(obj, control, t, X, feet, phase, forces, energy)
+        function [u, target, kp, debug] = stepImpl(obj, control, t, X, signals, energy)
             % control: [energy_target; ratio_target]
             % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
             %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
@@ -86,16 +83,9 @@ classdef LegController < matlab.System
                 obj.touchdown_length = X(7);
             end
             
-            % Find midstance events based on leg compression
-            dforces = (forces - obj.forces_last)/obj.Ts;
-            compression_triggers = dforces < 0 & obj.dforces_last >= 0;
-            post_midstance = feet == 1 & (compression_triggers);
-            midstance_events = obj.post_midstance_latched == false & post_midstance == true;
-            obj.post_midstance_latched = (obj.post_midstance_latched | post_midstance) & feet ~= 0;
-            
             % Use average values of gait energy and forward velocity over
             % last cycle for speed/energy regulation
-            if any(midstance_events)
+            if any(signals.midstance)
                 obj.energy_last_cycle = obj.energy_accumulator/obj.energy_accumulator_count;
                 obj.energy_accumulator_count = 0;
                 obj.energy_accumulator = 0;
@@ -103,15 +93,18 @@ classdef LegController < matlab.System
             obj.energy_accumulator = obj.energy_accumulator + energy;
             obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
-            % Update values that are latched/enabled during stance/swing
-            obj.feet_latched(feet == 0) = false;
-            obj.feet_latched(feet == 1) = true;
-            if obj.feet_latched(1)
-                obj.takeoff_length = X(7);
-                obj.step_optimizer.reset();
-            else
+            % Perform events
+            if signals.touchdown(1)
                 obj.touchdown_length = X(7);
                 obj.td_attempt_latched = false;
+            end
+            if signals.midstance(1)
+                obj.post_midstance_latched = true;
+            end
+            if signals.takeoff(1)
+                obj.takeoff_length = X(7);
+                obj.step_optimizer.reset();
+                obj.post_midstance_latched = false;
             end
             
             % Angle controller
@@ -134,7 +127,7 @@ classdef LegController < matlab.System
             obj.energy_input = min(max(kp*err + ff, 0), max_extension);
             
             % Get trajectories from subcontrollers and interpolate
-            [target, dtarget, kp, kd, p_phase] = obj.subcontroller_interpolation(X, phase);
+            [target, dtarget, kp, kd, p_phase] = obj.subcontroller_interpolation(X, signals.phase);
             
             leq = X(7);
             dleq = X(8);
@@ -153,13 +146,11 @@ classdef LegController < matlab.System
             friction = 1;
             slip_margin = 2;
             torque_over = max(abs(u(2)) - X(9)*ground_force*friction/slip_margin, 0);
-            u(2) = u(2) - feet(1)*torque_over;
+            u(2) = u(2) - signals.feet_fade(1)*torque_over;
             
             obj.X_last = X;
             obj.err_last = err;
             obj.kp_last = kp;
-            obj.forces_last = forces;
-            obj.dforces_last = dforces;
             
 %             debug = obj.th_target;
             debug = obj.energy_input;
@@ -179,7 +170,6 @@ classdef LegController < matlab.System
             obj.energy_accumulator = 0;
             obj.energy_last_cycle = NaN;
             
-            obj.feet_latched = [false; false];
             obj.touchdown_length = NaN;
             obj.takeoff_length = NaN;
             obj.post_midstance_latched = [false; false];
@@ -190,8 +180,6 @@ classdef LegController < matlab.System
             obj.X_last = zeros(18, 1);
             obj.err_last = zeros(3, 1);
             obj.kp_last = zeros(3, 1);
-            obj.forces_last = zeros(2, 1);
-            obj.dforces_last = zeros(2, 1);
         end
     end
     

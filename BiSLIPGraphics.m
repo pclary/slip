@@ -52,7 +52,7 @@ classdef BiSLIPGraphics < handle
         
         function setGround(obj, ground_data)
             set(obj.Ground, 'XData', ground_data(:, 1), 'YData', ground_data(:, 2));
-            obj.makeGroundShading(ground_data(:, 1:2));
+            set(obj.GroundShading, 'XData', ground_data(:, 1), 'YData', ground_data(:, 2));
         end
         
         
@@ -117,9 +117,11 @@ classdef BiSLIPGraphics < handle
             obj.Ground = line('Parent', ax);
             obj.Ground.XData = [];
             obj.Ground.YData = [];
-            obj.GroundShading = line('Parent', ax);
+            obj.GroundShading = patch('Parent', ax);
             obj.GroundShading.XData = [];
             obj.GroundShading.YData = [];
+            obj.GroundShading.FaceAlpha = 0.1;
+            obj.GroundShading.EdgeAlpha = 0;
             
             obj.Body = hgtransform('Parent', ax);
             
