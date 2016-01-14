@@ -1,9 +1,10 @@
-classdef StateEstimator < matlab.System
+classdef StateEstimator < matlab.System & matlab.system.mixin.Propagates
     
     properties
         Ts = 1e-3;
         params = zeros(11, 1);
     end
+    
     
     properties (Access = private)
         x_last;
@@ -16,9 +17,11 @@ classdef StateEstimator < matlab.System
         slopes;
     end
     
+    
     methods (Access = protected)
         function setupImpl(~)
         end
+        
         
         function [X, slope] = stepImpl(obj, orientation, legs, signals)
             if ~any(signals.feet_contact_good)
@@ -84,15 +87,40 @@ classdef StateEstimator < matlab.System
             slope = obj.slope;
         end
         
+        
         function resetImpl(obj)
             obj.x_last = 0;
             obj.xdot_last = 0;
             obj.y_last = 1;
             obj.ydot_last = 0;
-            obj.feet_last = [0; 0];
+            obj.feet_last = [false; false];
             obj.x_td_last = 0;
             obj.slope = 0;
             obj.slopes = [0; 0; 0];
+        end
+        
+        
+        function [flag_1, flag_2] = isOutputFixedSizeImpl(~)
+            flag_1 = true;
+            flag_2 = true;
+        end
+        
+        
+        function [sz_1, sz_2] = getOutputSizeImpl(~)
+            sz_1 = [18 1];
+            sz_2 = [1 1];
+        end
+        
+        
+        function [dt_1, dt_2] = getOutputDataTypeImpl(~)
+            dt_1 = 'double';
+            dt_2 = 'double';
+        end
+        
+        
+        function [cp_1, cp_2] = isOutputComplexImpl(~)
+            cp_1 = false;
+            cp_2 = false;
         end
     end
 end

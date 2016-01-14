@@ -1,4 +1,4 @@
-classdef LegController < matlab.System
+classdef LegController < matlab.System & matlab.system.mixin.Propagates
     % Single leg controller for planar biped
     % Controls leg A
     % Rearrange inputs in order to control leg B
@@ -172,7 +172,7 @@ classdef LegController < matlab.System
             
             obj.touchdown_length = NaN;
             obj.takeoff_length = NaN;
-            obj.post_midstance_latched = [false; false];
+            obj.post_midstance_latched = false;
             obj.extension_length = 0;
             obj.td_attempt_latched = false;
             obj.td_leq_target = 0;
@@ -180,6 +180,38 @@ classdef LegController < matlab.System
             obj.X_last = zeros(18, 1);
             obj.err_last = zeros(3, 1);
             obj.kp_last = zeros(3, 1);
+        end
+        
+        
+        function [flag_1, flag_2, flag_3, flag_4] = isOutputFixedSizeImpl(~)
+            flag_1 = true;
+            flag_2 = true;
+            flag_3 = true;
+            flag_4 = true;
+        end
+        
+        
+        function [sz_1, sz_2, sz_3, sz_4] = getOutputSizeImpl(~)
+            sz_1 = [2 1];
+            sz_2 = [3 1];
+            sz_3 = [3 1];
+            sz_4 = [1 1];
+        end
+        
+        
+        function [dt_1, dt_2, dt_3, dt_4] = getOutputDataTypeImpl(~)
+            dt_1 = 'double';
+            dt_2 = 'double';
+            dt_3 = 'double';
+            dt_4 = 'double';
+        end
+        
+        
+        function [cp_1, cp_2, cp_3, cp_4] = isOutputComplexImpl(~)
+            cp_1 = false;
+            cp_2 = false;
+            cp_3 = false;
+            cp_4 = false;
         end
     end
     
@@ -225,7 +257,7 @@ classdef LegController < matlab.System
             % Support leg and stabilize body, and extend after midstance
             
             extension_time = 0.2;
-            if obj.post_midstance_latched(1)
+            if obj.post_midstance_latched
                 extension_rate = obj.energy_input/extension_time;
                 obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
                 leq_target = obj.touchdown_length + obj.extension_length;
