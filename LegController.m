@@ -94,7 +94,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
             % Perform events
-            if signals.touchdown(1)
+            if signals.touchdown_fast(1)
                 obj.touchdown_length = X(7);
                 obj.td_attempt_latched = false;
             end

@@ -60,10 +60,6 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
             touchdown_fast = ~obj.feet_down & forces > weight/4;
             takeoff_fast = obj.feet_down & forces <= 0;
             
-            if takeoff(1)
-                0;
-            end
-            
             % Apply events
             obj.feet_fade_latched(touchdown) = true;
             obj.feet_fade_latched(takeoff) = false;
@@ -79,8 +75,10 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
             signals.feet_fade = feet_fade;
             signals.feet_contact_good = obj.feet_contact_good;
             signals.touchdown = touchdown;
+            signals.touchdown_fast = touchdown_fast;
             signals.midstance = midstance;
             signals.takeoff = takeoff;
+            signals.takeoff_fast = takeoff_fast;
             signals.phase = [alpha; beta];
         end
         
