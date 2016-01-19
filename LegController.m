@@ -14,16 +14,15 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         kd_ground = zeros(3, 1);
         kp_air = zeros(3, 1);
         kd_air = zeros(3, 1);
+        leq_neutral = 1;
     end
     
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Private Properties
+    % Internal State Properties
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     properties (Access = private)
-        step_optimizer;
-        
         th_target;
         energy_input;
         
@@ -33,10 +32,15 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         
         touchdown_length;
         takeoff_length;
-        post_midstance_latched;
+        post_midstance;
         extension_length;
-        td_attempt_latched;
-        td_leq_target;
+        
+        p_td_attempt;
+        td_attempt_leq_target;
+        td_attempt_dleq_target;
+        
+        td_attempt_latched; %kill
+        td_leq_target; %kill
         
         X_last;
         err_last;
@@ -44,15 +48,17 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
     end
     
     
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Matlab System Methods
+    % Inherited Methods
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     methods (Access = protected)
-        function setupImpl(obj)
-            obj.step_optimizer = StepOptimizer();
-            obj.step_optimizer.params = obj.params;
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % matlab.System Methods
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        function setupImpl(~)
         end
         
         
@@ -85,7 +91,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             
             % Use average values of gait energy and forward velocity over
             % last cycle for speed/energy regulation
-            if any(signals.midstance)
+            if any(signals.touchdown)
                 obj.energy_last_cycle = obj.energy_accumulator/obj.energy_accumulator_count;
                 obj.energy_accumulator_count = 0;
                 obj.energy_accumulator = 0;
@@ -93,31 +99,12 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             obj.energy_accumulator = obj.energy_accumulator + energy;
             obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
-            % Perform events
-            if signals.touchdown_fast(1)
-                obj.touchdown_length = X(7);
-                obj.td_attempt_latched = false;
-            end
-            if signals.midstance(1)
-                obj.post_midstance_latched = true;
-            end
-            if signals.takeoff(1)
-                obj.takeoff_length = X(7);
-                obj.step_optimizer.reset();
-                obj.post_midstance_latched = false;
-            end
+            % Deal with triggers, etc.
+            obj.process_events(signals);
             
-            % Angle controller
-            if ~obj.td_attempt_latched
-                dx0 = X(2);
-                dy0 = min(X(4), 0);
-                leq0 = 1;
-                leq_ext = obj.energy_input;
-                target = control(2);
-                %obj.th_target = obj.step_optimizer.step(dx0, dy0, leq0, leq_ext, target);
-                obj.th_target = 0.08*target + 0.2*(dx0 - target);
-            end
-
+            % Angle controller, touchdown properties
+            obj.process_touchdown(X, control, signals);
+            
             % Energy controller
             energy_target = control(1);
             err = energy_target - obj.energy_last_cycle;
@@ -139,6 +126,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             err = target - [leq; th_a; th_body];
             derr = dtarget - [dleq; dth_a; dth_body];
             
+            % Compute PD controller output
             u = [1 0 0; 0 1 -1]*(kp.*err + kd.*derr);
             
             % Prevent ground slip
@@ -153,7 +141,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             obj.kp_last = kp;
             
 %             debug = obj.th_target;
-            debug = obj.energy_input;
+            debug = p_phase;
             if t > 0.848
                 0;
             end
@@ -172,8 +160,14 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             
             obj.touchdown_length = NaN;
             obj.takeoff_length = NaN;
-            obj.post_midstance_latched = false;
+            obj.post_midstance = false;
             obj.extension_length = 0;
+            
+            obj.p_td_attempt = 0;
+            obj.td_attempt_leq_target = 0;
+            obj.td_attempt_dleq_target = 0;
+            
+            % kill
             obj.td_attempt_latched = false;
             obj.td_leq_target = 0;
             
@@ -182,6 +176,10 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             obj.kp_last = zeros(3, 1);
         end
         
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % matlab.system.mixin.Propagates methods
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         function [flag_1, flag_2, flag_3, flag_4] = isOutputFixedSizeImpl(~)
             flag_1 = true;
@@ -195,7 +193,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             sz_1 = [2 1];
             sz_2 = [3 1];
             sz_3 = [3 1];
-            sz_4 = [1 1];
+            sz_4 = [6 1];
         end
         
         
@@ -223,17 +221,83 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
     methods (Access = private)
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Subroutines
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        function process_events(obj, X, signals)
+            % Respond to event signals
+            
+            if signals.touchdown_fast(1) && signals.feet_fade(1) < 1 && ~obj.post_midstance
+                obj.touchdown_length = min(X(7), 1);
+            end
+            if signals.touchdown(1)
+                obj.td_attempt_latched = false;
+            end
+            if signals.midstance(1)
+                obj.post_midstance = true;
+            end
+            if signals.takeoff_fast(1) && signals.feet_fade(1) > 0 && obj.post_midstance
+                obj.takeoff_length = min(X(7), 1);
+            end
+            if signals.takeoff(1)
+                obj.step_optimizer.reset();
+                obj.post_midstance = false;
+            end
+        end
+        
+        
+        function process_touchdown(obj, X, control, signals)
+            % Compute properties related to touchdown
+            
+            % Touchdown angle controller
+            if ~obj.td_attempt_latched
+                dx0 = X(2);
+                target = control(2);
+                obj.th_target = 0.08*target + 0.2*(dx0 - target);
+                % TODO: calculate desired td angle
+                % set th_target so that foot is at this angle with matched
+                % ground speed at expected touchdown time
+            end
+            
+            % p_td_attempt determines whether to extend the foot
+            % p_td_attempt latches at 1 until reset
+            if obj.p_td_attempt < 1
+                fade_width = 0.1;
+                obj.p_td_attempt = 1 - min(max((obj.th_target - (X(5) + X(11)))/fade_width, 0), 1);
+            end
+            if signals.feet_fade(1) == 1
+                % Reset p_td_attempt when ground contact is estalished
+                % TODO: also reset when foot makes a complete sweep without
+                % hitting ground
+                obj.p_td_attempt = 0;
+            end
+            
+            % Calculate leq targets used to extend the leg
+            if obj.p_td_attempt > 0
+                fade_width = 0.01; % m
+                obj.td_attempt_leq_target = min(max(X(7), obj.td_attempt_leq_target), obj.leq_neutral);
+                dfade = min(max((obj.leq_neutral - obj.td_attempt_leq_target)/fade_width, 0), 1);
+                td_rate = 1; % m/s
+                obj.td_attempt_dleq_target = dfade*td_rate;
+            else
+                obj.td_attempt_leq_target = 0;
+                obj.td_attempt_dleq_target = 0;
+            end
+        end
+        
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Phase controllers
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         function [target, dtarget, kp, kd] = fa_controller(obj, X)
-            % Angle to target, length to nominal
-            % Let d terms damp movement
+            % Angle to target, increase length until nominal
+            % Use d term to extend leg
             
-            leq_target = obj.takeoff_length;
             th_a_target = obj.th_target - X(5);
-            target = [leq_target; th_a_target; 0];
-            dtarget = [0; 0; 0];
+            obj.td_leq_target = min(max(obj.td_leq_target, X(7)), obj.leq_neutral);
+            target = [obj.td_leq_target, th_a_target, 0];
+            dtarget = [1, 0, 0];
             
             kp = obj.kp_air;
             kd = obj.kd_air;
@@ -257,7 +321,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             % Support leg and stabilize body, and extend after midstance
             
             extension_time = 0.2;
-            if obj.post_midstance_latched
+            if obj.post_midstance
                 extension_rate = obj.energy_input/extension_time;
                 obj.extension_length = min(obj.extension_length + obj.Ts*extension_rate, obj.energy_input);
                 leq_target = obj.touchdown_length + obj.extension_length;
@@ -283,7 +347,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         function [target, dtarget, kp, kd] = fb_controller(obj, X)
             % Mirror and keep out of ground
             
-            [leq_target, dleq_target] = get_clearance_length(X);
+            [leq_target, dleq_target] = obj.get_clearance_length(X);
             th_a_target = -X(17) - 2*X(5);
             dth_a_target = -X(18) - 2*X(6);
             target = [leq_target; th_a_target; 0];
@@ -311,14 +375,14 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
                 obj.td_leq_target = 0;
             end
             
-            [leq_target, dleq_target] = get_clearance_length(X);
+            [leq_target, dleq_target] = obj.get_clearance_length(X);
             th_a_target = -X(17) - 2*X(5);
             dth_a_target = -X(18) - 2*X(6);
             target_m = [leq_target, th_a_target, 0];
             dtarget_m = [dleq_target, dth_a_target, 0];
             
             th_a_target = obj.th_target - X(5);
-            obj.td_leq_target = min(max(obj.td_leq_target, X(7)), 1);
+            obj.td_leq_target = min(max(obj.td_leq_target, X(7)), obj.leq_neutral);
             target_td = [obj.td_leq_target, th_a_target, 0];
             dtarget_td = [1, 0, 0];
             
@@ -388,33 +452,34 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             target(target_invalid) = target_unweighted(target_invalid);
             dtarget(dtarget_invalid) = dtarget_unweighted(dtarget_invalid);
         end
+        
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Helper Functions
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        function [l, dl] = get_clearance_length(obj, X)
+            % Get leg length required to clear ground
+            
+            ground_clearance = 0.1;
+            
+            y = X(3);
+            dy = X(4);
+            th = X(5) + X(11);
+            dth = X(6) + X(12);
+            
+            l = (y - ground_clearance)/cos(th);
+            dl = dy/cos(th) + dth*sin(th)*(y - ground_clearance)/cos(th)^2;
+            
+            l_min = 0.5;
+            l_max = obj.leq_neutral;
+            
+            if isnan(l)
+                l = obj.leq_neutral;
+            end
+            
+            l = min(max(l, l_min), l_max);
+        end
+
     end
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Helper Functions
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-function [l, dl] = get_clearance_length(X)
-% Get leg length required to clear ground
-
-ground_clearance = 0.1;
-
-y = X(3);
-dy = X(4);
-th = X(5) + X(11);
-dth = X(6) + X(12);
-
-l = (y - ground_clearance)/cos(th);
-dl = dy/cos(th) + dth*sin(th)*(y - ground_clearance)/cos(th)^2;
-
-l_min = 0.5;
-l_max = 1;
-
-if isnan(l)
-    l = 1;
-end
-
-l = min(max(l, l_min), l_max);
 end

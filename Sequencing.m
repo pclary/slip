@@ -57,7 +57,7 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
             midstance = obj.feet_contact_good & ~obj.post_midstance & ...
                 obj.forces_filtered < obj.forces_filtered_max;
             
-            touchdown_fast = ~obj.feet_down & forces > weight/4;
+            touchdown_fast = ~obj.feet_down & forces > weight/16;
             takeoff_fast = obj.feet_down & forces <= 0;
             
             % Apply events
