@@ -39,6 +39,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         p_td_attempt;
         td_attempt_target;
         td_attempt_dtarget;
+        td_x_foot_target;
         
         X_last;
         target_last;
@@ -101,7 +102,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             obj.energy_accumulator_count = obj.energy_accumulator_count + 1;
             
             % Deal with triggers, etc.
-            obj.process_events(signals);
+            obj.process_events(X, signals);
             
             % Angle controller, touchdown properties
             obj.process_touchdown(X, control, signals);
@@ -167,9 +168,10 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             obj.p_td_attempt = 0;
             obj.td_attempt_target = zeros(3, 1);
             obj.td_attempt_dtarget = zeros(3, 1);
+            obj.td_x_foot_target = 0;
             
             obj.X_last = zeros(18, 1);
-            obj.target = zeros(3, 1);
+            obj.target_last = zeros(3, 1);
             obj.err_last = zeros(3, 1);
             obj.kp_last = zeros(3, 1);
         end
@@ -228,9 +230,6 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             if signals.touchdown_fast(1) && signals.feet_fade(1) < 1 && ~obj.post_midstance
                 obj.touchdown_length = min(X(7), 1);
             end
-            if signals.touchdown(1)
-                obj.td_attempt_latched = false;
-            end
             if signals.midstance(1)
                 obj.post_midstance = true;
             end
@@ -238,7 +237,6 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
                 obj.takeoff_length = min(X(7), 1);
             end
             if signals.takeoff(1)
-                obj.step_optimizer.reset();
                 obj.post_midstance = false;
             end
         end
@@ -247,13 +245,11 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         function process_touchdown(obj, X, control, signals)
             % Compute properties related to touchdown
             
-            % Touchdown angle controller, chooses a target footstep location
-            if ~obj.td_attempt_latched
+            % Choose a target footstep location at takeoff
+            if signals.takeoff_fast(1)
                 xdot = X(2);
                 xdot_target = control(2);
-                td_th_target = 0.08*xdot_target + 0.2*(xdot - xdot_target);
-                
-                x_target = % something
+                obj.td_x_foot_target = X(1) + 0.35*xdot_target + 0.5*(xdot - xdot_target);
             end
             
             % p_td_attempt determines whether to extend the foot
@@ -264,7 +260,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
                 movement_dir = sign(X(2));
                 x_foot = X(1) + X(7)*sin(X(5) + X(11));
                 obj.p_td_attempt = ...
-                    1 - min(max(movement_dir*(x_target - x_foot)/fade_width, 0), 1);
+                    1 - min(max(movement_dir*(obj.td_x_foot_target - x_foot)/fade_width, 0), 1);
             end
             if signals.feet_fade(1) == 1
                 % Reset p_td_attempt when ground contact is estalished
@@ -275,21 +271,37 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             
             % Calculate trajectory targets for touchdown
             if obj.p_td_attempt > 0
+                % Length
                 fade_width = 0.01; % m
-                leq_target = min(max(X(7), obj.td_attempt_leq_target), obj.leq_neutral);
-                dfade = min(max((obj.leq_neutral - obj.td_attempt_leq_target)/fade_width, 0), 1);
+                leq_target = min(max(X(7), obj.td_attempt_target(1)), obj.leq_neutral);
+                dfade = min(max((obj.leq_neutral - obj.td_attempt_target(1))/fade_width, 0), 1);
                 td_rate = 1; % m/s
                 dleq_target = dfade*td_rate;
+                
+                % Angle
+                xdiff = (obj.td_x_foot_target - X(1))/X(7);
+                xdiff = min(max(xdiff, -0.9), 0.9);
+                th_target = asin(xdiff) - X(5);
+                
+                angle = X(5) + X(11);
+                angle = min(max(angle, -(pi/2 - 0.4)), pi/2 - 0.4);
+                dth_target = -X(2)/X(7)/cos(angle);
+                
+                % Make sure th_target trajectory is smooth
+                max_th_target_rate = max(1, abs(dth_target)*2);
+                max_th_target_diff = max_th_target_rate*obj.Ts;
+                th_target_diff = th_target - obj.td_attempt_target(2);
+                th_target_diff = min(max(th_target_diff, -max_th_target_diff), max_th_target_diff);
+                th_target = obj.td_attempt_target(2) + th_target_diff;
+                
             else
-                leq_target = obj.leq_neutral;
+                leq_target = X(7);
                 dleq_target = 0;
-                th_target = 0;
+                th_target = X(11);
                 dth_target = 0;
             end
             obj.td_attempt_target = [leq_target; th_target; 0];
             obj.td_attempt_dtarget = [dleq_target; dth_target; 0];
-            
-            % Calculate th_a targets used to sweep the leg
         end
         
         
@@ -309,9 +321,8 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             dtarget_sf = [dleq_target; dth_a_target; 0];
             
             % Extending leg and matching ground speed; touchdown attempt
-            th_a_target = obj.th_target - X(5);
-            target_td = [obj.td_attempt_leq_target; th_a_target; 0];
-            dtarget_td = [obj.td_attempt_dleq_target; 0; 0];
+            target_td = obj.td_attempt_target;
+            dtarget_td = obj.td_attempt_dtarget;
             
             % Fade between swing forward and touchdown attempt
             target = target_td*obj.p_td_attempt + target_sf*(1 - obj.p_td_attempt);
@@ -363,13 +374,23 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         
         
         function [target, dtarget, kp, kd] = fb_controller(obj, X)
-            % Mirror and keep out of ground
+            % Mirror stance leg until target angle reached, then extend leg
+            % until touchdown (Same as sb)
             
+            % Mirror stance leg angle; before touchdown attempt
             [leq_target, dleq_target] = obj.get_clearance_length(X);
             th_a_target = -X(17) - 2*X(5);
             dth_a_target = -X(18) - 2*X(6);
-            target = [leq_target; th_a_target; 0];
-            dtarget = [dleq_target; dth_a_target; 0];
+            target_m = [leq_target; th_a_target; 0];
+            dtarget_m = [dleq_target; dth_a_target; 0];
+            
+            % Extending leg and matching ground speed; touchdown attempt
+            target_td = obj.td_attempt_target;
+            dtarget_td = obj.td_attempt_dtarget;
+            
+            % Fade between mirror and touchdown attempt
+            target = target_td*obj.p_td_attempt + target_m*(1 - obj.p_td_attempt);
+            dtarget = dtarget_td*obj.p_td_attempt + dtarget_m*(1 - obj.p_td_attempt);
             
             kp = obj.kp_air;
             kd = obj.kd_air;
@@ -390,13 +411,12 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             [leq_target, dleq_target] = obj.get_clearance_length(X);
             th_a_target = -X(17) - 2*X(5);
             dth_a_target = -X(18) - 2*X(6);
-            target_m = [leq_target, th_a_target, 0];
-            dtarget_m = [dleq_target, dth_a_target, 0];
+            target_m = [leq_target; th_a_target; 0];
+            dtarget_m = [dleq_target; dth_a_target; 0];
             
             % Extending leg and matching ground speed; touchdown attempt
-            th_a_target = obj.th_target - X(5);
-            target_td = [obj.td_attempt_leq_target, th_a_target, 0];
-            dtarget_td = [obj.td_attempt_dleq_target, 0, 0];
+            target_td = obj.td_attempt_target;
+            dtarget_td = obj.td_attempt_dtarget;
             
             % Fade between mirror and touchdown attempt
             target = target_td*obj.p_td_attempt + target_m*(1 - obj.p_td_attempt);
