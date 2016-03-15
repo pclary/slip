@@ -4,6 +4,7 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
         Ts = 1e-3;
         params = zeros(11, 1);
         filter_constant = 0.04;
+        step_period = 1;
     end
     
     
@@ -28,7 +29,7 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
         end
         
         
-        function signals = stepImpl(obj, legs)
+        function signals = stepImpl(obj, legs, t)
             % Compute and filter leg forces
             forces = obj.params(4)*(legs([1 7]) - legs([3 9]));
             obj.forces_filtered = obj.forces_filtered*(1 - obj.filter_constant) ...
@@ -49,6 +50,9 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
             
             % Phase parameters
             [alpha, beta] = obj.phase(feet_fade, legs(5) - legs(11));
+            
+            % Step clock (cyclic 0->1)
+            step_clock = mod(t/obj.step_period, 1);
             
             % Detect events
             touchdown = ~obj.feet_fade_latched & feet_fade == 1;
@@ -80,6 +84,7 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
             signals.takeoff = takeoff;
             signals.takeoff_fast = takeoff_fast;
             signals.phase = [alpha; beta];
+            signals.step_clock = step_clock;
         end
         
         
@@ -106,6 +111,10 @@ classdef Sequencing < matlab.System & matlab.system.mixin.Propagates
         
         function [sz_1] = getOutputSizeImpl(~)
             sz_1 = [1 1];
+        end
+        
+        function [cp_1] = isOutputComplexImpl(~)
+            cp_1 = false;
         end
     end
     

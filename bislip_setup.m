@@ -46,6 +46,8 @@ ground_data = [ground_x, ground_y, ground_stiffness, ground_damping, ground_fric
 
 Ts = 1e-3;
 
+step_period = 0.7;
+
 % Define sequencing signal bus type
 sequencing_signal_struct.forces = [0; 0];
 sequencing_signal_struct.forces_filtered = [0; 0];
@@ -57,6 +59,7 @@ sequencing_signal_struct.midstance = [false; false];
 sequencing_signal_struct.takeoff = [false; false];
 sequencing_signal_struct.takeoff_fast = [false; false];
 sequencing_signal_struct.phase = [0; 0];
+sequencing_signal_struct.step_clock = 0;
 businfo = Simulink.Bus.createObject(sequencing_signal_struct);
 sequencing_signal_bus = eval(businfo.busName);
 clear(businfo.busName);

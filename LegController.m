@@ -15,6 +15,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
         kp_air = zeros(3, 1);
         kd_air = zeros(3, 1);
         leq_neutral = 1;
+        step_period = 1;
     end
     
     
@@ -117,6 +118,23 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             
             % Get trajectories from subcontrollers and interpolate
             [target, dtarget, kp, kd, p_phase] = obj.subcontroller_interpolation(X, signals.phase);
+            
+            
+            % Length based on step timer
+            w = 0.6;
+            ex = 4;
+            lmax = 1;
+            dsdt = 1/obj.step_period;
+            s = signals.step_clock;
+            target(1) = lmax - (2*(s - 0.5)/w)^ex;
+            dtarget(1) = -dsdt*ex*2/w*(2*(s - 0.5)/w)^(ex - 1);
+            
+            lmin = 0.9;
+            if target(1) < lmin
+                target(1) = lmin;
+                dtarget(1) = 0;
+            end
+            
             
             leq = X(7);
             dleq = X(8);
@@ -249,7 +267,7 @@ classdef LegController < matlab.System & matlab.system.mixin.Propagates
             if signals.takeoff_fast(1)
                 xdot = X(2);
                 xdot_target = control(2);
-                obj.td_x_foot_target = X(1) + 0.35*xdot_target + 0.5*(xdot - xdot_target);
+                obj.td_x_foot_target = X(1) + 0.6*xdot + 0.1*(xdot - xdot_target);
             end
             
             % p_td_attempt determines whether to extend the foot

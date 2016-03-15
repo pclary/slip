@@ -66,6 +66,7 @@ if block.IsMajorTimeStep
     end
     
     vis.setState(block.InputPort(1).Data, block.InputPort(2).Data);
+    drawnow;
     
     if vis.dragEnabled()
         x = vis.DragLine.XData;
