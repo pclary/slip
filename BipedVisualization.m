@@ -1,29 +1,34 @@
-classdef BiSLIPGraphics < handle
+classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
+    % Displays an interactive biped model.
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Properties
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    properties (Nontunable)
+        env =  struct();
+        ground_data = zeros(1, 5)
+    end
+    
         
-    properties (SetAccess=private)
-        Fig = gobjects();
-        Axes = gobjects();
-        Body = gobjects();
-        AngleA = gobjects();
-        AngleB = gobjects();
-        LengthA = gobjects();
-        LengthB = gobjects();
-        SpringA = gobjects();
-        SpringB = gobjects();
-        Ground = gobjects();
-        GroundShading = gobjects();
-        BodyTrace = gobjects();
-        VToeATrace = gobjects();
-        VToeBTrace = gobjects();
-        ToeATrace = gobjects();
-        ToeBTrace = gobjects();
-        DragLine = gobjects();
-        DragIndicator = gobjects();
-        DragPinIndicator = gobjects();
+    properties (Access = private)
+        Fig
+        Axes
+        Body
+        AngleA
+        AngleB
+        LengthA
+        LengthB
+        SpringA
+        SpringB
+        Ground
+        GroundShading
+        BodyTrace
+        ToeATrace
+        ToeBTrace
+        DragLine
+        DragIndicator
+        DragPinIndicator
         DragPinned = false;
         ViewScale = 1;
         ViewCenter = [0; 0];
@@ -34,38 +39,40 @@ classdef BiSLIPGraphics < handle
     
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Public Methods
+    % Matlab System Methods
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    methods (Access = protected)
         
-    methods
-        function obj = BiSLIPGraphics()
+        function setupImpl(obj)
             obj.createGeometry();
-            obj.reset();
         end
         
         
-        function setState(obj, X, leg_targets)
-            obj.addTracePoints(X, leg_targets);
+        function v = stepImpl(obj, X)
+            if ~obj.isAlive()
+                v = [0; 0];
+                return
+            end
+            
+            obj.addTracePoints(X);
             obj.updateTransforms(X);
+            drawnow;
+            
+            if obj.dragEnabled()
+                X = obj.DragLine.XData;
+                y = obj.DragLine.YData;
+                v = [X(2) - X(1); y(2) - y(1)];
+            else
+                v = [0; 0];
+            end
         end
         
         
-        function setGround(obj, ground_data)
-            set(obj.Ground, 'XData', ground_data(:, 1), 'YData', ground_data(:, 2));
-            set(obj.GroundShading, 'XData', ground_data(:, 1), 'YData', ground_data(:, 2));
-        end
-        
-        
-        function reset(obj)
+        function resetImpl(obj)
             obj.BodyTrace.clearpoints();
             obj.ToeATrace.clearpoints();
             obj.ToeBTrace.clearpoints();
-            obj.VToeATrace.clearpoints();
-            obj.VToeBTrace.clearpoints();
-            obj.Ground.XData = [];
-            obj.Ground.YData = [];
-            obj.GroundShading.XData = [];
-            obj.GroundShading.YData = [];
             obj.ViewScale = 1;
             obj.ViewCenter = [0; 0];
             obj.ViewCenterOffset = [0; 0];
@@ -75,6 +82,29 @@ classdef BiSLIPGraphics < handle
             set(obj.Ground, 'XData', [], 'YData', []);
         end
         
+        function out = getOutputSizeImpl(~)
+            out = [2 1];
+        end
+        
+        function out = getOutputDataTypeImpl(~)
+            out = 'double';
+        end
+        
+        function out = isOutputComplexImpl(~)
+            out = false;
+        end
+        
+        function out = isOutputFixedSizeImpl(~)
+            out = true;
+        end
+    end
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Private Methods
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    methods (Access = private)
         
         function en = dragEnabled(obj)
             en = strcmp(obj.DragIndicator.Visible, 'on');
@@ -85,14 +115,8 @@ classdef BiSLIPGraphics < handle
             out = obj.isvalid() && obj.Fig.isvalid() && ...
                 obj.Axes.isvalid() && obj.Body.isvalid();
         end
-    end
-    
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Private Methods
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    methods (Access=private)
+        
+        
         function createGeometry(obj)
             fig = figure;
             obj.Fig = fig;
@@ -107,22 +131,21 @@ classdef BiSLIPGraphics < handle
             obj.Axes.YRuler.Visible = 'off';
             
             % Traces
-            obj.VToeATrace = animatedline('Parent', ax, 'Color', 'blue', 'LineStyle', ':');
-            obj.VToeBTrace = animatedline('Parent', ax, 'Color', 'red', 'LineStyle', ':');
             obj.BodyTrace = animatedline('Parent', ax, 'Color', 'green');
             obj.ToeATrace = animatedline('Parent', ax, 'Color', 'blue');
             obj.ToeBTrace = animatedline('Parent', ax, 'Color', 'red');
             
             % Ground
             obj.Ground = line('Parent', ax);
-            obj.Ground.XData = [];
-            obj.Ground.YData = [];
+            obj.Ground.XData = obj.ground_data(:, 1);
+            obj.Ground.YData = obj.ground_data(:, 2);
             obj.GroundShading = patch('Parent', ax);
-            obj.GroundShading.XData = [];
-            obj.GroundShading.YData = [];
+            obj.GroundShading.XData = obj.ground_data(:, 1);
+            obj.GroundShading.YData = obj.ground_data(:, 2);
             obj.GroundShading.FaceAlpha = 0.1;
             obj.GroundShading.EdgeAlpha = 0;
             
+            % Body frame
             obj.Body = hgtransform('Parent', ax);
             
             % Leg
@@ -172,8 +195,6 @@ classdef BiSLIPGraphics < handle
             obj.BodyTrace.HitTest = 'off';
             obj.ToeATrace.HitTest = 'off';
             obj.ToeBTrace.HitTest = 'off';
-            obj.VToeATrace.HitTest = 'off';
-            obj.VToeBTrace.HitTest = 'off';
             obj.AngleA.Children(1).HitTest = 'off';
             obj.AngleB.Children(1).HitTest = 'off';
             obj.DragLine.HitTest = 'off';
@@ -193,16 +214,14 @@ classdef BiSLIPGraphics < handle
         
         
         function updateTransforms(obj, X)
-            % X: [body_x;    body_xdot;    body_y;  body_ydot;  body_th;  body_thdot;
-            %     leg_a_leq; leg_a_leqdot; leg_a_l; leg_a_ldot; leg_a_th; leg_a_thdot;
-            %     leg_b_leq; leg_b_leqdot; leg_b_l; leg_b_ldot; leg_b_th; leg_b_thdot]
-            obj.Body.Matrix = makehgtform('translate', [X(1); X(3); 0])*makehgtform('zrotate', X(5));
-            obj.AngleA.Matrix = makehgtform('zrotate', X(11));
-            obj.AngleB.Matrix = makehgtform('zrotate', X(17));
-            obj.LengthA.Matrix = makehgtform('scale', [1 max(X(9), 1e-3) 1]);
-            obj.LengthB.Matrix = makehgtform('scale', [1 max(X(15), 1e-3) 1]);
-            obj.SpringA.Matrix = springTransform(X(7), X(9));
-            obj.SpringB.Matrix = springTransform(X(13), X(15));
+            obj.Body.Matrix = makehgtform('translate', [X.body.x; X.body.y; 0]) * ...
+                makehgtform('zrotate', X.body.theta);
+            obj.AngleA.Matrix = makehgtform('zrotate', X.right.theta);
+            obj.AngleB.Matrix = makehgtform('zrotate', X.left.theta);
+            obj.LengthA.Matrix = makehgtform('scale', [1 max(X.right.l, 1e-3) 1]);
+            obj.LengthB.Matrix = makehgtform('scale', [1 max(X.left.l, 1e-3) 1]);
+            obj.SpringA.Matrix = springTransform(X.right.l_eq, X.right.l);
+            obj.SpringB.Matrix = springTransform(X.left.l_eq, X.left.l);
             
             obj.setAxes();
             
@@ -212,67 +231,16 @@ classdef BiSLIPGraphics < handle
         end
         
         
-        function addTracePoints(obj, X, leg_targets)
-            obj.BodyTrace.addpoints(X(1), X(3));
+        function addTracePoints(obj, X)
+            obj.BodyTrace.addpoints(X.body.x, X.body.y);
             
-            toe_a_x = X(1) + X(9)*sin(X(5) + X(11));
-            toe_a_y = X(3) - X(9)*cos(X(5) + X(11));
+            toe_a_x = X.body.x + X.right.l*sin(X.body.theta + X.right.theta);
+            toe_a_y = X.body.y - X.right.l*cos(X.body.theta + X.right.theta);
             obj.ToeATrace.addpoints(toe_a_x, toe_a_y);
             
-            toe_b_x = X(1) + X(15)*sin(X(5) + X(17));
-            toe_b_y = X(3) - X(15)*cos(X(5) + X(17));
+            toe_b_x = X.body.x + X.left.l*sin(X.body.theta + X.left.theta);
+            toe_b_y = X.body.y - X.left.l*cos(X.body.theta + X.left.theta);
             obj.ToeBTrace.addpoints(toe_b_x, toe_b_y);
-            
-            vtoe_a_x = X(1) + leg_targets(1)*sin(X(5) + leg_targets(2));
-            vtoe_a_y = X(3) - leg_targets(1)*cos(X(5) + leg_targets(2));
-            obj.VToeATrace.addpoints(vtoe_a_x, vtoe_a_y);
-            
-            vtoe_b_x = X(1) + leg_targets(3)*sin(X(5) + leg_targets(4));
-            vtoe_b_y = X(3) - leg_targets(3)*cos(X(5) + leg_targets(4));
-            obj.VToeBTrace.addpoints(vtoe_b_x, vtoe_b_y);
-        end
-        
-        
-        function makeGroundShading(obj, ground_data)
-            xgs = [];
-            ygs = [];
-            
-            mark_spacing = 0.2;
-            mark_length = 0.2;
-            mark_angle = 225;
-            x_mark = [0; mark_length*cosd(mark_angle)];
-            y_mark = [0; mark_length*sind(mark_angle)];
-            
-            for i = 1:length(ground_data)-1
-                segment_base = ground_data(i, :);
-                segment = ground_data(i+1, :) - segment_base;
-                segment_length = norm(segment);
-                segment_angle = atan2d(segment(2), segment(1));
-                segment_flip = mod(segment_angle - mark_angle, 360) > 180;
-                
-                nmarks = floor(segment_length/mark_spacing);
-                xgs_new = nan(nmarks*3, 1);
-                ygs_new = nan(nmarks*3, 1);
-                
-                for j = 1:nmarks
-                    if segment_flip
-                        p = (j-1)*mark_spacing/segment_length;
-                        offset = segment_base + p*segment;
-                        xgs_new(3*j:3*j+1) = offset(1) - x_mark;
-                        ygs_new(3*j:3*j+1) = offset(2) - y_mark;
-                    else
-                        p = j*mark_spacing/segment_length;
-                        offset = segment_base + p*segment;
-                        xgs_new(3*j:3*j+1) = offset(1) + x_mark;
-                        ygs_new(3*j:3*j+1) = offset(2) + y_mark;
-                    end
-                end
-                
-                xgs = [xgs; xgs_new];
-                ygs = [ygs; ygs_new];
-            end
-            
-            set(obj.GroundShading, 'XData', xgs, 'YData', ygs);
         end
         
         
