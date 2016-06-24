@@ -17,6 +17,7 @@ foot_state_right = foot_state(X.right, X.body);
 foot_state_left  = foot_state(X.left,  X.body);
 foot_force_right = ground_contact(foot_state_right, env, ground_data);
 foot_force_left  = ground_contact(foot_state_left,  env, ground_data);
+ext.body.y = ext.body.y - env.gravity * env.body.mass;
 ext.right.x = ext.right.x + foot_force_right.x;
 ext.right.y = ext.right.y + foot_force_right.y - env.gravity * env.foot.mass;
 ext.left.x  = ext.left.x  + foot_force_left.x;
