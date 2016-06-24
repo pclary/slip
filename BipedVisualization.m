@@ -79,7 +79,6 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.PanEnabled = false;
             obj.PanAnchor = [0; 0];
             obj.disableDrag();
-            set(obj.Ground, 'XData', [], 'YData', []);
         end
         
         function out = getOutputSizeImpl(~)
@@ -205,6 +204,8 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.Axes.ButtonDownFcn = @obj.axesClick;
             body_rect.ButtonDownFcn = @obj.axesClick;
             body_line.ButtonDownFcn = @obj.axesClick;
+            obj.Ground.ButtonDownFcn = @obj.axesClick;
+            obj.GroundShading.ButtonDownFcn = @obj.axesClick;
             obj.Fig.SizeChangedFcn = @obj.setAxes;
             obj.Fig.WindowScrollWheelFcn = @obj.scrollWheel;
             obj.Fig.WindowButtonDownFcn = @obj.figMouseDown;
