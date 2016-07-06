@@ -72,17 +72,38 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             obj.phase.right = obj.phase.right - floor(obj.phase.right);
             obj.phase.left  = obj.phase.left  - floor(obj.phase.left);
             
-            % Initialize torque struct
-            u.right.l_eq = 0;
-            u.right.theta_eq = 0;
-            u.left.l_eq = 0;
-            u.left.theta_eq = 0;
+            % Initialize output struct
+            u.right.l_eq.torque  = 0;
+            u.right.l_eq.target  = 0;
+            u.right.l_eq.dtarget = 0;
+            u.right.l_eq.kp      = 0;
+            u.right.l_eq.kd      = 0;
+            u.right.theta_eq.torque  = 0;
+            u.right.theta_eq.target  = 0;
+            u.right.theta_eq.dtarget = 0;
+            u.right.theta_eq.kp      = 0;
+            u.right.theta_eq.kd      = 0;
+            u.left.l_eq.torque  = 0;
+            u.left.l_eq.target  = 0;
+            u.left.l_eq.dtarget = 0;
+            u.left.l_eq.kp      = 0;
+            u.left.l_eq.kd      = 0;
+            u.left.theta_eq.torque  = 0;
+            u.left.theta_eq.target  = 0;
+            u.left.theta_eq.dtarget = 0;
+            u.left.theta_eq.kp      = 0;
+            u.left.theta_eq.kd      = 0;
             
             % Phase determines leg length control directly
-            u.right.l_eq = eval_trajectory(interp_trajectory(obj.length_trajectory, obj.phase.right), ...
-                X.right.l_eq, X.right.dl_eq);
-            u.left.l_eq = eval_trajectory(interp_trajectory(obj.length_trajectory, obj.phase.left), ...
-                X.left.l_eq, X.left.dl_eq);
+            tvals_right = interp_trajectory(obj.length_trajectory, obj.phase.right);
+            u.right.l_eq.torque = tvals_right.torque;
+            u.right.l_eq.target = tvals_right.target;
+            u.right.l_eq.kp     = tvals_right.kp;
+            
+            tvals_left  = interp_trajectory(obj.length_trajectory, obj.phase.left);
+            u.left.l_eq.torque = tvals_left.torque;
+            u.left.l_eq.target = tvals_left.target;
+            u.left.l_eq.kp     = tvals_left.kp;
             
             % Angle targets are modulated by footstep target location
             horizontal_push = 0;
@@ -95,7 +116,9 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_right.target = real(asin(complex((x_target_right - X.body.x) / X.right.l))) - X.body.theta;
             tvals_right.dtarget = (tvals_right.target - obj.angle_target_right_last) / obj.Ts;
             obj.angle_target_right_last = tvals_right.target;
-            u.right.theta_eq = eval_trajectory(tvals_right, X.right.theta_eq, X.right.dtheta_eq);
+            u.right.theta_eq.torque = tvals_right.torque;
+            u.right.theta_eq.target = tvals_right.target;
+            u.right.theta_eq.kp     = tvals_right.kp;
             
             tvals_left = interp_trajectory(obj.angle_trajectory, obj.phase.left);
             tvals_left.torque = tvals_left.torque * horizontal_push;
@@ -105,19 +128,31 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_left.target = real(asin(complex((x_target_left - X.body.x) / X.left.l))) - X.body.theta;
             tvals_left.dtarget = (tvals_left.target - obj.angle_target_left_last) / obj.Ts;
             obj.angle_target_left_last = tvals_left.target;
-            u.left.theta_eq = eval_trajectory(tvals_left, X.left.theta_eq, X.left.dtheta_eq);
-            
-            % Body target control is determined by phase and modulated by
-            % leg force later
-            u.right.theta_eq = u.right.theta_eq + ...
-                eval_trajectory(interp_trajectory(obj.body_angle_trajectory, obj.phase.right), ...
-                X.body.theta, X.body.dtheta);
-            u.left.theta_eq = u.left.theta_eq + ...
-                eval_trajectory(interp_trajectory(obj.body_angle_trajectory, obj.phase.left), ...
-                X.body.theta, X.body.dtheta);
+            u.left.theta_eq.torque = tvals_left.torque;
+            u.left.theta_eq.target = tvals_left.target;
+            u.left.theta_eq.kp     = tvals_left.kp;
             
             
-            % Modulate leg angle forces to limit foot slip
+            u.right.l_eq.torque  = 0;
+            u.right.l_eq.target  = 0.8;
+            u.right.l_eq.dtarget = 0;
+            u.right.l_eq.kp      = 500;
+            u.right.l_eq.kd      = 100;
+            u.right.theta_eq.torque  = 0;
+            u.right.theta_eq.target  = 0;
+            u.right.theta_eq.dtarget = 0;
+            u.right.theta_eq.kp      = 500;
+            u.right.theta_eq.kd      = 100;
+            u.left.l_eq.torque  = 0;
+            u.left.l_eq.target  = 0.8;
+            u.left.l_eq.dtarget = 0;
+            u.left.l_eq.kp      = 500;
+            u.left.l_eq.kd      = 100;
+            u.left.theta_eq.torque  = 0;
+            u.left.theta_eq.target  = 0;
+            u.left.theta_eq.dtarget = 0;
+            u.left.theta_eq.kp      = 500;
+            u.left.theta_eq.kd      = 100;
             
             dbg = [tvals_right.target, X.right.theta, obj.phase.right, obj.footstep_target_right, obj.footstep_target_right_last, x_target_right];
         end
