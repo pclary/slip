@@ -13,6 +13,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
     
     properties (Access = private)
         phase
+        dx_last
         footstep_target_right
         footstep_target_right_last
         footstep_target_left
@@ -29,23 +30,17 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         function setupImpl(obj)
             obj.phase = struct('right', 0, 'left', 0);
             obj.length_trajectory = struct(...
-                'phase',  {0.0, 0.35, 0.45, 0.5,  0.55, 0.65, 1.0}, ...
-                'torque', {6.0, 6.0,  0.0,  0.0,  0.0,  6.0,  6.0}, ...
-                'target', {0.8, 0.8,  0.76, 0.73, 0.76, 0.8,  0.8}, ...
-                'kp',     {3e2, 3e2,  1e2,  1e2,  1e2,  3e2,  3e2}, ...
-                'kd',     {3e0, 3e0,  1e0,  1e0,  1e0,  3e0,  3e0});
+                'phase',  {0.0, 0.3, 0.4,  0.5,  0.6,  0.7, 1.0}, ...
+                'torque', {3e2, 3e2, 0.0,  0.0,  0.0,  3e2, 3e2}, ...
+                'target', {0.8, 0.8, 0.75, 0.73, 0.75, 0.8, 0.8}, ...
+                'kp',     {1e3, 1e3, 1e2,  1e2,  1e2,  1e3, 1e3}, ...
+                'kd',     {1e2, 1e2, 1e1,  1e1,  1e1,  1e2, 1e2});
             obj.angle_trajectory = struct(...
-                'phase',  {0.0, 0.3, 0.7, 1.0}, ...
+                'phase',  {1.0, 0.3, 0.7, 1.0}, ...
                 'torque', {1.0, 0.0, 0.0, 1.0}, ...
                 'target', {0.0, 0.0, 1.0, 1.0}, ...
-                'kp',     {0.0, 4e1, 1e2, 0.0}, ...
-                'kd',     {0.0, 1e0, 4e0, 0.0});
-            obj.body_angle_trajectory = struct(...
-                'phase',  { 0.0,  0.15, 0.25, 0.75, 0.85, 1.0}, ...
-                'torque', { 0.0,  0.0,  0.0,  0.0,  0.0,  0.0}, ...
-                'target', { 0.0,  0.0,  0.0,  0.0,  0.0,  0.0}, ...
-                'kp',     {-4e1, -4e1,  0.0,  0.0, -4e1, -4e1}, ...
-                'kd',     {-4e0, -4e0,  0.0,  0.0, -4e0, -4e0});
+                'kp',     {0.0, 1e2, 1e2, 0.0}, ...
+                'kd',     {0.0, 1e0, 1e0, 0.0});
         end
         
         
@@ -56,16 +51,20 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             obj.phase.left  = obj.phase.left  + obj.Ts * obj.phase_rate;
             
             % Update leg targets
-            foot_extension = (0.6 * X.body.dx - 0.15 * (obj.target_dx - X.body.dx)) / obj.phase_rate;
+            foot_extension = X.body.dx / (2 * obj.phase_rate * 0.8) + ...
+                0.2 * (X.body.dx - obj.target_dx) + ...
+                0.2 * (X.body.dx - obj.dx_last);
             if obj.phase.right >= 1
                 obj.footstep_target_right_last = obj.footstep_target_right;
                 obj.footstep_target_left = X.body.x + foot_extension;
                 obj.footstep_target_right = X.body.x + 2 * foot_extension;
+                obj.dx_last = X.body.dx;
             end
             if obj.phase.left >= 1
                 obj.footstep_target_left_last = obj.footstep_target_left;
                 obj.footstep_target_right = X.body.x + foot_extension;
                 obj.footstep_target_left = X.body.x + 2 * foot_extension;
+                obj.dx_last = X.body.dx;
             end
             
             % Limit phases to [0, 1)
@@ -96,14 +95,18 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             
             % Phase determines leg length control directly
             tvals_right = interp_trajectory(obj.length_trajectory, obj.phase.right);
-            u.right.l_eq.torque = tvals_right.torque;
-            u.right.l_eq.target = tvals_right.target;
-            u.right.l_eq.kp     = tvals_right.kp;
+            u.right.l_eq.torque  = tvals_right.torque;
+            u.right.l_eq.target  = tvals_right.target;
+            u.right.l_eq.dtarget = tvals_right.dtarget;
+            u.right.l_eq.kp      = tvals_right.kp;
+            u.right.l_eq.kd      = tvals_right.kd;
             
             tvals_left  = interp_trajectory(obj.length_trajectory, obj.phase.left);
-            u.left.l_eq.torque = tvals_left.torque;
-            u.left.l_eq.target = tvals_left.target;
-            u.left.l_eq.kp     = tvals_left.kp;
+            u.left.l_eq.torque  = tvals_left.torque;
+            u.left.l_eq.target  = tvals_left.target;
+            u.left.l_eq.dtarget = tvals_left.dtarget;
+            u.left.l_eq.kp      = tvals_left.kp;
+            u.left.l_eq.kd      = tvals_left.kd;
             
             % Angle targets are modulated by footstep target location
             horizontal_push = 0;
@@ -133,26 +136,26 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             u.left.theta_eq.kp     = tvals_left.kp;
             
             
-            u.right.l_eq.torque  = 0;
-            u.right.l_eq.target  = 0.8;
-            u.right.l_eq.dtarget = 0;
-            u.right.l_eq.kp      = 500;
-            u.right.l_eq.kd      = 100;
-            u.right.theta_eq.torque  = 0;
-            u.right.theta_eq.target  = 0;
-            u.right.theta_eq.dtarget = 0;
-            u.right.theta_eq.kp      = 500;
-            u.right.theta_eq.kd      = 100;
-            u.left.l_eq.torque  = 0;
-            u.left.l_eq.target  = 0.8;
-            u.left.l_eq.dtarget = 0;
-            u.left.l_eq.kp      = 500;
-            u.left.l_eq.kd      = 100;
-            u.left.theta_eq.torque  = 0;
-            u.left.theta_eq.target  = 0;
-            u.left.theta_eq.dtarget = 0;
-            u.left.theta_eq.kp      = 500;
-            u.left.theta_eq.kd      = 100;
+%             u.right.l_eq.torque  = 100;
+%             u.right.l_eq.target  = 0.8;
+%             u.right.l_eq.dtarget = 0;
+%             u.right.l_eq.kp      = 500;
+%             u.right.l_eq.kd      = 100;
+%             u.right.theta_eq.torque  = 0;
+%             u.right.theta_eq.target  = 0;
+%             u.right.theta_eq.dtarget = 0;
+%             u.right.theta_eq.kp      = 500;
+%             u.right.theta_eq.kd      = 200;
+%             u.left.l_eq.torque  = 100;
+%             u.left.l_eq.target  = 0.8;
+%             u.left.l_eq.dtarget = 0;
+%             u.left.l_eq.kp      = 500;
+%             u.left.l_eq.kd      = 100;
+%             u.left.theta_eq.torque  = 0;
+%             u.left.theta_eq.target  = 0;
+%             u.left.theta_eq.dtarget = 0;
+%             u.left.theta_eq.kp      = 500;
+%             u.left.theta_eq.kd      = 100;
             
             dbg = [tvals_right.target, X.right.theta, obj.phase.right, obj.footstep_target_right, obj.footstep_target_right_last, x_target_right];
         end
@@ -161,6 +164,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         function resetImpl(obj)
             obj.phase.right = 0;
             obj.phase.left = 0.5;
+            obj.dx_last = 0;
             obj.footstep_target_right = 0;
             obj.footstep_target_right_last = 0;
             obj.footstep_target_left = 0;
