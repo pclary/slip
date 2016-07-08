@@ -13,11 +13,9 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
     
     properties (Access = private)
         phase
-        dx_last
+        X_laststep
         footstep_target_right
-        footstep_target_right_last
         footstep_target_left
-        footstep_target_left_last
         angle_target_right_last
         angle_target_left_last
         length_trajectory
@@ -29,18 +27,21 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
     methods (Access = protected)
         function setupImpl(obj)
             obj.phase = struct('right', 0, 'left', 0);
+            obj.X_laststep = struct('body', struct('x', 0, 'y', 0, 'theta', 0, 'dx', 0, 'dy', 0, 'dtheta', 0), ...
+                'right', struct('l', 0, 'l_eq', 0, 'theta', 0, 'theta_eq', 0, 'dl', 0, 'dl_eq', 0, 'dtheta', 0, 'dtheta_eq', 0), ...
+                'left', struct('l', 0, 'l_eq', 0, 'theta', 0, 'theta_eq', 0, 'dl', 0, 'dl_eq', 0, 'dtheta', 0, 'dtheta_eq', 0));
             obj.length_trajectory = struct(...
-                'phase',  {0.0, 0.3, 0.4,  0.5,  0.6,  0.7, 1.0}, ...
+                'phase',  {0.0, 0.2, 0.3,  0.5,  0.6,  0.7, 1.0}, ...
                 'torque', {3e2, 3e2, 0.0,  0.0,  0.0,  3e2, 3e2}, ...
-                'target', {0.8, 0.8, 0.75, 0.73, 0.75, 0.8, 0.8}, ...
-                'kp',     {1e3, 1e3, 1e2,  1e2,  1e2,  1e3, 1e3}, ...
-                'kd',     {1e2, 1e2, 1e1,  1e1,  1e1,  1e2, 1e2});
+                'target', {0.8, 0.8, 0.75, 0.70, 0.75, 0.8, 0.8}, ...
+                'kp',     {1e3, 1e3, 1e3,  1e3,  1e3,  1e3, 1e3}, ...
+                'kd',     {1e2, 1e2, 1e2,  1e2,  1e2,  1e2, 1e2});
             obj.angle_trajectory = struct(...
-                'phase',  {1.0, 0.3, 0.7, 1.0}, ...
-                'torque', {1.0, 0.0, 0.0, 1.0}, ...
-                'target', {0.0, 0.0, 1.0, 1.0}, ...
-                'kp',     {0.0, 1e2, 1e2, 0.0}, ...
-                'kd',     {0.0, 1e0, 1e0, 0.0});
+                'phase',  {0.0, 0.4, 0.5, 0.5, 0.6, 1.0}, ...
+                'torque', {1.0, 0.0, 0.0, 0.0, 0.0, 1.0}, ...
+                'target', {0.0, 0.0, 0.5, 0.0, 1.0, 1.0}, ...
+                'kp',     {0.0, 1e2, 1e2, 1e2, 1e2, 0.0}, ...
+                'kd',     {0.0, 1e0, 1e0, 1e0, 1e0, 0.0});
         end
         
         
@@ -51,20 +52,18 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             obj.phase.left  = obj.phase.left  + obj.Ts * obj.phase_rate;
             
             % Update leg targets
-            foot_extension = X.body.dx / (2 * obj.phase_rate * 0.8) + ...
-                0.2 * (X.body.dx - obj.target_dx) + ...
-                0.2 * (X.body.dx - obj.dx_last);
+            foot_extension = X.body.dx / (2 * obj.phase_rate * 0.92) + ...
+                0.1 * (X.body.dx - obj.target_dx) + ...
+                0.2 * (X.body.dx - obj.X_laststep.body.dx);
             if obj.phase.right >= 1
-                obj.footstep_target_right_last = obj.footstep_target_right;
                 obj.footstep_target_left = X.body.x + foot_extension;
                 obj.footstep_target_right = X.body.x + 2 * foot_extension;
-                obj.dx_last = X.body.dx;
+                obj.X_laststep = X;
             end
             if obj.phase.left >= 1
-                obj.footstep_target_left_last = obj.footstep_target_left;
                 obj.footstep_target_right = X.body.x + foot_extension;
                 obj.footstep_target_left = X.body.x + 2 * foot_extension;
-                obj.dx_last = X.body.dx;
+                obj.X_laststep = X;
             end
             
             % Limit phases to [0, 1)
@@ -114,8 +113,13 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_right = interp_trajectory(obj.angle_trajectory, obj.phase.right);
             tvals_right.torque = tvals_right.torque * horizontal_push;
             tvals_right.dtorque = tvals_right.dtorque * horizontal_push;
-            x_target_right = obj.footstep_target_right_last + ...
-                tvals_right.target * (obj.footstep_target_right - obj.footstep_target_right_last);
+            asdf = tvals_right.target;
+            
+            footstep_target_right_last = obj.X_laststep.body.x + ...
+                obj.X_laststep.right.l * sin(obj.X_laststep.right.theta + obj.X_laststep.body.theta);
+            x_target_right = footstep_target_right_last + ...
+                tvals_right.target * (obj.footstep_target_right - footstep_target_right_last);
+            
             tvals_right.target = real(asin(complex((x_target_right - X.body.x) / X.right.l))) - X.body.theta;
             tvals_right.dtarget = (tvals_right.target - obj.angle_target_right_last) / obj.Ts;
             obj.angle_target_right_last = tvals_right.target;
@@ -126,8 +130,13 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_left = interp_trajectory(obj.angle_trajectory, obj.phase.left);
             tvals_left.torque = tvals_left.torque * horizontal_push;
             tvals_left.dtorque = tvals_left.dtorque * horizontal_push;
-            x_target_left = obj.footstep_target_left_last + ...
-                tvals_left.target * (obj.footstep_target_left - obj.footstep_target_left_last);
+            asdfl = tvals_left.target;
+            
+            footstep_target_left_last = obj.X_laststep.body.x + ...
+                obj.X_laststep.left.l * sin(obj.X_laststep.left.theta + obj.X_laststep.body.theta);
+            x_target_left = footstep_target_left_last + ...
+                tvals_left.target * (obj.footstep_target_left - footstep_target_left_last);
+            
             tvals_left.target = real(asin(complex((x_target_left - X.body.x) / X.left.l))) - X.body.theta;
             tvals_left.dtarget = (tvals_left.target - obj.angle_target_left_last) / obj.Ts;
             obj.angle_target_left_last = tvals_left.target;
@@ -157,18 +166,39 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
 %             u.left.theta_eq.kp      = 500;
 %             u.left.theta_eq.kd      = 100;
             
-            dbg = [tvals_right.target, X.right.theta, obj.phase.right, obj.footstep_target_right, obj.footstep_target_right_last, x_target_right];
+            dbg = [x_target_right, x_target_left];
         end
         
         
         function resetImpl(obj)
             obj.phase.right = 0;
             obj.phase.left = 0.5;
-            obj.dx_last = 0;
+            
+            obj.X_laststep.body.x      = 0;
+            obj.X_laststep.body.y      = 1;
+            obj.X_laststep.body.theta  = 0;
+            obj.X_laststep.body.dx     = 0;
+            obj.X_laststep.body.dy     = 0;
+            obj.X_laststep.body.dtheta = 0;
+            obj.X_laststep.right.l         = 1;
+            obj.X_laststep.right.l_eq      = 1;
+            obj.X_laststep.right.theta     = 0;
+            obj.X_laststep.right.theta_eq  = 0;
+            obj.X_laststep.right.dl        = 0;
+            obj.X_laststep.right.dl_eq     = 0;
+            obj.X_laststep.right.dtheta    = 0;
+            obj.X_laststep.right.dtheta_eq = 0;
+            obj.X_laststep.left.l         = 1;
+            obj.X_laststep.left.l_eq      = 1;
+            obj.X_laststep.left.theta     = 0;
+            obj.X_laststep.left.theta_eq  = 0;
+            obj.X_laststep.left.dl        = 0;
+            obj.X_laststep.left.dl_eq     = 0;
+            obj.X_laststep.left.dtheta    = 0;
+            obj.X_laststep.left.dtheta_eq = 0;
+            
             obj.footstep_target_right = 0;
-            obj.footstep_target_right_last = 0;
             obj.footstep_target_left = 0;
-            obj.footstep_target_left_last = 0;
             obj.angle_target_right_last = 0;
             obj.angle_target_left_last = 0;
         end
@@ -176,7 +206,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         
         function [sz1, sz2] = getOutputSizeImpl(~)
             sz1 = [1 1];
-            sz2 = [1 6];
+            sz2 = [1 2];
             
         end
         
