@@ -2,11 +2,11 @@ function [dX, ext] = biped_dynamics(X, u, ext, env, ground_data)
 % BIPED_DYNAMICS Calculate the biped state derivatives, taking ground contact
 % and external forces into account.
 
-% Limit motor torques
-u.right.l_eq = clamp(u.right.l_eq, -env.length.motor.torque, env.length.motor.torque);
-u.right.theta_eq = clamp(u.right.theta_eq, -env.angle.motor.torque, env.angle.motor.torque);
-u.left.l_eq = clamp(u.left.l_eq, -env.length.motor.torque, env.length.motor.torque);
-u.left.theta_eq = clamp(u.left.theta_eq, -env.angle.motor.torque, env.angle.motor.torque);
+% Transform into motor-side torques and clamp
+u.right.l_eq = clamp(u.right.l_eq / env.length.motor.ratio, -env.length.motor.torque, env.length.motor.torque);
+u.right.theta_eq = clamp(u.right.theta_eq / env.angle.motor.ratio, -env.angle.motor.torque, env.angle.motor.torque);
+u.left.l_eq = clamp(u.left.l_eq / env.length.motor.ratio, -env.length.motor.torque, env.length.motor.torque);
+u.left.theta_eq = clamp(u.left.theta_eq / env.angle.motor.ratio, -env.angle.motor.torque, env.angle.motor.torque);
 
 % Get hardstop torques
 hardstops.right = hardstop_torques(X.right, env);
