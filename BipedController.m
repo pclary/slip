@@ -21,6 +21,8 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         length_trajectory
         angle_trajectory
         body_angle_trajectory
+        asdf
+        fasdf
     end
     
     
@@ -52,18 +54,22 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             obj.phase.left  = obj.phase.left  + obj.Ts * obj.phase_rate;
             
             % Update leg targets
-            foot_extension = X.body.dx / (2 * obj.phase_rate * 0.92) + ...
+            foot_extension = X.body.dx / (2.7 * obj.phase_rate) + ...
                 0.1 * clamp((X.body.dx - obj.target_dx), -0.5, 0.5) + ...
                 0.2 * (X.body.dx - obj.X_laststep.body.dx);
             if obj.phase.right >= 1
                 obj.footstep_target_left = X.body.x + foot_extension;
                 obj.footstep_target_right = X.body.x + 2 * foot_extension;
                 obj.X_laststep = X;
+                obj.asdf = foot_extension;
+                obj.fasdf = X.body.dx;
             end
             if obj.phase.left >= 1
                 obj.footstep_target_right = X.body.x + foot_extension;
                 obj.footstep_target_left = X.body.x + 2 * foot_extension;
                 obj.X_laststep = X;
+                obj.asdf = foot_extension;
+                obj.fasdf = X.body.dx;
             end
             
             % Limit phases to [0, 1)
@@ -146,13 +152,15 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             u.left.theta_eq.kp      = tvals_left.kp;
             u.left.theta_eq.kd      = tvals_left.kd;
             
-            dbg = [x_target_right, x_target_left];
+            dbg = [obj.asdf, obj.fasdf];
         end
         
         
         function resetImpl(obj)
             obj.phase.right = 0;
             obj.phase.left = 0.5;
+            obj.asdf = 0;
+            obj.fasdf = 0;
             
             obj.X_laststep.body.x      = 0;
             obj.X_laststep.body.y      = 1;
