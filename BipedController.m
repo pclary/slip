@@ -31,17 +31,17 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
                 'right', struct('l', 0, 'l_eq', 0, 'theta', 0, 'theta_eq', 0, 'dl', 0, 'dl_eq', 0, 'dtheta', 0, 'dtheta_eq', 0), ...
                 'left', struct('l', 0, 'l_eq', 0, 'theta', 0, 'theta_eq', 0, 'dl', 0, 'dl_eq', 0, 'dtheta', 0, 'dtheta_eq', 0));
             obj.length_trajectory = struct(...
-                'phase',  {0.0, 0.2, 0.3,  0.5,  0.6,  0.7, 1.0}, ...
+                'phase',  {0.0, 0.3, 0.4,  0.5,  0.6,  0.7, 1.0}, ...
                 'torque', {3e2, 3e2, 0.0,  0.0,  0.0,  3e2, 3e2}, ...
                 'target', {0.8, 0.8, 0.75, 0.70, 0.75, 0.8, 0.8}, ...
-                'kp',     {1e3, 1e3, 1e3,  1e3,  1e3,  1e3, 1e3}, ...
+                'kp',     {4e3, 4e3, 4e3,  4e3,  4e3,  4e3, 4e3}, ...
                 'kd',     {1e2, 1e2, 1e2,  1e2,  1e2,  1e2, 1e2});
             obj.angle_trajectory = struct(...
                 'phase',  {0.0, 0.4, 0.5, 0.5, 0.6, 1.0}, ...
                 'torque', {1.0, 0.0, 0.0, 0.0, 0.0, 1.0}, ...
                 'target', {0.0, 0.0, 0.5, 0.0, 1.0, 1.0}, ...
-                'kp',     {0.0, 1e2, 1e2, 1e2, 1e2, 0.0}, ...
-                'kd',     {0.0, 1e0, 1e0, 1e0, 1e0, 0.0});
+                'kp',     {0.0, 1e3, 1e3, 1e3, 1e3, 0.0}, ...
+                'kd',     {0.0, 1e2, 1e2, 1e2, 1e2, 0.0});
         end
         
         
@@ -53,7 +53,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             
             % Update leg targets
             foot_extension = X.body.dx / (2 * obj.phase_rate * 0.92) + ...
-                0.1 * (X.body.dx - obj.target_dx) + ...
+                0.1 * clamp((X.body.dx - obj.target_dx), -0.5, 0.5) + ...
                 0.2 * (X.body.dx - obj.X_laststep.body.dx);
             if obj.phase.right >= 1
                 obj.footstep_target_left = X.body.x + foot_extension;
@@ -113,7 +113,6 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_right = interp_trajectory(obj.angle_trajectory, obj.phase.right);
             tvals_right.torque = tvals_right.torque * horizontal_push;
             tvals_right.dtorque = tvals_right.dtorque * horizontal_push;
-            asdf = tvals_right.target;
             
             footstep_target_right_last = obj.X_laststep.body.x + ...
                 obj.X_laststep.right.l * sin(obj.X_laststep.right.theta + obj.X_laststep.body.theta);
@@ -123,14 +122,15 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_right.target = real(asin(complex((x_target_right - X.body.x) / X.right.l))) - X.body.theta;
             tvals_right.dtarget = (tvals_right.target - obj.angle_target_right_last) / obj.Ts;
             obj.angle_target_right_last = tvals_right.target;
-            u.right.theta_eq.torque = tvals_right.torque;
-            u.right.theta_eq.target = tvals_right.target;
-            u.right.theta_eq.kp     = tvals_right.kp;
+            u.right.theta_eq.torque  = tvals_right.torque;
+            u.right.theta_eq.target  = tvals_right.target;
+            u.right.theta_eq.dtarget = tvals_right.dtarget;
+            u.right.theta_eq.kp      = tvals_right.kp;
+            u.right.theta_eq.kd      = tvals_right.kd;
             
             tvals_left = interp_trajectory(obj.angle_trajectory, obj.phase.left);
             tvals_left.torque = tvals_left.torque * horizontal_push;
             tvals_left.dtorque = tvals_left.dtorque * horizontal_push;
-            asdfl = tvals_left.target;
             
             footstep_target_left_last = obj.X_laststep.body.x + ...
                 obj.X_laststep.left.l * sin(obj.X_laststep.left.theta + obj.X_laststep.body.theta);
@@ -140,31 +140,11 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             tvals_left.target = real(asin(complex((x_target_left - X.body.x) / X.left.l))) - X.body.theta;
             tvals_left.dtarget = (tvals_left.target - obj.angle_target_left_last) / obj.Ts;
             obj.angle_target_left_last = tvals_left.target;
-            u.left.theta_eq.torque = tvals_left.torque;
-            u.left.theta_eq.target = tvals_left.target;
-            u.left.theta_eq.kp     = tvals_left.kp;
-            
-            
-%             u.right.l_eq.torque  = 100;
-%             u.right.l_eq.target  = 0.8;
-%             u.right.l_eq.dtarget = 0;
-%             u.right.l_eq.kp      = 500;
-%             u.right.l_eq.kd      = 100;
-%             u.right.theta_eq.torque  = 0;
-%             u.right.theta_eq.target  = 0;
-%             u.right.theta_eq.dtarget = 0;
-%             u.right.theta_eq.kp      = 500;
-%             u.right.theta_eq.kd      = 200;
-%             u.left.l_eq.torque  = 100;
-%             u.left.l_eq.target  = 0.8;
-%             u.left.l_eq.dtarget = 0;
-%             u.left.l_eq.kp      = 500;
-%             u.left.l_eq.kd      = 100;
-%             u.left.theta_eq.torque  = 0;
-%             u.left.theta_eq.target  = 0;
-%             u.left.theta_eq.dtarget = 0;
-%             u.left.theta_eq.kp      = 500;
-%             u.left.theta_eq.kd      = 100;
+            u.left.theta_eq.torque  = tvals_left.torque;
+            u.left.theta_eq.target  = tvals_left.target;
+            u.left.theta_eq.dtarget = tvals_left.dtarget;
+            u.left.theta_eq.kp      = tvals_left.kp;
+            u.left.theta_eq.kd      = tvals_left.kd;
             
             dbg = [x_target_right, x_target_left];
         end
@@ -259,4 +239,8 @@ torque = tvals.torque + ...
     (tvals.kp * (tvals.target - x)) + ...
     (tvals.kd * (tvals.dtarget - dx));
 end
-        
+
+
+function out = clamp (x, l, h)
+out = min(max(x, l), h);
+end
