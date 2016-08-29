@@ -34,6 +34,18 @@ env = Environment();
 businfo = Simulink.Bus.createObject(env);
 environment_bus = eval(businfo.busName);
 clear(businfo.busName);
+
+% Controller State
+cstate0 = ControllerState();
+businfo = Simulink.Bus.createObject(cstate0);
+cstate_bus = eval(businfo.busName);
+clear(businfo.busName);
+
+% Controller Parameters
+cparams0 = ControllerParams();
+businfo = Simulink.Bus.createObject(cparams0);
+cparams_bus = eval(businfo.busName);
+clear(businfo.busName);
     
 % Stiffness of external body force (dragging body around with mouse)
 kp_f_ext = 1e4;
@@ -50,5 +62,8 @@ ground_damping = 1.5*2*sqrt(ground_stiffness*env.foot.mass).*ones(size(ground_x)
 ground_friction = 1*ones(size(ground_x));
 ground_data = [ground_x, ground_y, ground_stiffness, ground_damping, ground_friction];
 
-Ts = 1e-3;
-
+Ts_controller = 1e-3;
+Ts_planner = 1e-2;
+Ts_dynamics = 1e-3 / 16;
+Ts_visualization = 16e-3;
+Ts_prediction = 1e-3;
