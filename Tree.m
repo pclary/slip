@@ -1,30 +1,33 @@
 classdef Tree < handle
     
-    properties
+    properties (SetAccess = private)
         nodes
         root
         null_node
+        counter
     end
     
+    
     methods
-        
         
         function obj = Tree(data, capacity, branching_factor)
             obj.null_node = TreeNode(obj, data, branching_factor);
             obj.nodes = TreeNode(obj, data, branching_factor);
             for i = 1:capacity
                 obj.nodes(i) = TreeNode(obj, data, branching_factor);
-                obj.nodes(i).delete();
+                obj.nodes(i);
             end
-            obj.root = obj.new();
+            obj.counter = uint32(0);
+            obj.root = obj.alloc();
         end
         
         
-        function node = new(obj)
+        function node = alloc(obj)
             for i = 1:numel(obj.nodes)
-                if ~obj.nodes(i).valid
+                if obj.nodes(i).null
                     node = obj.nodes(i);
-                    node.valid = true;
+                    obj.counter = obj.counter + 1;
+                    node.construct(obj.counter);
                     return;
                 end
             end
@@ -32,25 +35,14 @@ classdef Tree < handle
         end
         
         
-        function delete(obj, node)
-            node.valid = false;
-            node.parent = obj.nullnode;
-            for i = 1:numel(node.children)
-                if ~node.children(i).null
-                    node.children(i).delete();
-                end
-                node.children(i) = obj.null_node;
-            end
-        end
-        
-        
         function clear(obj)
             for i = 1:numel(obj.nodes)
-                obj.delete(obj.nodes(i));
+                obj.nodes(i).destruct();
             end
+            obj.counter = uint32(0);
+            obj.root = obj.alloc();
         end
        
-        
     end
     
 end
