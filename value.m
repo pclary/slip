@@ -1,10 +1,10 @@
-function v = value(X, goal, ground_data, weight, offset)
+function [v, f] = value(X, goal, ground_data, weight, offset)
 
 % Feature vector
 f = [sign(X.body.dx) * (X.body.dx - goal.dx);
     ground_distance(X.body.x, X.body.y, ground_data);
     X.body.dy;
-    sign(X.body.dx) * X.body.theta;
+    sign(X.body.dx) * (mod(X.body.theta + pi, 2*pi) - pi);
     sign(X.body.dx) * (X.body.theta + (X.right.theta + X.left.theta) / 2);
     abs(X.right.theta - X.left.theta);
     (X.right.l + X.left.l) / 2;
@@ -14,7 +14,6 @@ f = [sign(X.body.dx) * (X.body.dx - goal.dx);
     (X.right.dl + X.left.dl) / 2];
 
 v = dot(abs(f - offset), weight);
-
 
 
 function dist = ground_distance(x, y, ground_data)
@@ -49,3 +48,8 @@ for i = 1:size(ground_data, 1) - 1
 end
 
 dist = sqrt(min_dist2);
+
+
+function out = clamp(x, lower, upper)
+% CLAMP Constrain the value to be within the given bounds.
+out = min(max(x, lower), upper);

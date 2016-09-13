@@ -14,79 +14,69 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     end
     
     properties (Access = private)
-        cparams;
-        cparams_default;
     end
     
     
     methods (Access = protected)
         function setupImpl(obj)
-            obj.cparams = ControllerParams();
-            obj.cparams_default = ControllerParams();
         end
         
         
-        function cparams = stepImpl(obj, X, cstate)
+        function [cparams, v] = stepImpl(obj, X, cstate)
+            cparams = ControllerParams();
+            cparams.phase_rate = obj.phase_rate;
+            cparams.target_dx = obj.target_dx;
+            cparams.step_offset = obj.step_offset;
+            cparams.energy_injection = obj.energy_injection;
             
-            obj.cparams_default.phase_rate = obj.phase_rate;
-            obj.cparams_default.target_dx = obj.target_dx;
-            obj.cparams_default.step_offset = obj.step_offset;
-            obj.cparams_default.energy_injection = obj.energy_injection;
-
-            obj.cparams.phase_rate = 0.99*obj.cparams.phase_rate + 0.01*obj.cparams_default.phase_rate;
-            obj.cparams.target_dx = 0.99*obj.cparams.target_dx + 0.01*obj.cparams_default.target_dx;
-            obj.cparams.step_offset = 0.99*obj.cparams.step_offset + 0.01*obj.cparams_default.step_offset;
-            obj.cparams.energy_injection = 0.99*obj.cparams.energy_injection + 0.01*obj.cparams_default.energy_injection;
-
-            step_time = 1 / obj.cparams.phase_rate / 2;
-
-            Xpred = biped_sim(X, cstate, obj.cparams, step_time, obj.Ts, obj.env, obj.ground_data);
-
-            cparams_new = obj.cparams;
-            cparams_new.phase_rate = cparams_new.phase_rate + randn() * 0.1;
-            cparams_new.target_dx = cparams_new.target_dx + randn() * 0.3;
-            cparams_new.step_offset = cparams_new.step_offset + randn() * 0.1;
-            cparams_new.energy_injection = cparams_new.energy_injection + randn() * 100;
-
-            Xpred_new = biped_sim(X, cstate, cparams_new, step_time, obj.Ts, obj.env, obj.ground_data);
-
-            if state_eval(Xpred_new) > state_eval(Xpred)
-                obj.cparams = cparams_new;
-            end
+            goal = Goal();
+            goal.dx = obj.target_dx;
+            offset = [-0.2478;
+                0.7751;
+                -0.0021;
+                -0.0809;
+                0.0113;
+                0.2552;
+                0.7772;
+                0.0027;
+                0.0072;
+                0.0187;
+                -0.0019];
+            weight = 1./[0.4794;
+                0.0003;
+                0.0206;
+                0.0050;
+                0.0042;
+                0.0372;
+                0.0003;
+                1.3190;
+                1.0232;
+                9.6877;
+                0.0861];
+            [v, f] = value(X, goal, obj.ground_data, weight, offset);
             
-            cparams = obj.cparams;
         end
         
         
         function resetImpl(obj)
-            obj.cparams.phase_rate = obj.phase_rate;
-            obj.cparams.target_dx = obj.target_dx;
-            obj.cparams.step_offset = obj.step_offset;
-            obj.cparams.energy_injection = obj.energy_injection;
         end
         
         
-        function [sz1] = getOutputSizeImpl(~)
+        function [sz1, sz2] = getOutputSizeImpl(~)
             sz1 = [1 1];
+            sz2 = [1 1];
         end
-        function [dt1] = getOutputDataTypeImpl(~)
+        function [dt1, dt2] = getOutputDataTypeImpl(~)
             dt1 = 'cparams_bus';
+            dt2 = 'double';
         end
-        function [cm1] = isOutputComplexImpl(~)
+        function [cm1, cm2] = isOutputComplexImpl(~)
             cm1 = false;
+            cm2 = false;
         end
-        function [fs1] = isOutputFixedSizeImpl(~)
+        function [fs1, fs2] = isOutputFixedSizeImpl(~)
             fs1 = true;
+            fs2 = true;
         end
     end
-end
-
-
-function v = state_eval(X)
-
-y_right = X.body.y - X.right.l * cos(X.body.theta + X.right.theta);
-y_left = X.body.y - X.left.l * cos(X.body.theta + X.left.theta);
-
-v = min(min(y_right, y_left), -2e-3);
-
 end
