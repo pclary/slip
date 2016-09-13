@@ -2,45 +2,82 @@ classdef Tree < handle
     
     properties (SetAccess = private)
         nodes
-        root
-        null_node
-        counter
     end
     
     
     methods
         
         function obj = Tree(data, capacity, branching_factor)
-            obj.null_node = TreeNode(obj, data, branching_factor);
-            obj.nodes = TreeNode(obj, data, branching_factor);
-            for i = 1:capacity
-                obj.nodes(i) = TreeNode(obj, data, branching_factor);
-                obj.nodes(i);
-            end
-            obj.counter = uint32(0);
-            obj.root = obj.alloc();
+            obj.nodes = struct(...
+                'data',     {data}, ...
+                'parent',   {0}, ...
+                'children', {zeros(branching_factor, 1)}, ...
+                'index',    repmat({0}, capacity, 1));
+            obj.alloc();
         end
         
         
-        function node = alloc(obj)
-            for i = 1:numel(obj.nodes)
-                if obj.nodes(i).null
-                    node = obj.nodes(i);
-                    obj.counter = obj.counter + 1;
-                    node.construct(obj.counter);
-                    return;
+        function c = addChild(obj, index, data)
+            for i = 1:numel(obj.nodes(index).children)
+                if ~obj.nodes(index).children(i)
+                    c = obj.alloc();
+                    if c
+                        obj.nodes(c).data = data;
+                        obj.nodes(c).parent = index;
+                        obj.nodes(index).children(i) = c;
+                        return;
+                    end
                 end
             end
-            node = obj.null_node;
+            c = 0;
         end
+        
+        
+%         function destruct(obj, index)
+%             if ~index
+%                 return
+%             end
+%             
+%             p = obj.nodes(index).parent;
+%             if p
+%                 for i = 1:numel(obj.nodes(p).children)
+%                     if obj.nodes(p).children(i) == index
+%                         obj.nodes(p).children(i) = 0;
+%                     end
+%                 end
+%             end
+%             
+%             for i = 1:numel(obj.nodes(index).children)
+%                 obj.destruct(obj.nodes(index).children(i));
+%             end
+%             
+%             obj.nodes(index).index = 0;
+%         end
         
         
         function clear(obj)
             for i = 1:numel(obj.nodes)
-                obj.nodes(i).destruct();
+                obj.nodes(i).index = 0;
             end
-            obj.counter = uint32(0);
-            obj.root = obj.alloc();
+            obj.alloc();
+        end
+        
+    end
+    
+    
+    methods (Access = private)
+        
+        function node = alloc(obj)
+            for i = 1:numel(obj.nodes)
+                if ~obj.nodes(i).index
+                    node = i;
+                    obj.nodes(i).index = i;
+                    obj.nodes(i).parent = 0;
+                    obj.nodes(i).children = zeros(size(obj.nodes(i).children));
+                    return;
+                end
+            end
+            node = 0;
         end
        
     end
