@@ -1,4 +1,28 @@
-function [v, f] = value(X, goal, ground_data, weight, offset)
+function [v, f] = value(X, goal, ground_data)
+
+offset = [-0.2478;
+    0.7751;
+    -0.0021;
+    -0.0809;
+    0.0113;
+    0.2552;
+    0.7772;
+    0.0027;
+    0.0072;
+    0.0187;
+    -0.0019];
+
+weight = 1./[0.4794;
+    0.0003;
+    0.0206;
+    0.0050;
+    0.0042;
+    0.0372;
+    0.0003;
+    1.3190;
+    1.0232;
+    9.6877;
+    0.0861];
 
 % Feature vector
 f = [sign(X.body.dx) * (X.body.dx - goal.dx);
@@ -14,6 +38,8 @@ f = [sign(X.body.dx) * (X.body.dx - goal.dx);
     (X.right.dl + X.left.dl) / 2];
 
 v = dot(abs(f - offset), weight);
+
+end
 
 
 function dist = ground_distance(x, y, ground_data)
@@ -49,7 +75,10 @@ end
 
 dist = sqrt(min_dist2);
 
+end
+
 
 function out = clamp(x, lower, upper)
 % CLAMP Constrain the value to be within the given bounds.
 out = min(max(x, lower), upper);
+end
