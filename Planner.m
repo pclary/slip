@@ -1,7 +1,8 @@
 classdef Planner < matlab.System & matlab.system.mixin.Propagates
     
     properties (Nontunable)
-        Ts = 1e-3;
+        Ts = 1e-1;
+        Ts_sim = 1e-3;
         env = Environment();
         ground_data = zeros(1, 5);
     end
@@ -15,6 +16,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     
     properties (Access = private)
         tree
+        n
     end
     
     
@@ -29,25 +31,28 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             goal = Goal();
             goal.dx = obj.target_dx;
             
-            tstop = 0.5 / cparams_new.phase_rate;
-            [X_pred, cstate_pred] = biped_sim(X, cstate, cparams_new, tstop, obj.Ts, obj.env, obj.ground_data);
-            value_pred = value(X_pred, goal, obj.ground_data);
-            obj.tree.reset(SimulationState(X_pred, cstate_pred, cparams_new, gstate, value_pred));
+            period = 0.5 / obj.tree.root().data.cparams.phase_rate;
             
+            if obj.t > period % change t to phase
+                obj.n = 0;
+                tstop = 
+                [X_pred, cstate_pred] = biped_sim(X, cstate, cparams_new, tstop, obj.Ts_sim, obj.env, obj.ground_data);
+                value_pred = value(X_pred, goal, obj.ground_data);
+                obj.tree.reset(SimulationState(X_pred, cstate_pred, cparams_new, gstate, value_pred));
+            else
+                
+            end
             
-            
-            cparams = ControllerParams();
-            cparams.phase_rate = obj.phase_rate;
-            cparams.target_dx = obj.target_dx;
-            cparams.step_offset = obj.step_offset;
-            cparams.energy_injection = obj.energy_injection;
-
+            cparams = obj.tree.root().data.cparams;
             v = value(X, goal, obj.ground_data);
             
+            obj.n = obj.n + 1;
         end
         
         
         function resetImpl(obj)
+            obj.tree.reset(SimulationState());
+            obj.t = 0;
         end
         
         

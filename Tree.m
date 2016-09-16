@@ -29,7 +29,7 @@ classdef Tree < handle
         
         function r = root(~)
             % Root node is always at index 1
-            r = uint32(1);
+            r = obj.nodes(1);
         end
         
         
@@ -98,7 +98,7 @@ classdef Tree < handle
             
             % Allocate a new root and set data
             obj.alloc();
-            obj.nodes(obj.root()).data = data;
+            obj.root().data = data;
         end
         
     end
