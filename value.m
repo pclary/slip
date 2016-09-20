@@ -37,7 +37,7 @@ f = [sign(X.body.dx) * (X.body.dx - goal.dx);
     sign(X.right.theta - X.left.theta) * (X.right.dtheta - X.left.dtheta);
     (X.right.dl + X.left.dl) / 2];
 
-v = dot(abs(f - offset), weight);
+v = -dot(abs(f - offset), weight);
 
 end
 

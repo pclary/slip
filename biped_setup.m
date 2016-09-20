@@ -65,7 +65,7 @@ ground_friction = 1*ones(size(ground_x));
 ground_data = [ground_x, ground_y, ground_stiffness, ground_damping, ground_friction];
 
 Ts_controller = 1e-3;
-Ts_planner = 1e-1;
+Ts_planner = 1e-2;
 Ts_dynamics = 1e-3 / 16;
 Ts_visualization = 16e-3;
-Ts_prediction = 1e-3;
+Ts_sim = 1e-3;

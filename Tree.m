@@ -1,6 +1,6 @@
 classdef Tree < handle
     
-    properties (SetAccess = private)
+    properties
         nodes
     end
     
@@ -15,9 +15,9 @@ classdef Tree < handle
             % Allocate max number of nodes
             obj.nodes = struct(...
                 'data',     {data}, ...
+                'index',    repmat({uint32(0)}, capacity, 1), ...
                 'parent',   {uint32(0)}, ...
-                'children', {uint32(zeros(branching_factor, 1))}, ...
-                'index',    repmat({uint32(0)}, capacity, 1));
+                'children', {uint32(zeros(branching_factor, 1))});
             
             % Allocate root node
             obj.alloc();
@@ -27,9 +27,24 @@ classdef Tree < handle
         end
         
         
-        function r = root(~)
-            % Root node is always at index 1
-            r = obj.nodes(1);
+        function n = randWeighted(obj, weight)
+            % Pick a random node, weighted towards shallower nodes
+            
+            % Start at root
+            n = uint32(1);
+            
+            for a = 1:numel(obj.nodes)
+                % Count the number of children
+                nc = sum(obj.nodes(n).children > 0);
+                
+                % If no children or rand > weight, stop here
+                if rand() < weight || nc < 1
+                    return;
+                else
+                    % Pick a random child
+                    n = obj.nodes(n).children(ceil(rand() * nc));
+                end
+            end
         end
         
         
@@ -98,7 +113,7 @@ classdef Tree < handle
             
             % Allocate a new root and set data
             obj.alloc();
-            obj.root().data = data;
+            obj.nodes(1).data = data;
         end
         
     end

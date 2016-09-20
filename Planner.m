@@ -21,16 +21,16 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     
     methods (Access = protected)
         function setupImpl(obj)
-            obj.tree = Tree(SimulationState(), 100, 5);
+            obj.tree = Tree(SimulationState(), 100, 20);
         end
         
         
-        function [cparams, v] = stepImpl(obj, X, cstate)
+        function [cparams] = stepImpl(obj, X, cstate)
             
             goal = Goal();
             goal.dx = obj.target_dx;
             
-            cparams = obj.tree.root().data.cparams;
+            cparams = obj.tree.nodes(1).data.cparams;
             
             % Calculate leg phases at next planner timestep
             phase_inc = obj.Ts * cparams.phase_rate;
@@ -44,14 +44,14 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 [Xp, cstatep] = biped_sim(X, cstate, cparams, obj.Ts, obj.Ts_sim, obj.env, obj.ground_data);
                 
                 % Choose the new parameters with the highest estimated Q value
-                q_max = -inf;
-                for i = 1:numel(obj.tree.root().children)
-                    c = obj.tree.root().children(i);
+                v_max = -inf;
+                for i = 1:numel(obj.tree.nodes(1).children)
+                    c = obj.tree.nodes(1).children(i);
                     if c
-                        q = obj.tree.nodes(c).value;
-                        if q > q_max;
-                            cparams = obj.tree.nodes(c).cparams;
-                            q_max = q;
+                        v = obj.tree.nodes(c).data.value;
+                        if v > v_max;
+                            cparams = obj.tree.nodes(c).data.cparams;
+                            v_max = v;
                         end
                     end
                 end
@@ -62,14 +62,44 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 [Xp, cstatep] = biped_sim(Xp, cstatep, cparams, t_stop, obj.Ts_sim, obj.env, obj.ground_data);
                 
                 % Reset tree with predicted state as root
-                qp = value(Xp, goal, obj.ground_data);
-                ss = SimulationState(Xp, cstatep, cparams, GeneratorState(), qp);
+                vp = value(Xp, goal, obj.ground_data);
+                ss = SimulationState(Xp, cstatep, cparams, GeneratorState(), vp);
                 obj.tree.reset(ss);
             else
                 % Otherwise, grow the tree
+                
+                % Pick a node to expand on
+                n = obj.tree.randWeighted(0.5);
+                
+                % Generate a set of parameters to try
+                gstate = obj.tree.nodes(n).data.gstate;
+                [cparams_gen, gstate] = generate_params(X, goal, obj.ground_data, gstate);
+                obj.tree.nodes(n).data.gstate = gstate;
+                
+                % Simulate a step
+                t_stop = 1 / cparams_gen.phase_rate;
+                [Xp, cstatep] = biped_sim(obj.tree.nodes(n).data.X, obj.tree.nodes(n).data.cstate, ...
+                    cparams_gen, t_stop, obj.Ts_sim, obj.env, obj.ground_data);
+                
+                % Evaluate the result and add child node
+                vp = value(Xp, goal, obj.ground_data);
+                ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), vp);
+                c = obj.tree.addChild(n, ss);
+                
+                % If child allocation was successful, propogate value to parents
+                if c
+                    i = n;
+                    while (i > 0)
+                        % Set node value if greater than previous value
+                        if obj.tree.nodes(i).data.value < vp
+                            obj.tree.nodes(i).data.value = vp;
+                        end
+                        
+                        % Move to parent
+                        i = obj.tree.nodes(i).parent;
+                    end
+                end
             end
-            
-            v = value(X, goal, obj.ground_data);
         end
         
         
@@ -78,21 +108,17 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         end
         
         
-        function [sz1, sz2] = getOutputSizeImpl(~)
+        function [sz1] = getOutputSizeImpl(~)
             sz1 = [1 1];
-            sz2 = [1 1];
         end
-        function [dt1, dt2] = getOutputDataTypeImpl(~)
+        function [dt1] = getOutputDataTypeImpl(~)
             dt1 = 'cparams_bus';
-            dt2 = 'double';
         end
-        function [cm1, cm2] = isOutputComplexImpl(~)
+        function [cm1] = isOutputComplexImpl(~)
             cm1 = false;
-            cm2 = false;
         end
-        function [fs1, fs2] = isOutputFixedSizeImpl(~)
+        function [fs1] = isOutputFixedSizeImpl(~)
             fs1 = true;
-            fs2 = true;
         end
     end
 end
