@@ -96,6 +96,28 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         function out = isOutputFixedSizeImpl(~)
             out = true;
         end
+        
+    end
+    
+    
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Public Methods
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    methods
+        
+        function out = isAlive(obj)
+            out = obj.isvalid() && obj.Fig.isvalid() && ...
+                obj.Axes.isvalid() && obj.Body.isvalid();
+        end
+        
+        
+        function out = getFig(obj)
+            out = obj.Fig;
+        end
+        
     end
     
     
@@ -107,12 +129,6 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         function en = dragEnabled(obj)
             en = strcmp(obj.DragIndicator.Visible, 'on');
-        end
-        
-        
-        function out = isAlive(obj)
-            out = obj.isvalid() && obj.Fig.isvalid() && ...
-                obj.Axes.isvalid() && obj.Body.isvalid();
         end
         
         
