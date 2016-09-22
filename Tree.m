@@ -17,7 +17,8 @@ classdef Tree < handle
                 'data',     {data}, ...
                 'index',    repmat({uint32(0)}, capacity, 1), ...
                 'parent',   {uint32(0)}, ...
-                'children', {uint32(zeros(branching_factor, 1))});
+                'children', {uint32(zeros(branching_factor, 1))}, ...
+                'depth',    {uint32(0)});
             
             % Allocate root node
             obj.alloc();
@@ -27,17 +28,18 @@ classdef Tree < handle
         end
         
         
-        function n = randWeighted(obj, weight)
+        function n = randDepth(obj, maxdepth)
             % Pick a random node, weighted towards shallower nodes
             
             % Start at root
             n = uint32(1);
             
-            for a = 1:numel(obj.nodes)
+            for d = 0:maxdepth - 1
                 % Count the number of children
                 nc = sum(obj.nodes(n).children > 0);
                 
-                % If no children or rand > weight, stop here
+                % If rand > weight or no children, stop here
+                weight = 1 / (maxdepth - d + 1);
                 if rand() < weight || nc < 1
                     return;
                 else
@@ -59,6 +61,7 @@ classdef Tree < handle
                         obj.nodes(c).data = data;
                         obj.nodes(c).parent = index;
                         obj.nodes(index).children(i) = c;
+                        obj.nodes(c).depth = obj.nodes(index).depth + 1;
                         return;
                     end
                 end
@@ -69,7 +72,7 @@ classdef Tree < handle
         end
         
         
-        function del(obj, index)
+        function deleteNode(obj, index)
             % Clear child index from parent node, if applicable
             p = obj.nodes(index).parent;
             if p
@@ -130,6 +133,7 @@ classdef Tree < handle
                     obj.nodes(i).index = i;
                     obj.nodes(i).parent = uint32(0);
                     obj.nodes(i).children = uint32(zeros(size(obj.nodes(i).children)));
+                    obj.nodes(i).depth = uint32(0);
                     return;
                 end
             end

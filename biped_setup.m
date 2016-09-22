@@ -55,7 +55,7 @@ kd_f_ext = 2*sqrt(kp_f_ext*env.body.mass);
 % ground_y = [-1e3; 0; 0; -0.3; -0.3; 1; 0; 0; 1; 1; 0; 0; -1e3];
 % ground_x = [-1e3; -1e3; 1e3; 1e3];
 % ground_y = [-1e3; 0; 0; -1e3];
-ground_x = [-1e3; -1e3; 5;  5; 5.5; 5.5; 1e3; 1e3];
+ground_x = [-1e3; -1e3; 3;  3; 3.5; 3.5; 1e3; 1e3];
 ground_y = [-1e3;    0; 0; -1;  -1; 0;   0;  -1e3];
 % ground_x = [-1e2; (-1e1:0.1:1e2)'; 1e2];
 % ground_y = [-1e2; randn(1101, 1)*0.01; -1e2];
@@ -65,7 +65,7 @@ ground_friction = 1*ones(size(ground_x));
 ground_data = [ground_x, ground_y, ground_stiffness, ground_damping, ground_friction];
 
 Ts_controller = 1e-3;
-Ts_planner = 1e-2;
+Ts_planner = 1e-3 / 2;
 Ts_dynamics = 1e-3 / 16;
 Ts_visualization = 16e-3;
 Ts_sim = 1e-3;

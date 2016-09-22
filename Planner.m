@@ -5,23 +5,22 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         Ts_sim = 1e-3;
         env = Environment();
         ground_data = zeros(1, 5);
+        rollout_depth = 3;
     end
 
     properties
-        phase_rate = 1.5;
         target_dx = 0;
-        step_offset = 0;
-        energy_injection = 0;
     end
     
     properties (Access = private)
         tree
+        rollout_node
     end
     
     
     methods (Access = protected)
         function setupImpl(obj)
-            obj.tree = Tree(SimulationState(), 100, 20);
+            obj.tree = Tree(SimulationState(), 1000, 100);
         end
         
         
@@ -65,11 +64,35 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 vp = value(Xp, goal, obj.ground_data);
                 ss = SimulationState(Xp, cstatep, cparams, GeneratorState(), vp);
                 obj.tree.reset(ss);
+                obj.rollout_node = uint32(1);
             else
                 % Otherwise, grow the tree
                 
-                % Pick a node to expand on
-                n = obj.tree.randWeighted(0.5);
+                % TODO: only pick nodes with no high-value child
+                
+                % Check whether max depth on current rollout has been reached
+                if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
+                    % Evaluate leaf node
+                    v = value(obj.tree.nodes(obj.rollout_node).data.X, goal, obj.ground_data);
+                    
+                    % Propogate value to parents
+                    i = obj.rollout_node;
+                    while (i > 0)
+                        % Set node value if greater than previous value
+                        if obj.tree.nodes(i).data.value < v
+                            obj.tree.nodes(i).data.value = v;
+                        end
+                        
+                        % Move to parent
+                        i = obj.tree.nodes(i).parent;
+                    end
+                    
+                    % Start new rollout
+                    obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                end
+                
+                % Expand on current rollout node
+                n = obj.rollout_node;
                 
                 % Generate a set of parameters to try
                 gstate = obj.tree.nodes(n).data.gstate;
@@ -82,29 +105,38 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     cparams_gen, t_stop, obj.Ts_sim, obj.env, obj.ground_data);
                 
                 % Evaluate the result and add child node
-                vp = value(Xp, goal, obj.ground_data);
-                ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), vp);
+                ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), -inf);
                 c = obj.tree.addChild(n, ss);
                 
-                % If child allocation was successful, propogate value to parents
-                if c
-                    i = n;
-                    while (i > 0)
-                        % Set node value if greater than previous value
-                        if obj.tree.nodes(i).data.value < vp
-                            obj.tree.nodes(i).data.value = vp;
+                % If unable to add child node, delete the lowest value child
+                if ~c
+                    v_min = inf;
+                    c_min = uint32(0);
+                    for i = 1:numel(obj.tree.nodes(n).children)
+                        ci = obj.tree.nodes(n).children(i);
+                        if ci
+                            vc = obj.tree.nodes(ci).data.value;
+                            if vc < v_min
+                                v_min = vc;
+                                c_min = ci;
+                            end
                         end
-                        
-                        % Move to parent
-                        i = obj.tree.nodes(i).parent;
+                    end
+                    if c_min
+                        obj.tree.deleteNode(c_min);
+                        c = obj.tree.addChild(n, ss);
                     end
                 end
+                
+                % Child is next parent for the rollout
+                obj.rollout_node = c;
             end
         end
         
         
         function resetImpl(obj)
             obj.tree.reset(SimulationState());
+            obj.rollout_node = uint32(1);
         end
         
         

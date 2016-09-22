@@ -38,6 +38,7 @@ f = [sign(X.body.dx) * (X.body.dx - goal.dx);
     (X.right.dl + X.left.dl) / 2];
 
 v = -dot(abs(f - offset), weight);
+v = min(v, -1000);
 
 end
 
