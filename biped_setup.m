@@ -51,14 +51,14 @@ clear(businfo.busName);
 kp_f_ext = 1e4;
 kd_f_ext = 2*sqrt(kp_f_ext*env.body.mass);
 
-% ground_x = [-1e3; -1e3; 5; 5; 10.5; 30; 45; 50; 50; 51; 51; 1e3; 1e3];
-% ground_y = [-1e3; 0; 0; -0.3; -0.3; 1; 0; 0; 1; 1; 0; 0; -1e3];
+ground_x = [-1e3; -1e3; 5; 5; 10.5; 30; 45; 50; 50; 51; 51; 1e3; 1e3];
+ground_y = [-1e3; 0; 0; -0.3; -0.3; 1; 0; 0; 1; 1; 0; 0; -1e3];
 % ground_x = [-1e3; -1e3; 1e3; 1e3];
 % ground_y = [-1e3; 0; 0; -1e3];
-ground_x = [-1e3; -1e3; 3;  3; 3.5; 3.5; 4.8; 4.8; 5.1; 5.1; 8; 8; 8.6; 8.6; 1e3; 1e3];
-ground_y = [-1e3;    0; 0; -1;  -1; 0; 0; -1;  -1; 0; 0; -1;  -1; 0;   0;  -1e3];
-% ground_x = [-1e2; (-1e1:0.1:1e2)'; 1e2];
-% ground_y = [-1e2; randn(1101, 1)*0.01; -1e2];
+% ground_x = [-1e3; -1e3; 3;  3; 3.5; 3.5; 4.8; 4.8; 5.1; 5.1; 8; 8; 8.6; 8.6; 1e3; 1e3];
+% ground_y = [-1e3;    0; 0; -1;  -1; 0; 0; -1;  -1; 0; 0; -1;  -1; 0;   0;  -1e3];
+% ground_x = [-2e1; (-2e1:0.1:2e1)'; 2e1];
+% ground_y = [-2e1; randn(401, 1)*0.01; -2e1];
 ground_stiffness = 1e6*ones(size(ground_x));
 ground_damping = 1.5*2*sqrt(ground_stiffness*env.foot.mass).*ones(size(ground_x));
 ground_friction = 1*ones(size(ground_x));
@@ -66,6 +66,6 @@ ground_data = [ground_x, ground_y, ground_stiffness, ground_damping, ground_fric
 
 Ts_controller = 1e-3;
 Ts_planner = 1e-3 * 2;
-Ts_dynamics = 1e-3 / 16;
+Ts_dynamics = 1e-3 / 8;
 Ts_visualization = 16e-3;
 Ts_sim = 1e-3;

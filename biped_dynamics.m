@@ -153,7 +153,7 @@ end
 % Get normal and tangent basis vectors
 % NOTE: Normal is into ground, tangent is 90 deg CCW from normal
 depth = sqrt(min_dist2);
-if min_p == 0.0 || min_p == 1.0
+if (min_p == 0.0 || min_p == 1.0) && depth > 0
     % Special case for corners -- normal is aligned with vector
     % from test point to corner
     normal_x = -(point.x - min_x_line) / depth;

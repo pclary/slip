@@ -5,9 +5,9 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
     % Properties
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    properties (Nontunable)
+    properties
         env = struct();
-        ground_data = zeros(1, 5)
+        ground_data = zeros(1, 5);
     end
     
         
@@ -79,6 +79,10 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.PanEnabled = false;
             obj.PanAnchor = [0; 0];
             obj.disableDrag();
+            obj.Ground.XData = obj.ground_data(:, 1);
+            obj.Ground.YData = obj.ground_data(:, 2);
+            obj.GroundShading.XData = obj.ground_data(:, 1);
+            obj.GroundShading.YData = obj.ground_data(:, 2);
         end
         
         function out = getOutputSizeImpl(~)
