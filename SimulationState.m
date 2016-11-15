@@ -8,7 +8,6 @@ if nargin == 0
     value   = 0;
 end
 
-ss = struct();
 ss.X       = X;
 ss.cstate  = cstate;
 ss.cparams = cparams;
