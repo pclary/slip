@@ -10,10 +10,18 @@ p.parse(varargin{:});
 rate = p.Results.rate;
 t0 = p.Results.t0;
 
-vis = BipedVisualization();
+framerate = 30;
+
+if ~evalin('base', 'exist(''vis'', ''var'')') || ...
+        ~evalin('base', 'strcmp(class(vis), ''BipedVisualization'')') || ...
+        ~evalin('base', 'vis.isAlive')
+    evalin('base', 'vis = BipedVisualization()')
+    evalin('base', 'vis.setup(RobotState())');
+end
+vis = evalin('base', 'vis');
 vis.env = evalin('base', 'env');
 vis.ground_data = evalin('base', 'ground_data');
-vis.setup(RobotState());
+vis.resetPartial();
 timedisp = uicontrol('Style', 'text', 'Parent', vis.getFig());
 
 X = evalin('base', 'X');
@@ -21,8 +29,13 @@ Time = X.body.x.Time;
 
 tic;
 framecount = 0;
-while toc*rate < Time(end) && vis.isAlive()
-    t = t0 + toc*rate;
+t = t0;
+while t < Time(end) && vis.isAlive()
+    if p.Results.filename
+        t = t0 + framecount*rate/framerate;
+    else
+        t = t0 + toc*rate;
+    end
     i = find(Time <= t, 1, 'last');
     
     Xi = RobotState();
@@ -39,6 +52,15 @@ while toc*rate < Time(end) && vis.isAlive()
     Xi.left.theta_eq = X.left.theta_eq.data(i);
     
     vis.step(Xi);
+    
+    if p.Results.filename
+        [imind, cm] = rgb2ind(frame2im(getframe(vis.getFig)), 256);
+        if framecount == 0
+            imwrite(imind, cm, p.Results.filename, 'gif', 'DelayTime', 1/framerate);
+        else
+            imwrite(imind, cm, p.Results.filename, 'gif', 'DelayTime', 1/framerate, 'WriteMode', 'append');
+        end
+    end
     
     microsecs = floor((t - floor(t))*1000);
     seconds = mod(floor(t), 60);

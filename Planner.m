@@ -13,6 +13,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         energy_injection = 0;
         phase_rate = 1.5;
         max_stride = 1;
+        step_height = 0.1;
     end
     
     properties (Access = private)
@@ -33,6 +34,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             cparams.energy_injection = obj.energy_injection;
             cparams.phase_rate = obj.phase_rate;
             cparams.max_stride = obj.max_stride;
+            cparams.step_height = obj.step_height;
 %             goal = Goal();
 %             goal.dx = obj.target_dx;
 %             

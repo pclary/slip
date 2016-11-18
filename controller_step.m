@@ -29,10 +29,14 @@ body_ddx_est = (X.body.dx - s.body_dx_last) / Ts;
 s.body_ddx = s.body_ddx + p.ddx_filter * (body_ddx_est - s.body_ddx);
 s.body_dx_last = X.body.dx;
 
+% Detect ground contact
+gc.right = clamp((X.right.l_eq - X.right.l) / p.contact_threshold, 0, 1);
+gc.left = clamp((X.left.l_eq - X.left.l) / p.contact_threshold, 0, 1);
+
 % Update leg targets
-foot_extension = X.body.dx / (2 * p.phase_rate) + ...
+foot_extension = X.body.dx * (0.5 / p.phase_rate) + ...
     0.1 * clamp(X.body.dx - p.target_dx, -0.5, 0.5) + ...
-    0.05 * s.body_ddx;
+    0.03 * s.body_ddx;
 if s.phase.right < p.step_lock_phase
     s.foot_x_target.right = X.body.x + foot_extension;
 end
@@ -56,6 +60,10 @@ leg_pd.left.x  = get_pd(p.x_pd, s.phase.left);
 u.right = eval_leg_pd(leg_pd.right, X, X.right, p, s.foot_x_last.right, s.foot_x_target.right);
 u.left  = eval_leg_pd(leg_pd.left,  X, X.left,  p, s.foot_x_last.left,  s.foot_x_target.left);
 
+% Modulate angle target control with ground contact
+u.right.theta_eq = (1 - gc.right) * u.right.theta_eq;
+u.left.theta_eq = (1 - gc.left) * u.left.theta_eq;
+
 % Add feedforward terms for weight compensation and energy injection
 u.right.l_eq = u.right.l_eq + ...
     eval_ff(p.weight_ff, s.phase.right) * p.robot_weight + ...
@@ -65,8 +73,6 @@ u.left.l_eq = u.left.l_eq + ...
     eval_ff(p.energy_ff, s.phase.left) * p.energy_injection;
 
 % Add body angle control, modulated with ground contact
-gc.right = 1;%clamp((X.right.l_eq - X.right.l) / p.contact_threshold, 0, 1);
-gc.left = 1;%clamp((X.left.l_eq - X.left.l) / p.contact_threshold, 0, 1);
 u.right.theta_eq = u.right.theta_eq - ...
     gc.right * eval_pd(p.body_angle_pd, s.phase.right, X.body.theta, X.body.dtheta, 0, 0);
 u.left.theta_eq = u.left.theta_eq - ...

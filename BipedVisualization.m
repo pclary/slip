@@ -120,6 +120,20 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             out = obj.Fig;
         end
         
+        
+        function resetPartial(obj)
+            obj.BodyTrace.clearpoints();
+            obj.ToeATrace.clearpoints();
+            obj.ToeBTrace.clearpoints();
+            obj.PanEnabled = false;
+            obj.PanAnchor = [0; 0];
+            obj.disableDrag();
+            obj.Ground.XData = obj.ground_data(:, 1);
+            obj.Ground.YData = obj.ground_data(:, 2);
+            obj.GroundShading.XData = obj.ground_data(:, 1);
+            obj.GroundShading.YData = obj.ground_data(:, 2);
+        end
+        
     end
     
     
