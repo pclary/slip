@@ -20,7 +20,6 @@ if ~evalin('base', 'exist(''vis'', ''var'')') || ...
 end
 vis = evalin('base', 'vis');
 vis.env = evalin('base', 'env');
-vis.ground_data = evalin('base', 'ground_data');
 vis.resetPartial();
 timedisp = uicontrol('Style', 'text', 'Parent', vis.getFig());
 

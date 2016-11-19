@@ -1,4 +1,4 @@
-function [cparams, gstate] = generate_params(X, goal, ground_data, gstate)
+function [cparams, gstate] = generate_params(X, goal, terrain, gstate)
 
 cparams = ControllerParams();
 cparams.target_dx = goal.dx;

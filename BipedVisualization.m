@@ -6,8 +6,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     properties
-        env = struct();
-        ground_data = zeros(1, 5);
+        ground_data = zeros(2, 5);
     end
     
         

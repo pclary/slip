@@ -1,16 +1,14 @@
 function get_falling_data()
 
-% codegen biped_sim -args {RobotState(), ControllerState(), ControllerParams(), 0.1, 1e-3, env, ground_data}
+% codegen biped_sim -args {RobotState(), ControllerState(), ControllerParams(), 0.1, 1e-3, RobotParams(), Terrain()}
 
 evalin('base', 'clear;biped_setup;');
-% Ts_dynamics = evalin('base', 'Ts_dynamics');
-Ts_dynamics = 1e-3/8;
+Ts_dynamics = evalin('base', 'Ts_dynamics');
+robot = evalin('base', 'robot');
 env = evalin('base', 'env');
-ground_data = evalin('base', 'ground_data');
 
 vis = BipedVisualization();
-vis.env = env;
-vis.ground_data = ground_data;
+vis.ground_data = env.ground_data;
 vis.setup(RobotState());
 
 ntrials = 100;
@@ -70,7 +68,8 @@ for j = 1:ntrials
         end
         
         % Simulate
-        [X, cstate] = biped_sim_mex(X, cstate, cparams, tstep, Ts_dynamics, env, ground_data);
+        terrain = env.getLocalTerrain(X.body.x);
+        [X, cstate] = biped_sim_mex(X, cstate, cparams, tstep, Ts_dynamics, robot, terrain);
         newdata = [newdata, rstate2vec(X)];
         
         % Update visulaization

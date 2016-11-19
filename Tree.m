@@ -88,7 +88,7 @@ classdef Tree < handle
             i = index;
             c = uint32(1);
             obj.stack.push([i, c]);
-            while ~obj.stack.isempty();
+            while ~obj.stack.isempty()
                 if c > numel(obj.nodes(i).children)
                     % End of child list
                     obj.nodes(i).index = uint32(0);

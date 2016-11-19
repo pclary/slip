@@ -1,4 +1,4 @@
-function [X, cstate] = biped_sim(X, cstate, cparams, tstop, Ts, env, ground_data)
+function [X, cstate] = biped_sim(X, cstate, cparams, tstop, Ts, robot, terrain)
 
 t = 0;
 
@@ -16,16 +16,16 @@ while t < tstop
     [u, cstate] = controller_step(X, cstate, cparams, Ts);
     
     X1 = X;
-    dX1 = biped_dynamics(X1, u, ext0, env, ground_data);
+    dX1 = biped_dynamics(X1, u, ext0, robot, terrain);
     
     X2 = rs_add(X1, rs_smul(dX1, Ts/2));
-    dX2 = biped_dynamics(X2, u, ext0, env, ground_data);
+    dX2 = biped_dynamics(X2, u, ext0, robot, terrain);
     
     X3 = rs_add(X1, rs_smul(dX2, Ts/2));
-    dX3 = biped_dynamics(X3, u, ext0, env, ground_data);
+    dX3 = biped_dynamics(X3, u, ext0, robot, terrain);
     
     X4 = rs_add(X1, rs_smul(dX3, Ts));
-    dX4 = biped_dynamics(X4, u, ext0, env, ground_data);
+    dX4 = biped_dynamics(X4, u, ext0, robot, terrain);
     
     X = rs_add(X1, rs_smul(rs_add(rs_add(dX1, rs_smul(dX2, 2)), rs_add(rs_smul(dX3, 2), dX4)), Ts/6));
     t = t + Ts;

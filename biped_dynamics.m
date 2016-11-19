@@ -1,16 +1,16 @@
-function [dX, ext] = biped_dynamics(X, u, ext, env, ground_data)
+function [dX, ext] = biped_dynamics(X, u, ext, robot, terrain)
 % BIPED_DYNAMICS Calculate the biped state derivatives, taking ground contact
 % and external forces into account.
 
 % Transform into motor-side torques and clamp
-u.right.l_eq = clamp(u.right.l_eq / env.length.motor.ratio, -env.length.motor.torque, env.length.motor.torque);
-u.right.theta_eq = clamp(u.right.theta_eq / env.angle.motor.ratio, -env.angle.motor.torque, env.angle.motor.torque);
-u.left.l_eq = clamp(u.left.l_eq / env.length.motor.ratio, -env.length.motor.torque, env.length.motor.torque);
-u.left.theta_eq = clamp(u.left.theta_eq / env.angle.motor.ratio, -env.angle.motor.torque, env.angle.motor.torque);
+u.right.l_eq = clamp(u.right.l_eq / robot.length.motor.ratio, -robot.length.motor.torque, robot.length.motor.torque);
+u.right.theta_eq = clamp(u.right.theta_eq / robot.angle.motor.ratio, -robot.angle.motor.torque, robot.angle.motor.torque);
+u.left.l_eq = clamp(u.left.l_eq / robot.length.motor.ratio, -robot.length.motor.torque, robot.length.motor.torque);
+u.left.theta_eq = clamp(u.left.theta_eq / robot.angle.motor.ratio, -robot.angle.motor.torque, robot.angle.motor.torque);
 
 % Get hardstop torques
-hardstops.right = hardstop_torques(X.right, env);
-hardstops.left  = hardstop_torques(X.left,  env);
+hardstops.right = hardstop_torques(X.right, robot);
+hardstops.left  = hardstop_torques(X.left,  robot);
 
 % Add hardstop torques to control torques
 u.right.l_eq     = u.right.l_eq     + hardstops.right.l_eq;
@@ -21,16 +21,16 @@ u.left.theta_eq  = u.left.theta_eq  + hardstops.left.theta_eq;
 % Add forces from ground contact and gravity to any other external forces
 foot_state_right = foot_state(X.right, X.body);
 foot_state_left  = foot_state(X.left,  X.body);
-foot_force_right = ground_contact(foot_state_right, env, ground_data);
-foot_force_left  = ground_contact(foot_state_left,  env, ground_data);
-ext.body.y = ext.body.y - env.gravity * env.body.mass;
+foot_force_right = ground_contact(foot_state_right, robot, terrain);
+foot_force_left  = ground_contact(foot_state_left,  robot, terrain);
+ext.body.y = ext.body.y - robot.gravity * robot.body.mass;
 ext.right.x = ext.right.x + foot_force_right.x;
-ext.right.y = ext.right.y + foot_force_right.y - env.gravity * env.foot.mass;
+ext.right.y = ext.right.y + foot_force_right.y - robot.gravity * robot.foot.mass;
 ext.left.x  = ext.left.x  + foot_force_left.x;
-ext.left.y  = ext.left.y  + foot_force_left.y  - env.gravity * env.foot.mass;
+ext.left.y  = ext.left.y  + foot_force_left.y  - robot.gravity * robot.foot.mass;
 
 % Get state derivatives from equations of motion
-dX = biped_eom(X, u, ext, env);
+dX = biped_eom(X, u, ext, robot);
 
 
 function t = hardstop_torques(leg, env)
@@ -77,8 +77,11 @@ s.dx = body.dx + (leg.dl * l.x) + (leg.l * dtheta_abs * theta.x);
 s.dy = body.dy + (leg.dl * l.y) + (leg.l * dtheta_abs * theta.y);
 
 
-function f = ground_contact(point, env, ground_data)
+function f = ground_contact(point, robot, terrain)
 % GROUND_CONTACT Compute forces resulting from pointwise ground contact.
+
+npts = numel(terrain.height);
+x = linspace(terrain.xstart, terrain.xend, npts);
 
 % Find the point on the ground closest to the point to test
 min_dist2 = inf;
@@ -87,11 +90,11 @@ min_x_line = 0;
 min_y_line = 0;
 min_seg_length2 = 0;
 min_index = 1;
-for i = 1:size(ground_data, 1) - 1
-    xg = ground_data(i, 1);
-    yg = ground_data(i, 2);
-    dxg = ground_data(i + 1, 1) - xg;
-    dyg = ground_data(i + 1, 2) - yg;
+for i = 1:npts - 1
+    xg = x(i);
+    yg = terrain.height(i);
+    dxg = x(i + 1) - xg;
+    dyg = terrain.height(i + 1) - yg;
     
     % Take dot product to project test point onto line, then normalize with the
     % segment length squared and clamp to keep within line segment bounds
@@ -121,10 +124,10 @@ end
 
 % Check whether point is on the ground side (right hand side) of the line
 % If not, return immediately with zero ground reaction force
-dxg = ground_data(min_index + 1, 1) - ground_data(min_index, 1);
-dyg = ground_data(min_index + 1, 2) - ground_data(min_index, 2);
-dxp = point.x - ground_data(min_index, 1);
-dyp = point.y - ground_data(min_index, 2);
+dxg = x(min_index + 1) - x(min_index);
+dyg = terrain.height(min_index + 1) - terrain.height(min_index);
+dxp = point.x - x(min_index);
+dyp = point.y - terrain.height(min_index);
 cross_product = (dxg * dyp) - (dyg * dxp);
 if cross_product > 0.0
     f.x = 0;
@@ -133,11 +136,11 @@ if cross_product > 0.0
 end
 
 % If the point is a vertex, also check the next line
-if min_p == 1.0 && min_index < size(ground_data, 1) - 1
-    dxg = ground_data(min_index + 2, 1) - ground_data(min_index + 1, 1);
-    dyg = ground_data(min_index + 2, 2) - ground_data(min_index + 1, 2);
-    dxp = point.x - ground_data(min_index + 1, 1);
-    dyp = point.y - ground_data(min_index + 1, 2);
+if min_p == 1.0 && min_index < npts - 1
+    dxg = x(min_index + 2) - x(min_index + 1);
+    dyg = terrain.height(min_index + 2) - terrain.height(min_index + 1);
+    dxp = point.x - x(min_index + 1);
+    dyp = point.y - terrain.height(min_index + 1);
     cross_product = (dxg * dyp) - (dyg * dxp);
     if cross_product > 0.0
         f.x = 0;
@@ -172,24 +175,16 @@ end
 % Get derivative of depth
 ddepth = (-normal_x * point.dx) + (-normal_y * point.dy);
 
-% Get interpolated ground properties
-ground_stiffness = ground_data(min_index, 3) + ...
-    (min_p * (ground_data(min_index + 1, 3) - ground_data(min_index, 3)));
-ground_damping = ground_data(min_index, 4) + ...
-    (min_p * (ground_data(min_index + 1, 4) - ground_data(min_index, 4)));
-ground_friction = ground_data(min_index, 5) + ...
-    (min_p * (ground_data(min_index + 1, 5) - ground_data(min_index, 5)));
-
 % Damping adjustment factor
-damping_factor = depth / (depth + env.ground.damping_depth);
+damping_factor = depth / (depth + robot.ground.damping_depth);
 
 % Normal force (spring + damper) should only be positive upwards
-normal_force = max((depth * ground_stiffness) + (ddepth * damping_factor * ground_damping), 0);
+normal_force = max((depth * terrain.stiffness) + (ddepth * damping_factor * terrain.damping), 0);
 
 % Tangent force (friction) before finding sign and smoothing discontinuity
-friction_max = ground_friction * normal_force;
+friction_max = terrain.friction * normal_force;
 tangent_velocity = (tangent_x * point.dx) + (tangent_y * point.dy);
-viscous_friction_factor = clamp(tangent_velocity / (friction_max * env.ground.slip_ramp), -1, 1);
+viscous_friction_factor = clamp(tangent_velocity / (friction_max * robot.ground.slip_ramp), -1, 1);
 tangent_force = -viscous_friction_factor * friction_max;
 
 f.x = (normal_x * normal_force) + (tangent_x * tangent_force);

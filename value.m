@@ -1,4 +1,4 @@
-function [v, f] = value(X, goal, ground_data)
+function [v, f] = value(X, goal, terrain)
 
 offset = [-0.2478;
     0.7751;
@@ -26,7 +26,7 @@ weight = 1./[0.4794;
 
 % Feature vector
 f = [sign(X.body.dx) * (X.body.dx - goal.dx);
-    ground_distance(X.body.x, X.body.y, ground_data);
+    ground_distance(X.body.x, X.body.y, terrain);
     X.body.dy;
     sign(X.body.dx) * (mod(X.body.theta + pi, 2*pi) - pi);
     sign(X.body.dx) * (X.body.theta + (X.right.theta + X.left.theta) / 2);
@@ -43,15 +43,17 @@ v = min(v, -1000);
 end
 
 
-function dist = ground_distance(x, y, ground_data)
+function dist = ground_distance(x, y, terrain)
 
 % Find the point on the ground closest to the point to test
+npts = numel(terrain.height);
+terrain_x = linspace(terrain.xstart, terrain.xend, npts);
 min_dist2 = inf;
-for i = 1:size(ground_data, 1) - 1
-    xg = ground_data(i, 1);
-    yg = ground_data(i, 2);
-    dxg = ground_data(i + 1, 1) - xg;
-    dyg = ground_data(i + 1, 2) - yg;
+for i = 1:npts - 1
+    xg = terrain_x(i);
+    yg = terrain.height(i);
+    dxg = terrain_x(i + 1) - xg;
+    dyg = terrain.height(i + 1) - yg;
     
     % Take dot product to project test point onto line, then normalize with the
     % segment length squared and clamp to keep within line segment bounds
