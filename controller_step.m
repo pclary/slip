@@ -45,10 +45,7 @@ if s.phase.left < p.step_lock_phase
 end
 
 % Initialize torque struct
-u.right.l_eq = 0;
-u.right.theta_eq = 0;
-u.left.l_eq = 0;
-u.left.theta_eq = 0;
+u = Control();
 
 % Get PD controllers for x and y foot position (leg angle and length)
 leg_pd.right.y = get_pd(p.y_pd, s.phase.right);

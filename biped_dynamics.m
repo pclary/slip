@@ -84,7 +84,7 @@ npts = numel(terrain.height);
 x = linspace(terrain.xstart, terrain.xend, npts);
 
 % Find the point on the ground closest to the point to test
-min_dist2 = inf;
+min_dist2 = realmax;
 min_p = 0;
 min_x_line = 0;
 min_y_line = 0;

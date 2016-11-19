@@ -52,7 +52,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     cstate.phase.right == 0 || cstate.phase.left == 0
                 % Project one planer timestep forward with current parameters
                 terrain = obj.env.getLocalTerrain(X.body.x);
-                [Xp, cstatep] = biped_sim(X, cstate, cparams, obj.Ts, obj.Ts_sim, obj.robot, terrain);
+                [Xp, cstatep] = biped_sim(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
                 
                 % Choose the new parameters with the highest estimated Q value
                 v_max = -inf;
@@ -71,7 +71,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 phase_next_max = max(mod(phase_right_next, 1), mod(phase_left_next, 1));
                 t_stop = (1 - phase_next_max) / cparams.phase_rate;
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
-                [Xp, cstatep] = biped_sim(Xp, cstatep, cparams, t_stop, obj.Ts_sim, obj.robot, terrain);
+                [Xp, cstatep] = biped_sim(Xp, cstatep, obj.robot, cparams, terrain, t_stop, obj.Ts_sim);
                 
                 % Reset tree with predicted state as root
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
@@ -120,7 +120,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Simulate a step
                 t_stop = 1 / cparams_gen.phase_rate;
                 [Xp, cstatep] = biped_sim(Xn, obj.tree.nodes(n).data.cstate, ...
-                    cparams_gen, t_stop, obj.Ts_sim, obj.robot, terrain);
+                    obj.robot, cparams_gen, terrain, t_stop, obj.Ts_sim);
                 
                 % Evaluate the result and add child node
                 ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), -inf);

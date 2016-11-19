@@ -1,15 +1,9 @@
-function [X, cstate] = biped_sim(X, cstate, cparams, tstop, Ts, robot, terrain)
+function [X, cstate] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts)
+
 
 t = 0;
 
-ext0 = struct();
-ext0.body.x     = 0;
-ext0.body.y     = 0;
-ext0.body.theta = 0;
-ext0.right.x    = 0;
-ext0.right.y    = 0;
-ext0.left.x     = 0;
-ext0.left.y     = 0;
+ext0 = ExternalForces();
 
 % Fixed-step RK4 integration
 while t < tstop
