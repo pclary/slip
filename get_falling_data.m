@@ -1,11 +1,17 @@
 function get_falling_data()
 
-% codegen biped_sim -args {RobotState(), ControllerState(), ControllerParams(), 0.1, 1e-3, RobotParams(), Terrain()}
+codegen biped_sim -args {RobotState(), ControllerState(), ControllerParams(), 0.1, 1e-3, RobotParams(), Terrain()}
 
 evalin('base', 'clear;biped_setup;');
 Ts_dynamics = evalin('base', 'Ts_dynamics');
 robot = evalin('base', 'robot');
-env = evalin('base', 'env');
+
+env = Environment();
+env.ground_data = zeros(403, 5);
+env.ground_data(:, 1) = [-2e1-1; (-2e1:0.1:2e1)'; 2e1+1];
+env.ground_data(:, 3) = 1e6;
+env.ground_data(:, 4) = 1.5*2*sqrt(1e6*robot.foot.mass);
+env.ground_data(:, 5) = 1;
 
 vis = BipedVisualization();
 vis.ground_data = env.ground_data;
@@ -38,14 +44,14 @@ for j = 1:ntrials
     jogs(ijogs) = jogsize;
     jogs = cumsum(jogs);
     ground_y = ground_y + jogs;
-    ground_y = ground_y - ground_y(ground_data(:, 1) == 0);
+    ground_y = ground_y - ground_y(env.ground_data(:, 1) == 0);
     
-    ground_data(:, 2) = ground_y;
-    vis.ground_data = ground_data;
+    env.ground_data(:, 2) = ground_y;
+    vis.ground_data = env.ground_data;
     
     % Reset robot state
     X = RobotState();
-    X.body.y = X.body.y + ground_y(ground_data(:, 1) == 0);
+    X.body.y = X.body.y + ground_y(env.ground_data(:, 1) == 0);
     X.body.dx = randn() * 0.2;
     X.body.dy = randn() * 0.1;
     cstate = ControllerState();

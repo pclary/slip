@@ -112,13 +112,14 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Generate a set of parameters to try
                 gstate = obj.tree.nodes(n).data.gstate;
-                terrain = obj.env.getLocalTerrain(X.body.x);
-                [cparams_gen, gstate] = generate_params(X, goal, terrain, gstate);
+                Xn = obj.tree.nodes(n).data.X;
+                terrain = obj.env.getLocalTerrain(Xn.body.x);
+                [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate);
                 obj.tree.nodes(n).data.gstate = gstate;
                 
                 % Simulate a step
                 t_stop = 1 / cparams_gen.phase_rate;
-                [Xp, cstatep] = biped_sim(obj.tree.nodes(n).data.X, obj.tree.nodes(n).data.cstate, ...
+                [Xp, cstatep] = biped_sim(Xn, obj.tree.nodes(n).data.cstate, ...
                     cparams_gen, t_stop, obj.Ts_sim, obj.robot, terrain);
                 
                 % Evaluate the result and add child node

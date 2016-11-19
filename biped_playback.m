@@ -19,7 +19,7 @@ if ~evalin('base', 'exist(''vis'', ''var'')') || ...
     evalin('base', 'vis.setup(RobotState())');
 end
 vis = evalin('base', 'vis');
-vis.env = evalin('base', 'env');
+vis.ground_data = evalin('base', 'env.ground_data');
 vis.resetPartial();
 timedisp = uicontrol('Style', 'text', 'Parent', vis.getFig());
 

@@ -17,13 +17,13 @@ classdef Environment
             % Get the height samples
             terrain.xstart = terrain.xstart + x;
             terrain.xend = terrain.xend + x;
-            terrain.height = interp1(obj.ground_data(:, 1), obj.ground_data(:, 1), ...
+            terrain.height = interp1(obj.ground_data(:, 1), obj.ground_data(:, 2), ...
                 linspace(terrain.xstart, terrain.xend, npts)');
             
             % Set other parameters using the center value
             terrain.stiffness = interp1(obj.ground_data(:, 1), obj.ground_data(:, 3), x);
-            terrain.damping = interp1(obj.ground_data(:, 1), obj.ground_data(:, 3), x);
-            terrain.friction = interp1(obj.ground_data(:, 1), obj.ground_data(:, 3), x);
+            terrain.damping = interp1(obj.ground_data(:, 1), obj.ground_data(:, 4), x);
+            terrain.friction = interp1(obj.ground_data(:, 1), obj.ground_data(:, 5), x);
         end
     end
     
