@@ -1,4 +1,4 @@
 function cparams = ControllerParams()
 
-cparams.w1 = randn(63, 25);
-cparams.w2 = randn(5, 64);
+cparams.w1 = zeros(63, 25);
+cparams.w2 = zeros(5, 64);
