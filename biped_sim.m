@@ -23,6 +23,11 @@ while t < tstop
     
     X = rs_add(X1, rs_smul(rs_add(rs_add(dX1, rs_smul(dX2, 2)), rs_add(rs_smul(dX3, 2), dX4)), Ts/6));
     t = t + Ts;
+    
+    % Stop if crashed
+    if X.body.y < min(terrain.height)
+        break
+    end
 end
 
 end

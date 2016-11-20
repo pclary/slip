@@ -14,13 +14,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         phase_rate = 1.5;
         max_stride = 1;
         step_height = 0.1;
+        cparams = ControllerParams();
     end
     
     properties (Access = private)
         tree
         rollout_node
         env
-        cparams
     end
     
     
@@ -158,7 +158,6 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.tree.reset(SimulationState());
             obj.rollout_node = uint32(1);
             obj.env.ground_data = obj.ground_data;
-            obj.cparams = ControllerParams();
         end
         
         
