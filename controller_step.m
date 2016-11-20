@@ -17,14 +17,37 @@ h1 = max(p.w1 * [input; 1], 0);
 % Output layer
 output = p.w2 * [h1; 1];
 
-% Process output
+% Process pd controller output
 u = Control();
-u.right.l_eq     = 12*output(1);
-u.right.theta_eq = 12*output(2);
-u.left.l_eq      = 12*output(3);
-u.left.theta_eq  = 12*output(4);
+[u.right.l_eq, c.dfilter_l_right] = ...
+    pd(output(1:3),   X.right.l_eq,     X.right.dl_eq,     c.dfilter_l_right, Ts);
+[u.right.theta_eq, c.dfilter_theta_right] = ...
+    pd(output(4:6),   X.right.theta_eq, X.right.dtheta_eq, c.dfilter_theta_right, Ts);
+[u.left.l_eq, c.dfilter_l_left] = ...
+    pd(output(7:9),   X.left.l_eq,      X.left.dl_eq,      c.dfilter_l_left, Ts);
+[u.left.theta_eq, c.dfilter_theta_left] = ...
+    pd(output(10:12), X.left.theta_eq,  X.left.dtheta_eq,  c.dfilter_theta_left, Ts);
 
-c.phase.right = c.phase.right + Ts * output(5);
-c.phase.left  = c.phase.left  + Ts * output(5);
+% Update phases
+c.phase.right = c.phase.right + Ts * output(13);
+c.phase.left  = c.phase.left  + Ts * output(13);
+
+end
+
+
+function [u, dfilter] = pd(params, x, dx, dfilter, Ts)
+
+% Scale PD parameters
+target = params(1);
+kp = exp(7 + 2*params(2));
+kd = (params(3) + 1) * 2*sqrt(kp);
+
+% Update target derivatives
+dtarget_new = (target - dfilter.last) / Ts;
+dfilter.dtarget = dfilter.dtarget + 0.3 * (dtarget_new - dfilter.dtarget);
+dfilter.last = params(1);
+
+% Compute PD output
+u = kp * (target - x) + kd * (dfilter.dtarget - dx);
 
 end

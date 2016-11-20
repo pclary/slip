@@ -16,7 +16,6 @@ cfg.FilePartitionMethod = 'SingleFile';
 cfg.InlineThreshold = 1000000;
 cfg.InlineThresholdMax = 1000000;
 cfg.InlineStackLimit = 1000000;
-% cfg.PreserveVariableNames = 'All';
 cfg.EnableOpenMP = false;
 cfg.GenCodeOnly = true;
 cfg.BuildConfiguration = 'Faster Runs';
@@ -36,8 +35,10 @@ ARGS{1}{1} = coder.cstructname(ARGS{1}{1},'robot_state_t');
 
 ARGS{1}{2} = ControllerState();
 ARGS{1}{2}.phase = coder.cstructname(ARGS{1}{2}.phase,'rl_t');
-ARGS{1}{2}.foot_x_last = coder.cstructname(ARGS{1}{2}.foot_x_last,'rl_t');
-ARGS{1}{2}.foot_x_target = coder.cstructname(ARGS{1}{2}.foot_x_target,'rl_t');
+ARGS{1}{2}.dfilter_l_right = coder.cstructname(ARGS{1}{2}.dfilter_l_right,'dfilter_t');
+ARGS{1}{2}.dfilter_l_left = coder.cstructname(ARGS{1}{2}.dfilter_l_left,'dfilter_t');
+ARGS{1}{2}.dfilter_theta_right = coder.cstructname(ARGS{1}{2}.dfilter_theta_right,'dfilter_t');
+ARGS{1}{2}.dfilter_theta_left = coder.cstructname(ARGS{1}{2}.dfilter_theta_left,'dfilter_t');
 ARGS{1}{2} = coder.cstructname(ARGS{1}{2},'controller_state_t');
 
 ARGS{1}{3} = RobotParams();
