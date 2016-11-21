@@ -8,6 +8,9 @@ if abs(X.body.dx / p.phase_rate) > p.max_stride * 2
      p.phase_rate = abs(X.body.dx / p.max_stride / 2);
 end
 
+% Add speed-dependent term to energy injection
+energy_injection = p.energy_injection + 500 * max(abs(X.body.dx) - 1, 0);
+
 % Increase leg phases with time
 s.phase.right = s.phase.right + Ts * p.phase_rate;
 s.phase.left  = s.phase.left  + Ts * p.phase_rate;
@@ -34,7 +37,7 @@ gc.right = clamp((X.right.l_eq - X.right.l) / p.contact_threshold, 0, 1);
 gc.left = clamp((X.left.l_eq - X.left.l) / p.contact_threshold, 0, 1);
 
 % Update leg targets
-foot_extension = X.body.dx * (0.5 / p.phase_rate) + ...
+foot_extension = (0.09 + p.phase_rate * 0.24) * X.body.dx / p.phase_rate + ...;%X.body.dx * (0.5 / p.phase_rate) + ...
     0.1 * clamp(X.body.dx - p.target_dx, -0.5, 0.5) + ...
     0.03 * s.body_ddx;
 if s.phase.right < p.step_lock_phase
@@ -64,10 +67,10 @@ u.left.theta_eq = (1 - gc.left) * u.left.theta_eq;
 % Add feedforward terms for weight compensation and energy injection
 u.right.l_eq = u.right.l_eq + ...
     eval_ff(p.weight_ff, s.phase.right) * p.robot_weight + ...
-    eval_ff(p.energy_ff, s.phase.right) * p.energy_injection;
+    eval_ff(p.energy_ff, s.phase.right) * energy_injection;
 u.left.l_eq = u.left.l_eq + ...
     eval_ff(p.weight_ff, s.phase.left) * p.robot_weight + ...
-    eval_ff(p.energy_ff, s.phase.left) * p.energy_injection;
+    eval_ff(p.energy_ff, s.phase.left) * energy_injection;
 
 % Add body angle control, modulated with ground contact
 u.right.theta_eq = u.right.theta_eq - ...

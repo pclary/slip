@@ -8,6 +8,7 @@ robot = RobotParams();
 
 % Initial robot state
 X0 = RobotState();
+X0.body.dx = 1;
 
 % Initial controller state
 cstate0 = ControllerState();

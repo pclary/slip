@@ -14,7 +14,6 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         phase_rate = 1.5;
         max_stride = 1;
         step_height = 0.1;
-        cparams = ControllerParams();
     end
     
     properties (Access = private)
@@ -32,13 +31,12 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         
         
         function [cparams] = stepImpl(obj, X, cstate)
-            cparams = obj.cparams;
-%             cparams = ControllerParams();
-%             cparams.target_dx = obj.target_dx;
-%             cparams.energy_injection = obj.energy_injection;
-%             cparams.phase_rate = obj.phase_rate;
-%             cparams.max_stride = obj.max_stride;
-%             cparams.step_height = obj.step_height;
+            cparams = ControllerParams();
+            cparams.target_dx = obj.target_dx;
+            cparams.energy_injection = obj.energy_injection;
+            cparams.phase_rate = obj.phase_rate;
+            cparams.max_stride = obj.max_stride;
+            cparams.step_height = obj.step_height;
 %             goal = Goal();
 %             goal.dx = obj.target_dx;
 %             
