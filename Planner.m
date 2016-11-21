@@ -165,7 +165,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             sz1 = [1 1];
         end
         function [dt1] = getOutputDataTypeImpl(~)
-            dt1 = 'cparams_bus';
+            dt1 = 'controller_params_bus';
         end
         function [cm1] = isOutputComplexImpl(~)
             cm1 = false;

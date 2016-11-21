@@ -33,30 +33,30 @@ ext.left.y  = ext.left.y  + foot_force_left.y  - robot.gravity * robot.foot.mass
 dX = biped_eom(X, u, ext, robot);
 
 
-function t = hardstop_torques(leg, env)
+function t = hardstop_torques(leg, robot)
 % HARDSTOP_TORQUES Compute hardstop forces acting as motor torques.
 
 % Find how far length and angle are beyond the hardstops
 l_eq_over = leg.l_eq - ...
-    clamp(leg.l_eq, env.length.hardstop.min, env.length.hardstop.max);
+    clamp(leg.l_eq, robot.length.hardstop.min, robot.length.hardstop.max);
 theta_eq_over = leg.theta_eq - ...
-    clamp(leg.theta_eq, env.angle.hardstop.min, env.angle.hardstop.max);
+    clamp(leg.theta_eq, robot.angle.hardstop.min, robot.angle.hardstop.max);
 
 % Get parameters used to fade in the derivative term near the hardstops
-l_eq_dfade = outside_fade(leg.l_eq, env.length.hardstop.min, ...
-    env.length.hardstop.max, env.length.hardstop.dfade);
-theta_eq_dfade = outside_fade(leg.theta_eq, env.angle.hardstop.min, ...
-    env.angle.hardstop.max, env.angle.hardstop.dfade);
+l_eq_dfade = outside_fade(leg.l_eq, robot.length.hardstop.min, ...
+    robot.length.hardstop.max, robot.length.hardstop.dfade);
+theta_eq_dfade = outside_fade(leg.theta_eq, robot.angle.hardstop.min, ...
+    robot.angle.hardstop.max, robot.angle.hardstop.dfade);
 
 % Spring + damper hardstops
-t.l_eq = -(l_eq_over * env.length.hardstop.kp) - ...
-    (leg.dl_eq * l_eq_dfade * env.length.hardstop.kd);
-t.theta_eq = -(theta_eq_over * env.angle.hardstop.kp) - ...
-    (leg.dtheta_eq * theta_eq_dfade * env.angle.hardstop.kd);
+t.l_eq = -(l_eq_over * robot.length.hardstop.kp) - ...
+    (leg.dl_eq * l_eq_dfade * robot.length.hardstop.kd);
+t.theta_eq = -(theta_eq_over * robot.angle.hardstop.kp) - ...
+    (leg.dtheta_eq * theta_eq_dfade * robot.angle.hardstop.kd);
 
 % Limit hardstop forces
-t.l_eq = clamp(t.l_eq, -env.length.hardstop.fmax, env.length.hardstop.fmax);
-t.theta_eq = clamp(t.theta_eq, -env.length.hardstop.fmax, env.length.hardstop.fmax);
+t.l_eq = clamp(t.l_eq, -robot.length.hardstop.fmax, robot.length.hardstop.fmax);
+t.theta_eq = clamp(t.theta_eq, -robot.length.hardstop.fmax, robot.length.hardstop.fmax);
 
 
 function s = foot_state(leg, body)

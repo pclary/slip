@@ -31,7 +31,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         end
         function [dt1, dt2] = getOutputDataTypeImpl(~)
             dt1 = 'control_bus';
-            dt2 = 'cstate_bus';
+            dt2 = 'controller_state_bus';
         end
         function [cm1, cm2] = isOutputComplexImpl(~)
             cm1 = false;
