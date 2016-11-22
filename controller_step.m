@@ -27,6 +27,10 @@ end
 s.phase.right = s.phase.right - floor(s.phase.right);
 s.phase.left  = s.phase.left  - floor(s.phase.left);
 
+% Modify timing and trajectory shapes by stretching the phase
+phase.right = stretch_phase(s.phase.right, p.phase_stretch);
+phase.left  = stretch_phase(s.phase.left,  p.phase_stretch);
+
 % Estimate body acceleration
 body_ddx_est = (X.body.dx - s.body_dx_last) / Ts;
 s.body_ddx = s.body_ddx + p.ddx_filter * (body_ddx_est - s.body_ddx);
@@ -37,13 +41,13 @@ gc.right = clamp((X.right.l_eq - X.right.l) / p.contact_threshold, 0, 1);
 gc.left = clamp((X.left.l_eq - X.left.l) / p.contact_threshold, 0, 1);
 
 % Update leg targets
-foot_extension = (0.09 + p.phase_rate * 0.24) * X.body.dx / p.phase_rate + ...;%X.body.dx * (0.5 / p.phase_rate) + ...
+foot_extension = (0.09 + p.phase_rate * 0.24) * X.body.dx / p.phase_rate + 0.3 * max(abs(X.body.dx) - 2, 0) + ...
     0.1 * clamp(X.body.dx - p.target_dx, -0.5, 0.5) + ...
     0.03 * s.body_ddx;
-if s.phase.right < p.step_lock_phase
+if phase.right < p.step_lock_phase
     s.foot_x_target.right = X.body.x + foot_extension;
 end
-if s.phase.left < p.step_lock_phase
+if phase.left < p.step_lock_phase
     s.foot_x_target.left = X.body.x + foot_extension;
 end
 
@@ -51,10 +55,10 @@ end
 u = Control();
 
 % Get PD controllers for x and y foot position (leg angle and length)
-leg_pd.right.y = get_pd(p.y_pd, s.phase.right);
-leg_pd.right.x = get_pd(p.x_pd, s.phase.right);
-leg_pd.left.y  = get_pd(p.y_pd, s.phase.left);
-leg_pd.left.x  = get_pd(p.x_pd, s.phase.left);
+leg_pd.right.y = get_pd(p.y_pd, phase.right);
+leg_pd.right.x = get_pd(p.x_pd, phase.right);
+leg_pd.left.y  = get_pd(p.y_pd, phase.left);
+leg_pd.left.x  = get_pd(p.x_pd, phase.left);
 
 % Get transformed leg PD output
 u.right = eval_leg_pd(leg_pd.right, X, X.right, p, s.foot_x_last.right, s.foot_x_target.right);
@@ -66,17 +70,17 @@ u.left.theta_eq = (1 - gc.left) * u.left.theta_eq;
 
 % Add feedforward terms for weight compensation and energy injection
 u.right.l_eq = u.right.l_eq + ...
-    eval_ff(p.weight_ff, s.phase.right) * p.robot_weight + ...
-    eval_ff(p.energy_ff, s.phase.right) * energy_injection;
+    eval_ff(p.weight_ff, phase.right) * p.robot_weight + ...
+    eval_ff(p.energy_ff, phase.right) * energy_injection;
 u.left.l_eq = u.left.l_eq + ...
-    eval_ff(p.weight_ff, s.phase.left) * p.robot_weight + ...
-    eval_ff(p.energy_ff, s.phase.left) * energy_injection;
+    eval_ff(p.weight_ff, phase.left) * p.robot_weight + ...
+    eval_ff(p.energy_ff, phase.left) * energy_injection;
 
 % Add body angle control, modulated with ground contact
 u.right.theta_eq = u.right.theta_eq - ...
-    gc.right * eval_pd(p.body_angle_pd, s.phase.right, X.body.theta, X.body.dtheta, 0, 0);
+    gc.right * eval_pd(p.body_angle_pd, phase.right, X.body.theta, X.body.dtheta, 0, 0);
 u.left.theta_eq = u.left.theta_eq - ...
-    gc.left * eval_pd(p.body_angle_pd, s.phase.left, X.body.theta, X.body.dtheta, 0, 0);
+    gc.left * eval_pd(p.body_angle_pd, phase.left, X.body.theta, X.body.dtheta, 0, 0);
 
 end
 
@@ -151,6 +155,24 @@ dtheta = (y*dx - x*dy) / l^2 - X.body.dtheta;
 u.l_eq = pd.y.kp * (l - leg.l_eq) + pd.y.kd * (dl - leg.dl_eq);
 u.theta_eq = pd.x.kp * (theta - leg.theta_eq) + pd.x.kd * (dtheta - leg.dtheta_eq);
 end
+
+
+function p = stretch_phase(p, stretch)
+% Stretch the phase with a sigmoid to lengthen or shorten the middle relative
+% to the ends
+
+if abs(stretch) < 1e4*eps
+    return
+end
+
+b = 1/(2*(exp(stretch/2) - 1));
+if p < 0.5
+    p = b*exp(stretch*p) - b;
+else
+    p = 1 - (b*exp(stretch*(1 - p)) - b);
+end
+end
+
 
 
 function out = clamp(x, l, h)
