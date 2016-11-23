@@ -1,7 +1,15 @@
 %% Sets up workspace for simulation
 
+% Delete all existing bus objects
+vars = who();
+for i = 1:numel(vars)
+    if isa(eval(vars{i}), 'Simulink.Bus')
+        clear(vars{i})
+    end
+end
+
 % Create bus objects
-biped_bus_definitions
+biped_bus_definitions();
 
 % Set robot parameters
 robot = RobotParams();
