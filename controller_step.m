@@ -87,27 +87,18 @@ end
 
 function out = eval_ff(tpoints, phase)
 
-i = 2;
-while tpoints(i).phase < phase
-    i = i + 1;
-end
+i = 2 + floor(phase * 10);
+p = phase * 10 - i + 2;
 
-phase_diff = tpoints(i).phase - tpoints(i - 1).phase;
-p = (phase - tpoints(i - 1).phase) / phase_diff;
-
-out = tpoints(i - 1).value + p * (tpoints(i).value - tpoints(i - 1).value);
+out = tpoints(i - 1) + p * (tpoints(i) - tpoints(i - 1));
 end
 
 
 function out = eval_pd(tpoints, phase, x, dx, zero_point, one_point)
 
-i = 2;
-while tpoints(i).phase < phase
-    i = i + 1;
-end
-
-phase_diff = tpoints(i).phase - tpoints(i - 1).phase;
-p = (phase - tpoints(i - 1).phase) / phase_diff;
+i = 2 + floor(phase * 10);
+phase_diff = 0.1;
+p = phase * 10 - i + 2;
 
 target = tpoints(i - 1).target + p * (tpoints(i).target - tpoints(i - 1).target);
 dtarget = (tpoints(i).target - tpoints(i - 1).target) / phase_diff;
@@ -123,13 +114,9 @@ end
 
 function pd = get_pd(tpoints, phase)
 
-i = 2;
-while tpoints(i).phase < phase
-    i = i + 1;
-end
-
-phase_diff = tpoints(i).phase - tpoints(i - 1).phase;
-p = (phase - tpoints(i - 1).phase) / phase_diff;
+i = 2 + floor(phase * 10);
+phase_diff = 0.1;
+p = phase * 10 - i + 2;
 
 pd.target = tpoints(i - 1).target + p * (tpoints(i).target - tpoints(i - 1).target);
 pd.dtarget = (tpoints(i).target - tpoints(i - 1).target) / phase_diff;
