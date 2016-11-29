@@ -34,6 +34,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         ViewCenterOffset = [0; 0];
         PanEnabled = false;
         PanAnchor = [0; 0];
+        FallIndicator
     end
     
     
@@ -221,6 +222,10 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.DragPinIndicator.Marker = 'x';
             obj.DragPinIndicator.MarkerEdgeColor = 'Magenta';
             
+            % Fall indicator
+            obj.FallIndicator = uicontrol(obj.Fig, 'Style', 'text');
+            obj.FallIndicator.Position = [20 20 30 30];
+            
             % Turn off hit test
             obj.BodyTrace.HitTest = 'off';
             obj.ToeATrace.HitTest = 'off';
@@ -260,6 +265,10 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             if obj.dragEnabled()
                 obj.mouseMove();
             end
+            
+            % Update fall indicator
+            p = 1.0;
+            obj.FallIndicator.BackgroundColor = [sqrt(p), sqrt(1 - p), 0] * 0.7 + 0.3;
         end
         
         
