@@ -1,6 +1,6 @@
 function cparams = ControllerParams()
 
-cparams.phase_rate = 1.5;
+cparams.phase_rate = 1;
 cparams.robot_weight = 30*9.8;
 cparams.contact_threshold = 30*9.8/2/1e4;
 cparams.l_max = 0.8;

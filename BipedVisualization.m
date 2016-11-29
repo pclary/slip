@@ -35,6 +35,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         PanEnabled = false;
         PanAnchor = [0; 0];
         FallIndicator
+        weights
     end
     
     
@@ -46,6 +47,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         function setupImpl(obj)
             obj.createGeometry();
+            obj.weights = load('weights.mat');
         end
         
         
@@ -267,8 +269,32 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             end
             
             % Update fall indicator
-            p = 1.0;
-            obj.FallIndicator.BackgroundColor = [sqrt(p), sqrt(1 - p), 0] * 0.7 + 0.3;
+            input = [...
+                X.body.theta;
+                X.body.dx;
+                X.body.dy;
+                X.body.dtheta;
+                X.right.l;
+                X.right.l_eq;
+                X.right.theta;
+                X.right.theta_eq;
+                X.right.dl;
+                X.right.dl_eq;
+                X.right.dtheta;
+                X.right.dtheta_eq;
+                X.left.l;
+                X.left.l_eq;
+                X.left.theta;
+                X.left.theta_eq;
+                X.left.dl;
+                X.left.dl_eq;
+                X.left.dtheta;
+                X.left.dtheta_eq];
+            h0 = max(obj.weights.b0 + obj.weights.w0*input, 0);
+            h1 = max(obj.weights.b1 + obj.weights.w1*h0, 0);
+            out = obj.weights.b2 + obj.weights.w2*h1;
+            p = exp(out(1)) / sum(exp(out));
+            obj.FallIndicator.BackgroundColor = [sqrt(1 - p), sqrt(p), 0] * 0.7 + 0.3;
         end
         
         
