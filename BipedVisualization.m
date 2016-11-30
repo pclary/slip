@@ -269,6 +269,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             end
             
             % Update fall indicator
+            X.body.theta = mod(X.body.theta + pi, 2*pi) - pi;
             input = [...
                 X.body.theta;
                 X.body.dx;
