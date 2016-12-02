@@ -11,31 +11,31 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
     
         
     properties (Access = private)
-        Fig
-        Axes
+        fig
+        ax
         Body
-        AngleA
-        AngleB
-        LengthA
-        LengthB
-        SpringA
-        SpringB
-        Ground
-        GroundShading
-        BodyTrace
-        ToeATrace
-        ToeBTrace
-        DragLine
-        DragIndicator
-        DragPinIndicator
-        DragPinned = false;
-        ViewScale = 1;
-        ViewCenter = [0; 0];
-        ViewCenterOffset = [0; 0];
-        PanEnabled = false;
-        PanAnchor = [0; 0];
-        FallIndicator
-        weights
+        angle_right
+        angle_left
+        length_right
+        length_left
+        spring_right
+        spring_left
+        ground
+        ground_shading
+        body_trace
+        toe_trace_right
+        toe_trace_left
+        drag_line
+        drag_indicator
+        drag_pin_indicator
+        drag_pinned = false;
+        view_scale = 1;
+        view_center = [0; 0];
+        view_center_offset = [0; 0];
+        pan_enabled = false;
+        pan_anchor = [0; 0];
+        fall_indicator
+        state_evaluator
     end
     
     
@@ -47,7 +47,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         function setupImpl(obj)
             obj.createGeometry();
-            obj.weights = load('weights.mat');
+            obj.state_evaluator = StateEvaluator();
         end
         
         
@@ -62,8 +62,8 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             drawnow;
             
             if obj.dragEnabled()
-                X = obj.DragLine.XData;
-                y = obj.DragLine.YData;
+                X = obj.drag_line.XData;
+                y = obj.drag_line.YData;
                 v = [X(2) - X(1); y(2) - y(1)];
             else
                 v = [0; 0];
@@ -72,19 +72,19 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         
         function resetImpl(obj)
-            obj.BodyTrace.clearpoints();
-            obj.ToeATrace.clearpoints();
-            obj.ToeBTrace.clearpoints();
-            obj.ViewScale = 1;
-            obj.ViewCenter = [0; 0];
-            obj.ViewCenterOffset = [0; 0];
-            obj.PanEnabled = false;
-            obj.PanAnchor = [0; 0];
+            obj.body_trace.clearpoints();
+            obj.toe_trace_right.clearpoints();
+            obj.toe_trace_left.clearpoints();
+            obj.view_scale = 1;
+            obj.view_center = [0; 0];
+            obj.view_center_offset = [0; 0];
+            obj.pan_enabled = false;
+            obj.pan_anchor = [0; 0];
             obj.disableDrag();
-            obj.Ground.XData = obj.ground_data(:, 1);
-            obj.Ground.YData = obj.ground_data(:, 2);
-            obj.GroundShading.XData = obj.ground_data(:, 1);
-            obj.GroundShading.YData = obj.ground_data(:, 2);
+            obj.ground.XData = obj.ground_data(:, 1);
+            obj.ground.YData = obj.ground_data(:, 2);
+            obj.ground_shading.XData = obj.ground_data(:, 1);
+            obj.ground_shading.YData = obj.ground_data(:, 2);
         end
         
         function out = getOutputSizeImpl(~)
@@ -113,27 +113,27 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
     methods
         
         function out = isAlive(obj)
-            out = obj.isvalid() && obj.Fig.isvalid() && ...
-                obj.Axes.isvalid() && obj.Body.isvalid();
+            out = obj.isvalid() && obj.fig.isvalid() && ...
+                obj.ax.isvalid() && obj.Body.isvalid();
         end
         
         
         function out = getFig(obj)
-            out = obj.Fig;
+            out = obj.fig;
         end
         
         
         function resetPartial(obj)
-            obj.BodyTrace.clearpoints();
-            obj.ToeATrace.clearpoints();
-            obj.ToeBTrace.clearpoints();
-            obj.PanEnabled = false;
-            obj.PanAnchor = [0; 0];
+            obj.body_trace.clearpoints();
+            obj.toe_trace_right.clearpoints();
+            obj.toe_trace_left.clearpoints();
+            obj.pan_enabled = false;
+            obj.pan_anchor = [0; 0];
             obj.disableDrag();
-            obj.Ground.XData = obj.ground_data(:, 1);
-            obj.Ground.YData = obj.ground_data(:, 2);
-            obj.GroundShading.XData = obj.ground_data(:, 1);
-            obj.GroundShading.YData = obj.ground_data(:, 2);
+            obj.ground.XData = obj.ground_data(:, 1);
+            obj.ground.YData = obj.ground_data(:, 2);
+            obj.ground_shading.XData = obj.ground_data(:, 1);
+            obj.ground_shading.YData = obj.ground_data(:, 2);
         end
         
     end
@@ -146,58 +146,58 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
     methods (Access = private)
         
         function en = dragEnabled(obj)
-            en = strcmp(obj.DragIndicator.Visible, 'on');
+            en = strcmp(obj.drag_indicator.Visible, 'on');
         end
         
         
         function createGeometry(obj)
             fig = figure;
-            obj.Fig = fig;
+            obj.fig = fig;
             ax = axes('Parent', fig);
             grid(ax, 'on');
             ax.GridColor = [1 1 1]*0.5;
-            obj.Axes = ax;
-            obj.Axes.DataAspectRatio = [1 1 1];
-            obj.Axes.PlotBoxAspectRatio = [obj.Fig.Position(3:4) 1];
-            obj.Axes.Position = [0 0 1 1];
-            obj.Axes.XRuler.Visible = 'off';
-            obj.Axes.YRuler.Visible = 'off';
+            obj.ax = ax;
+            obj.ax.DataAspectRatio = [1 1 1];
+            obj.ax.PlotBoxAspectRatio = [obj.fig.Position(3:4) 1];
+            obj.ax.Position = [0 0 1 1];
+            obj.ax.XRuler.Visible = 'off';
+            obj.ax.YRuler.Visible = 'off';
             
             % Traces
-            obj.BodyTrace = animatedline('Parent', ax, 'Color', 'green');
-            obj.ToeATrace = animatedline('Parent', ax, 'Color', 'blue');
-            obj.ToeBTrace = animatedline('Parent', ax, 'Color', 'red');
+            obj.body_trace = animatedline('Parent', ax, 'Color', 'green');
+            obj.toe_trace_right = animatedline('Parent', ax, 'Color', 'blue');
+            obj.toe_trace_left = animatedline('Parent', ax, 'Color', 'red');
             
-            % Ground
-            obj.Ground = line('Parent', ax);
-            obj.Ground.XData = obj.ground_data(:, 1);
-            obj.Ground.YData = obj.ground_data(:, 2);
-            obj.GroundShading = patch('Parent', ax);
-            obj.GroundShading.XData = obj.ground_data(:, 1);
-            obj.GroundShading.YData = obj.ground_data(:, 2);
-            obj.GroundShading.FaceAlpha = 0.1;
-            obj.GroundShading.EdgeAlpha = 0;
+            % ground
+            obj.ground = line('Parent', ax);
+            obj.ground.XData = obj.ground_data(:, 1);
+            obj.ground.YData = obj.ground_data(:, 2);
+            obj.ground_shading = patch('Parent', ax);
+            obj.ground_shading.XData = obj.ground_data(:, 1);
+            obj.ground_shading.YData = obj.ground_data(:, 2);
+            obj.ground_shading.FaceAlpha = 0.1;
+            obj.ground_shading.EdgeAlpha = 0;
             
             % Body frame
             obj.Body = hgtransform('Parent', ax);
             
             % Leg
-            obj.AngleA = hgtransform('Parent', obj.Body);
-            obj.AngleB = hgtransform('Parent', obj.Body);
-            obj.LengthA = hgtransform('Parent', obj.AngleA);
-            obj.LengthB = hgtransform('Parent', obj.AngleB);
-            line([0 0], [0 -1], 'Parent', obj.LengthA);
-            line(0, -1, 'Marker', '.', 'MarkerFaceColor', 'Black', 'Parent', obj.LengthA);
-            line(0, -1, 'Marker', '.', 'MarkerFaceColor', 'Black', 'Parent', obj.LengthB);
-            line([0 0], [0 -1], 'Parent', obj.LengthB);
-            obj.SpringA = hgtransform('Parent', obj.AngleA);
-            obj.SpringB = hgtransform('Parent', obj.AngleB);
+            obj.angle_right = hgtransform('Parent', obj.Body);
+            obj.angle_left = hgtransform('Parent', obj.Body);
+            obj.length_right = hgtransform('Parent', obj.angle_right);
+            obj.length_left = hgtransform('Parent', obj.angle_left);
+            line([0 0], [0 -1], 'Parent', obj.length_right);
+            line(0, -1, 'Marker', '.', 'MarkerFaceColor', 'Black', 'Parent', obj.length_right);
+            line(0, -1, 'Marker', '.', 'MarkerFaceColor', 'Black', 'Parent', obj.length_left);
+            line([0 0], [0 -1], 'Parent', obj.length_left);
+            obj.spring_right = hgtransform('Parent', obj.angle_right);
+            obj.spring_left = hgtransform('Parent', obj.angle_left);
             ncoils = 5;
             coilres = 16;
             spring_y = linspace(0, -1, (4*coilres)*ncoils+1);
             spring_x = sin(spring_y*2*pi*ncoils)*0.4;
-            line(spring_x, spring_y, 'Parent', obj.SpringA);
-            line(spring_x, spring_y, 'Parent', obj.SpringB);
+            line(spring_x, spring_y, 'Parent', obj.spring_right);
+            line(spring_x, spring_y, 'Parent', obj.spring_left);
             
             % Body
             body_rect = rectangle('Parent', obj.Body);
@@ -209,106 +209,81 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             body_line = line(body_radius(1)*[0.2 0.5], [0 0], 'Parent', obj.Body);
             
             % Mouse-body line
-            obj.DragLine = line('Parent', ax);
-            obj.DragLine.Color = 'Magenta';
-            obj.DragLine.LineStyle = '--';
-            obj.DragLine.Visible = 'off';
-            obj.DragIndicator = rectangle('Parent', obj.Body);
-            obj.DragIndicator.EdgeColor = 'Magenta';
-            obj.DragIndicator.FaceColor = 'Magenta';
-            obj.DragIndicator.Curvature = [1 1];
-            obj.DragIndicator.Position = [-0.01 -0.01 0.02 0.02];
-            obj.DragIndicator.Visible = 'off';
-            obj.DragPinIndicator = line(0, 0, 'Parent', ax);
-            obj.DragPinIndicator.Visible = 'off';
-            obj.DragPinIndicator.Marker = 'x';
-            obj.DragPinIndicator.MarkerEdgeColor = 'Magenta';
+            obj.drag_line = line('Parent', ax);
+            obj.drag_line.Color = 'Magenta';
+            obj.drag_line.LineStyle = '--';
+            obj.drag_line.Visible = 'off';
+            obj.drag_indicator = rectangle('Parent', obj.Body);
+            obj.drag_indicator.EdgeColor = 'Magenta';
+            obj.drag_indicator.FaceColor = 'Magenta';
+            obj.drag_indicator.Curvature = [1 1];
+            obj.drag_indicator.Position = [-0.01 -0.01 0.02 0.02];
+            obj.drag_indicator.Visible = 'off';
+            obj.drag_pin_indicator = line(0, 0, 'Parent', ax);
+            obj.drag_pin_indicator.Visible = 'off';
+            obj.drag_pin_indicator.Marker = 'x';
+            obj.drag_pin_indicator.MarkerEdgeColor = 'Magenta';
             
             % Fall indicator
-            obj.FallIndicator = uicontrol(obj.Fig, 'Style', 'text');
-            obj.FallIndicator.Position = [20 20 30 30];
+            obj.fall_indicator = uicontrol(obj.fig, 'Style', 'text');
+            obj.fall_indicator.Position = [20 20 30 30];
             
             % Turn off hit test
-            obj.BodyTrace.HitTest = 'off';
-            obj.ToeATrace.HitTest = 'off';
-            obj.ToeBTrace.HitTest = 'off';
-            obj.AngleA.Children(1).HitTest = 'off';
-            obj.AngleB.Children(1).HitTest = 'off';
-            obj.DragLine.HitTest = 'off';
-            obj.DragIndicator.HitTest = 'off';
-            obj.DragPinIndicator.HitTest = 'off';
+            obj.body_trace.HitTest = 'off';
+            obj.toe_trace_right.HitTest = 'off';
+            obj.toe_trace_left.HitTest = 'off';
+            obj.angle_right.Children(1).HitTest = 'off';
+            obj.angle_left.Children(1).HitTest = 'off';
+            obj.drag_line.HitTest = 'off';
+            obj.drag_indicator.HitTest = 'off';
+            obj.drag_pin_indicator.HitTest = 'off';
             
             % Register callbacks
-            obj.Axes.ButtonDownFcn = @obj.axesClick;
-            body_rect.ButtonDownFcn = @obj.axesClick;
-            body_line.ButtonDownFcn = @obj.axesClick;
-            obj.Ground.ButtonDownFcn = @obj.axesClick;
-            obj.GroundShading.ButtonDownFcn = @obj.axesClick;
-            obj.Fig.SizeChangedFcn = @obj.setAxes;
-            obj.Fig.WindowScrollWheelFcn = @obj.scrollWheel;
-            obj.Fig.WindowButtonDownFcn = @obj.figMouseDown;
-            obj.Fig.WindowButtonUpFcn = @obj.figMouseUp;
-            obj.Fig.WindowButtonMotionFcn = @obj.mouseMove;
+            obj.ax.ButtonDownFcn = @obj.axClick;
+            body_rect.ButtonDownFcn = @obj.axClick;
+            body_line.ButtonDownFcn = @obj.axClick;
+            obj.ground.ButtonDownFcn = @obj.axClick;
+            obj.ground_shading.ButtonDownFcn = @obj.axClick;
+            obj.fig.SizeChangedFcn = @obj.setax;
+            obj.fig.WindowScrollWheelFcn = @obj.scrollWheel;
+            obj.fig.WindowButtonDownFcn = @obj.figMouseDown;
+            obj.fig.WindowButtonUpFcn = @obj.figMouseUp;
+            obj.fig.WindowButtonMotionFcn = @obj.mouseMove;
         end
         
         
         function updateTransforms(obj, X)
             obj.Body.Matrix = makehgtform('translate', [X.body.x; X.body.y; 0]) * ...
                 makehgtform('zrotate', X.body.theta);
-            obj.AngleA.Matrix = makehgtform('zrotate', X.right.theta);
-            obj.AngleB.Matrix = makehgtform('zrotate', X.left.theta);
-            obj.LengthA.Matrix = makehgtform('scale', [1 max(X.right.l, 1e-3) 1]);
-            obj.LengthB.Matrix = makehgtform('scale', [1 max(X.left.l, 1e-3) 1]);
-            obj.SpringA.Matrix = springTransform(X.right.l_eq, X.right.l);
-            obj.SpringB.Matrix = springTransform(X.left.l_eq, X.left.l);
+            obj.angle_right.Matrix = makehgtform('zrotate', X.right.theta);
+            obj.angle_left.Matrix = makehgtform('zrotate', X.left.theta);
+            obj.length_right.Matrix = makehgtform('scale', [1 max(X.right.l, 1e-3) 1]);
+            obj.length_left.Matrix = makehgtform('scale', [1 max(X.left.l, 1e-3) 1]);
+            obj.spring_right.Matrix = springTransform(X.right.l_eq, X.right.l);
+            obj.spring_left.Matrix = springTransform(X.left.l_eq, X.left.l);
             
-            obj.setAxes();
+            obj.setax();
             
             if obj.dragEnabled()
                 obj.mouseMove();
             end
             
             % Update fall indicator
-            X.body.theta = mod(X.body.theta + pi, 2*pi) - pi;
-            input = [...
-                X.body.theta;
-                X.body.dx;
-                X.body.dy;
-                X.body.dtheta;
-                X.right.l;
-                X.right.l_eq;
-                X.right.theta;
-                X.right.theta_eq;
-                X.right.dl;
-                X.right.dl_eq;
-                X.right.dtheta;
-                X.right.dtheta_eq;
-                X.left.l;
-                X.left.l_eq;
-                X.left.theta;
-                X.left.theta_eq;
-                X.left.dl;
-                X.left.dl_eq;
-                X.left.dtheta;
-                X.left.dtheta_eq];
-            h0 = max(obj.weights.b0 + obj.weights.w0*input, 0);
-            h1 = max(obj.weights.b1 + obj.weights.w1*h0, 0);
-            out = obj.weights.b2 + obj.weights.w2*h1;
-            p = exp(out(1)) / sum(exp(out));
-            obj.FallIndicator.BackgroundColor = [sqrt(1 - p), sqrt(p), 0] * 0.7 + 0.3;
+            v = obj.state_evaluator.stability(X);
+            obj.fall_indicator.BackgroundColor = [sqrt(1 - v), sqrt(v), 0] * 0.7 + 0.3;
         end
         
         
         function addTracePoints(obj, X)
-            obj.BodyTrace.addpoints(X.body.x, X.body.y);
+            obj.body_trace.addpoints(X.body.x, X.body.y);
             
             toe_a_x = X.body.x + X.right.l*sin(X.body.theta + X.right.theta);
             toe_a_y = X.body.y - X.right.l*cos(X.body.theta + X.right.theta);
-            obj.ToeATrace.addpoints(toe_a_x, toe_a_y);
+            obj.toe_trace_right.addpoints(toe_a_x, toe_a_y);
             
             toe_b_x = X.body.x + X.left.l*sin(X.body.theta + X.left.theta);
             toe_b_y = X.body.y - X.left.l*cos(X.body.theta + X.left.theta);
-            obj.ToeBTrace.addpoints(toe_b_x, toe_b_y);
+            obj.toe_trace_left.addpoints(toe_b_x, toe_b_y);
         end
         
         
@@ -316,13 +291,13 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         % Callbacks
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        function axesClick(obj, ~, data)
+        function axClick(obj, ~, data)
             switch data.Button
                 case 1 % LMB
                     obj.toggleDrag();
                 case 3 % RMB
                     obj.enableDrag();
-                    obj.toggleDragPinned();
+                    obj.toggledrag_pinned();
             end
         end
         
@@ -344,34 +319,34 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         
         function mouseMove(obj, ~, ~)
-            mouse = obj.Axes.CurrentPoint(1, 1:2)';
-            if obj.PanEnabled
-                position_diff = mouse - obj.PanAnchor;
-                obj.ViewCenterOffset = obj.ViewCenterOffset - position_diff;
-                obj.setAxes();
+            mouse = obj.ax.CurrentPoint(1, 1:2)';
+            if obj.pan_enabled
+                position_diff = mouse - obj.pan_anchor;
+                obj.view_center_offset = obj.view_center_offset - position_diff;
+                obj.setax();
             end
             body = obj.Body.Matrix(1:2, 4);
-            if ~obj.DragPinned
-                set(obj.DragLine, 'XData', [body(1) mouse(1)], 'YData', [body(2) mouse(2)]);
+            if ~obj.drag_pinned
+                set(obj.drag_line, 'XData', [body(1) mouse(1)], 'YData', [body(2) mouse(2)]);
             else
-                x_pin = obj.DragLine.XData(2);
-                y_pin = obj.DragLine.YData(2);
-                set(obj.DragLine, 'XData', [body(1) x_pin], 'YData', [body(2) y_pin]);
+                x_pin = obj.drag_line.XData(2);
+                y_pin = obj.drag_line.YData(2);
+                set(obj.drag_line, 'XData', [body(1) x_pin], 'YData', [body(2) y_pin]);
             end
         end
         
         
-        function setAxes(obj, ~, ~)
-            if ~obj.dragEnabled() && ~obj.PanEnabled
-                obj.ViewCenter = obj.Body.Matrix(1:2, 4);
+        function setax(obj, ~, ~)
+            if ~obj.dragEnabled() && ~obj.pan_enabled
+                obj.view_center = obj.Body.Matrix(1:2, 4);
             end
-            fr = obj.Fig.Position(3)/obj.Fig.Position(4);
-            yw = obj.ViewScale*1.2;
+            fr = obj.fig.Position(3)/obj.fig.Position(4);
+            yw = obj.view_scale*1.2;
             xw = yw*fr;
-            vc = obj.ViewCenter + obj.ViewCenterOffset;
-            obj.Axes.XLim = [vc(1) - xw, vc(1) + xw];
-            obj.Axes.YLim = [vc(2) - yw, vc(2) + yw];
-            obj.Axes.PlotBoxAspectRatio = [fr 1 1];
+            vc = obj.view_center + obj.view_center_offset;
+            obj.ax.XLim = [vc(1) - xw, vc(1) + xw];
+            obj.ax.YLim = [vc(2) - yw, vc(2) + yw];
+            obj.ax.PlotBoxAspectRatio = [fr 1 1];
         end
         
         
@@ -382,15 +357,15 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
                 return
             end
             sc = 2^(0.5*data.VerticalScrollCount);
-            obj.ViewScale = obj.ViewScale*sc;
+            obj.view_scale = obj.view_scale*sc;
             
-            % Keep Axes.CurrentPoint constant during scaling
-            mouse = obj.Axes.CurrentPoint(1, 1:2)';
-            vc = obj.ViewCenter + obj.ViewCenterOffset;
+            % Keep ax.CurrentPoint constant during scaling
+            mouse = obj.ax.CurrentPoint(1, 1:2)';
+            vc = obj.view_center + obj.view_center_offset;
             offset = mouse - vc;
-            obj.ViewCenterOffset = mouse - offset*sc - obj.ViewCenter;
+            obj.view_center_offset = mouse - offset*sc - obj.view_center;
                 
-            obj.setAxes();
+            obj.setax();
         end
         
         
@@ -422,60 +397,60 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         
         function enableDragUnchecked(obj)
-            obj.DragLine.Visible = 'on';
-            obj.DragIndicator.Visible = 'on';
-            obj.DragPinIndicator.Visible = 'off';
+            obj.drag_line.Visible = 'on';
+            obj.drag_indicator.Visible = 'on';
+            obj.drag_pin_indicator.Visible = 'off';
             obj.disablePan();
             obj.mouseMove();
         end
         
         
         function disableDragUnchecked(obj)
-            vcdiff = obj.ViewCenter - obj.Body.Matrix(1:2, 4);
-            obj.ViewCenterOffset = obj.ViewCenterOffset + vcdiff;
-            obj.DragLine.Visible = 'off';
-            obj.DragIndicator.Visible = 'off';
-            obj.disableDragPinned();
+            vcdiff = obj.view_center - obj.Body.Matrix(1:2, 4);
+            obj.view_center_offset = obj.view_center_offset + vcdiff;
+            obj.drag_line.Visible = 'off';
+            obj.drag_indicator.Visible = 'off';
+            obj.disabledrag_pinned();
             obj.disablePan();
         end
         
         
         function enablePan(obj)
-            if ~obj.PanEnabled
-                obj.PanEnabled = true;
-                obj.PanAnchor = obj.Axes.CurrentPoint(1, 1:2)';
+            if ~obj.pan_enabled
+                obj.pan_enabled = true;
+                obj.pan_anchor = obj.ax.CurrentPoint(1, 1:2)';
             end
         end
         
         
         function disablePan(obj)
-            if obj.PanEnabled
+            if obj.pan_enabled
                 if ~obj.dragEnabled()
-                    vcdiff = obj.ViewCenter - obj.Body.Matrix(1:2, 4);
-                    obj.ViewCenterOffset = obj.ViewCenterOffset + vcdiff;
+                    vcdiff = obj.view_center - obj.Body.Matrix(1:2, 4);
+                    obj.view_center_offset = obj.view_center_offset + vcdiff;
                 end
-                obj.PanEnabled = false;
+                obj.pan_enabled = false;
             end
         end
         
-        function toggleDragPinned(obj)
-            if obj.DragPinned
-                obj.disableDragPinned();
+        function toggledrag_pinned(obj)
+            if obj.drag_pinned
+                obj.disabledrag_pinned();
             else
-                obj.enableDragPinned();
+                obj.enabledrag_pinned();
             end
         end
         
-        function disableDragPinned(obj)
-            obj.DragPinned = false;
-            obj.DragPinIndicator.Visible = 'off';
+        function disabledrag_pinned(obj)
+            obj.drag_pinned = false;
+            obj.drag_pin_indicator.Visible = 'off';
         end
         
-        function enableDragPinned(obj)
-            obj.DragPinned = true;
-            mouse = obj.Axes.CurrentPoint(1, 1:2)';
-            set(obj.DragPinIndicator, 'XData', mouse(1), 'YData', mouse(2));
-            obj.DragPinIndicator.Visible = 'on';
+        function enabledrag_pinned(obj)
+            obj.drag_pinned = true;
+            mouse = obj.ax.CurrentPoint(1, 1:2)';
+            set(obj.drag_pin_indicator, 'XData', mouse(1), 'YData', mouse(2));
+            obj.drag_pin_indicator.Visible = 'on';
         end
     end
     

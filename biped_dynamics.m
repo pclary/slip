@@ -29,6 +29,15 @@ ext.right.y = ext.right.y + foot_force_right.y - robot.gravity * robot.foot.mass
 ext.left.x  = ext.left.x  + foot_force_left.x;
 ext.left.y  = ext.left.y  + foot_force_left.y  - robot.gravity * robot.foot.mass;
 
+% % Body ground contact force (useful for interesting animations, otherwise slows things down)
+% body_state.x = X.body.x;
+% body_state.y = X.body.y;
+% body_state.dx = X.body.dx;
+% body_state.dy = X.body.dy;
+% body_force = ground_contact(body_state, robot, terrain);
+% ext.body.x = ext.body.x + body_force.x;
+% ext.body.y = ext.body.y + body_force.y;
+
 % Get state derivatives from equations of motion
 dX = biped_eom(X, u, ext, robot);
 

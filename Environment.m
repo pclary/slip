@@ -6,6 +6,12 @@ classdef Environment
     
     
     methods
+        
+        function obj = Environment(ground_data)
+            obj.ground_data = ground_data;
+        end
+        
+        
         function terrain = getLocalTerrain(obj, x)
             terrain = Terrain();
             
@@ -25,6 +31,7 @@ classdef Environment
             terrain.damping = interp1(obj.ground_data(:, 1), obj.ground_data(:, 4), x);
             terrain.friction = interp1(obj.ground_data(:, 1), obj.ground_data(:, 5), x);
         end
+        
     end
     
 end

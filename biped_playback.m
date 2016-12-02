@@ -22,6 +22,7 @@ vis = evalin('base', 'vis');
 vis.ground_data = evalin('base', 'env.ground_data');
 vis.resetPartial();
 timedisp = uicontrol('Style', 'text', 'Parent', vis.getFig());
+timedisp.Position = [60 20 60 20];
 
 X = evalin('base', 'X');
 Time = X.body.x.Time;
