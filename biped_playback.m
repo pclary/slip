@@ -15,10 +15,10 @@ framerate = 30;
 if ~evalin('base', 'exist(''vis'', ''var'')') || ...
         ~evalin('base', 'strcmp(class(vis), ''BipedVisualization'')') || ...
         ~evalin('base', 'vis.isAlive')
-    evalin('base', 'vis = BipedVisualization()')
-    evalin('base', 'vis.setup(RobotState())');
+    evalin('base', 'vis = BipedVisualization();')
+    evalin('base', 'vis.setup(RobotState());');
 end
-vis = evalin('base', 'vis');
+vis = evalin('base', 'vis;');
 vis.ground_data = evalin('base', 'env.ground_data');
 vis.resetPartial();
 timedisp = uicontrol('Style', 'text', 'Parent', vis.getFig());

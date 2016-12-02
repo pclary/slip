@@ -63,7 +63,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 for i = 1:numel(obj.tree.nodes(1).children)
                     c = obj.tree.nodes(1).children(i);
                     if c
-                        v = obj.tree.nodes(c).data.value;
+                        v = obj.tree.nodes(c).data.rollout_value;
                         if v > v_max
                             cparams = obj.tree.nodes(c).data.cparams;
                             v_max = v;
@@ -80,7 +80,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Reset tree with predicted state as root
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
                 vp = obj.state_evaluator.value(Xp, goal, terrain);
-                ss = SimulationState(Xp, cstatep, cparams, GeneratorState(), vp);
+                ss = SimulationState(Xp, cstatep, cparams, GeneratorState(), vp, -inf);
                 obj.tree.reset(ss);
                 obj.rollout_node = uint32(1);
             else
@@ -99,8 +99,8 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     i = obj.rollout_node;
                     while (i > 0)
                         % Set node value if greater than previous value
-                        if obj.tree.nodes(i).data.value < v
-                            obj.tree.nodes(i).data.value = v;
+                        if obj.tree.nodes(i).data.rollout_value < v
+                            obj.tree.nodes(i).data.rollout_value = v;
                         end
                         
                         % Move to parent
@@ -127,7 +127,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     obj.robot, cparams_gen, terrain, t_stop, obj.Ts_sim);
                 
                 % Evaluate the result and add child node
-                ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), -inf);
+                terrainp = obj.env.getLocalTerrain(Xp.body.x);
+                vp = obj.state_evaluator.value(Xp, goal, terrainp);
+                ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), vp, -inf);
                 c = obj.tree.addChild(n, ss);
                 
                 % If unable to add child node, delete the lowest value child
@@ -137,7 +139,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     for i = 1:numel(obj.tree.nodes(n).children)
                         ci = obj.tree.nodes(n).children(i);
                         if ci
-                            vc = obj.tree.nodes(ci).data.value;
+                            vc = obj.tree.nodes(ci).data.rollout_value;
                             if vc < v_min
                                 v_min = vc;
                                 c_min = ci;

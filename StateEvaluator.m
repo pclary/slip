@@ -22,8 +22,9 @@ classdef StateEvaluator < handle
         
         function ps = stability(obj, X)
             % Construct input vector
+            X.body.theta = mod(X.body.theta + pi, 2*pi) - pi;
             input = [...
-                mod(X.body.theta + pi, 2*pi) - pi;
+                X.body.theta;
                 X.body.dx;
                 X.body.dy;
                 X.body.dtheta;
@@ -53,6 +54,11 @@ classdef StateEvaluator < handle
             
             % Softmax
             ps = exp(out(1)) / sum(exp(out));
+            
+            % Absolute crash check
+            if X.body.y < 0 || abs(X.body.theta) > pi/2 || abs(X.right.theta - X.left.theta) > pi*0.8
+                ps = 0;
+            end
             
             if ps > 0.5
                 ps = 1;
