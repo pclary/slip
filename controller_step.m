@@ -8,8 +8,15 @@ if abs(X.body.dx / cparams.phase_rate) > cparams.max_stride * 2
      cparams.phase_rate = abs(X.body.dx / cparams.max_stride / 2);
 end
 
+dx_diff = clamp(X.body.dx - cparams.target_dx, -0.5, 0.5);
+phase_rate_eq = cparams.phase_rate;
+% cparams.phase_rate = cparams.phase_rate + 0.2 * dx_diff * sign(X.body.dx);
+
 % Add speed-dependent term to energy injection
 energy_injection = cparams.energy_injection + 500 * max(abs(X.body.dx) - 1, 0);
+
+% Energy injection for speed control
+energy_injection = energy_injection - dx_diff * 1000 * sign(X.body.dx);
 
 % Increase leg phases with time
 cstate.phase.right = cstate.phase.right + Ts * cparams.phase_rate;
@@ -41,7 +48,7 @@ gc.right = clamp((X.right.l_eq - X.right.l) / cparams.contact_threshold, 0, 1);
 gc.left = clamp((X.left.l_eq - X.left.l) / cparams.contact_threshold, 0, 1);
 
 % Update leg targets
-foot_extension = (0.09 + cparams.phase_rate * 0.24) * X.body.dx / cparams.phase_rate + 0.3 * max(abs(X.body.dx) - 2, 0) + ...
+foot_extension = exp(cparams.phase_stretch * 0.1) * (0.09 + phase_rate_eq * 0.24) * X.body.dx / phase_rate_eq + 0.1 * max(abs(X.body.dx) - 2, 0) + ...
     0.1 * clamp(X.body.dx - cparams.target_dx, -0.5, 0.5) + ...
     0.03 * cstate.body_ddx;
 if phase.right < cparams.step_lock_phase
