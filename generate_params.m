@@ -1,7 +1,12 @@
-function [cparams, gstate] = generate_params(X, goal, terrain, gstate)
+function [cparams, gstate] = generate_params(X, goal, terrain, gstate, action_stack)
 
 cparams = ControllerParams();
 cparams.target_dx = goal.dx;
+
+if ~action_stack.isempty()
+    cparams = action_stack.pop();
+    return;
+end
 
 if gstate.n == 1
     cparams.target_dx = 0;

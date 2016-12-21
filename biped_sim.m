@@ -1,7 +1,5 @@
 function [X, cstate] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts)
 
-vis = BipedVisualization();
-vis.setup(X);
 
 t = 0;
 
@@ -25,9 +23,6 @@ while t < tstop
     
     X = rs_add(X1, rs_smul(rs_add(rs_add(dX1, rs_smul(dX2, 2)), rs_add(rs_smul(dX3, 2), dX4)), Ts/6));
     t = t + Ts;
-    
-    vis.step(X);
-    drawnow;
     
     % Stop if crashed
     if X.body.y < min(terrain.height)

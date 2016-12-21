@@ -24,6 +24,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         env
         state_evaluator
         t
+        action_stack
     end
     
     
@@ -33,6 +34,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
+            obj.action_stack = Stack(ControllerParams(), obj.rollout_depth + 1);
         end
         
         
@@ -56,18 +58,35 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 terrain = obj.env.getLocalTerrain(X.body.x);
                 [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
                 
-                % Choose the new parameters with the highest estimated Q value
-                v_max = -inf;
-                for i = 1:numel(obj.tree.nodes(1).children)
-                    c = obj.tree.nodes(1).children(i);
-                    if c
-                        v = obj.tree.nodes(c).data.rollout_value;
-                        if v > v_max
-                            cparams = obj.tree.nodes(c).data.cparams;
-                            v_max = v;
+                % Store the highest value path in the action stack
+                temp_stack = Stack(ControllerParams(), obj.rollout_depth + 1);
+                n = 1;
+                while any(obj.tree.nodes(n).children)
+                    % Find child with highest rollout value
+                    v_max = -inf;
+                    for i = 1:numel(obj.tree.nodes(n).children)
+                        c = obj.tree.nodes(n).children(i);
+                        if c
+                            v = obj.tree.nodes(c).data.rollout_value;
+                            if v > v_max
+                                cparams = obj.tree.nodes(c).data.cparams;
+                                v_max = v;
+                                n = c;
+                            end
                         end
                     end
+                    temp_stack.push(cparams);
                 end
+                
+                % Reverse the temporary stack into the action stack
+                obj.action_stack.clear();
+                while ~temp_stack.isempty()
+                    obj.action_stack.push(temp_stack.pop());
+                end
+                
+                % Head is the next action to take, remaining actions are first
+                % guesses for next planning cycle
+                cparams = obj.action_stack.pop();
                 
                 % Simulate the upcoming tree timestep
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
@@ -114,41 +133,49 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 gstate = obj.tree.nodes(n).data.gstate;
                 Xn = obj.tree.nodes(n).data.X;
                 terrain = obj.env.getLocalTerrain(Xn.body.x);
-                [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate);
+                [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate, obj.action_stack);
                 obj.tree.nodes(n).data.gstate = gstate;
                 
                 % Simulate a step
                 [Xp, cstatep] = biped_sim_mex(Xn, obj.tree.nodes(n).data.cstate, ...
                     obj.robot, cparams_gen, terrain, obj.Ts_tree, obj.Ts_sim);
                 
-                % Evaluate the result and add child node
+                % Evaluate the result
                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
                 vp = obj.state_evaluator.value(Xp, goal, terrainp);
-                ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), vp, -inf);
-                c = obj.tree.addChild(n, ss);
                 
-                % If unable to add child node, delete the lowest value child
-                if ~c
-                    v_min = inf;
-                    c_min = uint32(0);
-                    for i = 1:numel(obj.tree.nodes(n).children)
-                        ci = obj.tree.nodes(n).children(i);
-                        if ci
-                            vc = obj.tree.nodes(ci).data.rollout_value;
-                            if vc < v_min
-                                v_min = vc;
-                                c_min = ci;
+                if vp > 0.3
+                    % If the value is reasonably high, add it as a child and
+                    % continue the rollout
+                    ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), vp, -inf);
+                    c = obj.tree.addChild(n, ss);
+                    
+                    % If unable to add child node, delete the lowest value child
+                    if ~c
+                        v_min = inf;
+                        c_min = uint32(0);
+                        for i = 1:numel(obj.tree.nodes(n).children)
+                            ci = obj.tree.nodes(n).children(i);
+                            if ci
+                                vc = obj.tree.nodes(ci).data.rollout_value;
+                                if vc < v_min
+                                    v_min = vc;
+                                    c_min = ci;
+                                end
                             end
                         end
+                        if c_min
+                            obj.tree.deleteNode(c_min);
+                            c = obj.tree.addChild(n, ss);
+                        end
                     end
-                    if c_min
-                        obj.tree.deleteNode(c_min);
-                        c = obj.tree.addChild(n, ss);
-                    end
+                    
+                    % Child is next parent for the rollout
+                    obj.rollout_node = c;
+                else
+                    % If the value is too low, start a new rollout
+                    obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
                 end
-                
-                % Child is next parent for the rollout
-                obj.rollout_node = c;
             end
             
             % Increment tree timestep clock
@@ -161,6 +188,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.rollout_node = uint32(1);
             obj.env.ground_data = obj.ground_data;
             obj.t = 0;
+            obj.action_stack.clear();
         end
         
         
