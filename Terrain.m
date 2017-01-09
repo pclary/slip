@@ -1,7 +1,7 @@
 function terrain = Terrain()
 
-terrain.xstart = -2;
-terrain.xend = 2;
+terrain.xstart = -4;
+terrain.xend = 4;
 terrain.height = zeros(201, 1);
 
 terrain.stiffness = 1e6;

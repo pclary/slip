@@ -64,6 +64,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 while any(obj.tree.nodes(n).children)
                     % Find child with highest rollout value
                     v_max = -inf;
+                    n = obj.tree.nodes(n).children(find(obj.tree.nodes(n).children, 1));
                     for i = 1:numel(obj.tree.nodes(n).children)
                         c = obj.tree.nodes(n).children(i);
                         if c
