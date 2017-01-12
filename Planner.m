@@ -59,7 +59,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
                 
                 % Store the highest value path in the action stack
-                temp_stack = Stack(ControllerParams(), obj.rollout_depth + 1);
+                pathnodes = zeros(obj.rollout_depth + 1, 1);
+                pathnodes(1) = 1;
+                temp_stack = Stack(ControllerParams(), obj.rollout_depth);
                 n = 1;
                 while any(obj.tree.nodes(n).children)
                     % Find child with highest rollout value
@@ -80,6 +82,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                         break;
                     end
                     n = n_new;
+                    pathnodes(find(~pathnodes, 1)) = n;
                     temp_stack.push(cparams);
                 end
                 
