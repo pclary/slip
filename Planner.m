@@ -30,7 +30,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     
     methods (Access = protected)
         function setupImpl(obj)
-            obj.tree = Tree(SimulationState(), 256, 16);
+            obj.tree = Tree(SimulationState(), 4096, 256);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
@@ -100,7 +100,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Reset tree with predicted state as root
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
                 vp = obj.state_evaluator.value(Xp, goal, terrain);
-                ss = SimulationState(Xp, cstatep, cparams, GeneratorState(), vp, -inf);
+                gs = GeneratorState();
+                gs.last_cparams = cparams;
+                ss = SimulationState(Xp, cstatep, cparams, gs, vp, -inf);
                 obj.tree.reset(ss);
                 obj.rollout_node = uint32(1);
             else
@@ -152,7 +154,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 if vp > 0.3
                     % If the value is reasonably high, add it as a child and
                     % continue the rollout
-                    ss = SimulationState(Xp, cstatep, cparams_gen, GeneratorState(), vp, -inf);
+                    gs = GeneratorState();
+                    gs.last_cparams = cparams_gen;
+                    ss = SimulationState(Xp, cstatep, cparams_gen, gs, vp, -inf);
                     c = obj.tree.addChild(n, ss);
                     
                     % If unable to add child node, delete the lowest value child
@@ -162,8 +166,8 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                         for i = 1:numel(obj.tree.nodes(n).children)
                             ci = obj.tree.nodes(n).children(i);
                             if ci
-                                vc = obj.tree.nodes(ci).data.rollout_value;
-                                if vc < v_min
+                                vc = obj.tree.nodes(ci).data.value;
+                                if vc <= v_min
                                     v_min = vc;
                                     c_min = ci;
                                 end
@@ -176,7 +180,12 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     end
                     
                     % Child is next parent for the rollout
-                    obj.rollout_node = c;
+                    if c
+                        obj.rollout_node = c;
+                    else
+                        % Adding child failed; tree is probably full
+                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                    end
                 else
                     % If the value is too low, start a new rollout
                     obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);

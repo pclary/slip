@@ -6,6 +6,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
     
     properties (Access = private)
         cstate;
+        reset_flag;
     end
     
     
@@ -15,6 +16,11 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         
         
         function [u, cstate] = stepImpl(obj, X, cparams)
+            if obj.reset_flag
+                obj.cstate.foot_x_last.right = X.body.x;
+                obj.cstate.foot_x_last.left  = X.body.x;
+                obj.reset_flag = false;
+            end
             [u, obj.cstate] = controller_step(X, obj.cstate, cparams, obj.Ts);
             cstate = obj.cstate;
         end
@@ -22,6 +28,7 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         
         function resetImpl(obj)
             obj.cstate = ControllerState();
+            obj.reset_flag = true;
         end
         
         

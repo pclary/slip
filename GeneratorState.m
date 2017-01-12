@@ -1,4 +1,4 @@
 function gs = GeneratorState()
 
-gs = struct();
 gs.n = 0;
+gs.last_cparams = ControllerParams();

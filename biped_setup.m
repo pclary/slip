@@ -1,5 +1,7 @@
 %% Sets up workspace for simulation
 
+% codegen biped_sim -args {RobotState(), ControllerState(), RobotParams(), ControllerParams(), Terrain(), 0.1, 1e-3}
+
 % Delete all existing bus objects
 vars = who();
 for i = 1:numel(vars)
@@ -18,9 +20,7 @@ robot = RobotParams();
 % Initial robot state
 X0 = RobotState();
 X0.body.dx = 1;
-
-% Initial controller state
-cstate0 = ControllerState();
+X0.body.x = 0;
     
 % Stiffness of external body force (dragging body around with mouse)
 kp_f_ext = 1e4;
@@ -31,8 +31,8 @@ kd_f_ext = 2*sqrt(kp_f_ext*robot.body.mass);
 % ground_y = [-1e3; 0; 0; -0.5; -0.5; 1; 0; 0; 1; 1; 0; 0; -1e3];
 % ground_x = [-1e3-1; -1e3; 1e3; 1e3+1];
 % ground_y = [-1e3; 0; 0; -1e3];
-ground_x = [-1e3-1; -1e3; 3;  3.01; 3.5; 3.51; 4.8; 4.81; 5.1; 5.11; 8; 8.01; 8.6; 8.61; 1e3; 1e3+1];
-ground_y = [-1e3;    0; 0; -1e3;  -1e3; 0; 0; -1e3;  -1e3; 0; 0; -1e3;  -1e3; 0;   0;  -1e3];
+ground_x = [-1e3-1; -1e3; 3;  3.01; 3.2; 3.21; 4.7; 4.71; 5.0; 5.01; 8; 8.01; 8.4; 8.41; 11; 11.01; 11.5; 11.51; 1e3; 1e3+1];
+ground_y = [-1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3];
 % ground_x = [-2e1; (-2e1:0.1:2e1)'; 2e1];
 % ground_y = [-2e1; randn(401, 1)*0.01; -2e1];
 ground_stiffness = 1e6*ones(size(ground_x));
