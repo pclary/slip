@@ -34,7 +34,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
-            obj.action_stack = Stack(ControllerParams(), obj.rollout_depth + 1);
+            obj.action_stack = Stack(ControllerParams(), obj.rollout_depth);
         end
         
         
