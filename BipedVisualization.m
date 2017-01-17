@@ -7,6 +7,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
     
     properties
         ground_data = zeros(2, 5);
+        same_window = false;
     end
     
         
@@ -174,8 +175,19 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         
         function createGeometry(obj)
-            fig = figure;
+            persistent fig_persistent
+            
+            if obj.same_window
+                if ~isa(fig_persistent, 'matlab.ui.Figure') || ~isvalid(fig_persistent)
+                    fig_persistent = figure;
+                end
+                clf(fig_persistent);
+                fig = fig_persistent;
+            else
+                fig = figure;
+            end
             obj.fig = fig;
+            
             ax = axes('Parent', fig);
             grid(ax, 'on');
             ax.GridColor = [1 1 1]*0.5;
