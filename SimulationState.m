@@ -1,17 +1,19 @@
-function ss = SimulationState(X, cstate, cparams, gstate, value, rollout_value)
+function ss = SimulationState(X, cstate, cparams, gstate, stability, goal_value, path_value)
 
 if nargin == 0
     X       = RobotState();
     cstate  = ControllerState();
     cparams = ControllerParams();
     gstate  = GeneratorState();
-    value   = 0;
-    rollout_value = 0;
+    stability  = 0;
+    goal_value = 0;
+    path_value = 0;
 end
 
 ss.X       = X;
 ss.cstate  = cstate;
 ss.cparams = cparams;
 ss.gstate  = gstate;
-ss.value   = value;
-ss.rollout_value = rollout_value;
+ss.stability  = stability;
+ss.goal_value = goal_value;
+ss.path_value = path_value;

@@ -9,8 +9,12 @@ p = p(~unused);
 
 % Get node values
 data = [nodes.data];
-values = [data.value];
-values = values(~unused);
+stabilities = [data.stability];
+stabilities = stabilities(~unused);
+goal_values = [data.goal_value];
+goal_values = goal_values(~unused);
+path_values = [data.path_value];
+path_values = path_values(~unused);
 
 % Get child number for each node
 cindex = zeros(size(p));
@@ -41,7 +45,7 @@ for i = 1:length(p)
     if p(i)
         line([x(p(i)), x(i)], [y(p(i)), y(i)], 'Color', color);
     end
-    text(x(i), y(i), sprintf('%d\n%.2f', cindex(i), values(i)));
+    text(x(i), y(i), sprintf('%d\n%.2f\n%.2f\n%.2f', cindex(i), path_values(i), stabilities(i), goal_values(i)));
 end
 
 axis([0 1 0 1]);

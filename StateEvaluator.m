@@ -13,14 +13,7 @@ classdef StateEvaluator < handle
         end
         
         
-        function v = value(obj, X, goal, terrain)
-            ps = obj.stability(X);
-            pg = obj.goal(X, goal);
-            v = min([ps, pg]);
-        end
-        
-        
-        function ps = stability(obj, X)
+        function vs = stability(obj, X, terrain)
             % Construct input vector
             X.body.theta = mod(X.body.theta + pi, 2*pi) - pi;
             input = [...
@@ -53,23 +46,19 @@ classdef StateEvaluator < handle
             out = obj.weights.b2 + obj.weights.w2*h1;
             
             % Softmax
-            ps = exp(out(1)) / sum(exp(out));
+            vs = exp(out(1)) / sum(exp(out));
             
             % Absolute crash check
             if X.body.y < 0 || abs(X.body.theta) > pi/2 || abs(X.right.theta - X.left.theta) > pi*0.8
-                ps = 0;
-            end
-            
-            if ps > 0.5
-                ps = 1;
+                vs = 0;
             end
         end
         
         
-        function pg = goal(~, X, goal)
+        function vg = goal_value(~, X, goal)
             % Percent-based velocity error score
-            saturation = 2; % Less than this (multiplicative) difference treated as zero error
-            deadband = 1.1; % Full error
+            saturation = 2; % Full error
+            deadband = 1.1; % Less than this (multiplicative) difference treated as zero error
             em = max(abs(log(min(max(X.body.dx / goal.dx, 1/saturation), saturation))) - log(deadband), 0) / log(saturation / deadband);
             
             % Difference-based velocity error score
@@ -78,11 +67,7 @@ classdef StateEvaluator < handle
             ed = min(max(abs(X.body.dx - goal.dx) - deadband, 0) / (saturation - deadband), 1);
             
             % Error is the minimum of the two error scores, and score is inverted
-            pg = 1 - min(em, ed);
-            
-            % Scale score to have a minimum of 0.5 so velocity error doesn't
-            % take precedence over stability
-            pg = pg/2 + 0.5;
+            vg = 1 - min(em, ed);
         end
         
     end

@@ -70,7 +70,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     for i = 1:numel(obj.tree.nodes(n).children)
                         c = obj.tree.nodes(n).children(i);
                         if c
-                            v = obj.tree.nodes(c).data.rollout_value;
+                            v = obj.tree.nodes(c).data.path_value;
                             if v > v_max
                                 cparams = obj.tree.nodes(c).data.cparams;
                                 v_max = v;
@@ -102,10 +102,11 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Reset tree with predicted state as root
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
-                vp = obj.state_evaluator.value(Xp, goal, terrain);
-                gs = GeneratorState();
-                gs.last_cparams = cparams;
-                ss = SimulationState(Xp, cstatep, cparams, gs, vp, -inf);
+                stability = obj.state_evaluator.stability(Xp, terrain);
+                goal_value = obj.state_evaluator.goal_value(Xp, goal);
+                gstate = GeneratorState();
+                gstate.last_cparams = cparams;
+                ss = SimulationState(Xp, cstatep, cparams, gstate, stability, goal_value, -inf);
                 obj.tree.reset(ss);
                 obj.rollout_node = uint32(1);
             else
@@ -115,17 +116,39 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Check whether max depth on current rollout has been reached
                 if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
-                    % Evaluate leaf node
-                    Xn = obj.tree.nodes(obj.rollout_node).data.X;
-                    terrain = obj.env.getLocalTerrain(Xn.body.x);
-                    v = obj.state_evaluator.value(Xn, goal, terrain);
+                    % Evaluate leaf node   
+                    stability = obj.tree.nodes(obj.rollout_node).data.stability;
+                    goal_value = obj.tree.nodes(obj.rollout_node).data.goal_value;
+                    
+                    path_value = (goal_value + 1) / 2;
+                    if stability < 0.5
+                        path_value = min(path_value, stability);
+                    end
+                    obj.tree.nodes(obj.rollout_node).data.path_value = path_value;
                     
                     % Propogate value to parents
-                    i = obj.rollout_node;
+                    i = obj.tree.nodes(obj.rollout_node).parent;
                     while (i > 0)
+                        % Compute potential new path value
+                        % path_value retained from child
+                        stability = obj.tree.nodes(i).data.stability;
+                        goal_value = obj.tree.nodes(i).data.goal_value;
+                        
+                        decay = 0.5;
+                        new_path_value = (goal_value + 1) / 2;
+                        new_path_value = path_value * decay + new_path_value * (1 - decay);
+                        new_path_value = min(new_path_value, path_value);
+                        if stability < 0.5
+                            new_path_value = min(path_value, stability);
+                        end
+                        
                         % Set node value if greater than previous value
-                        if obj.tree.nodes(i).data.rollout_value < v
-                            obj.tree.nodes(i).data.rollout_value = v;
+                        if obj.tree.nodes(i).data.path_value < new_path_value
+                            path_value = new_path_value;
+                            obj.tree.nodes(i).data.path_value = path_value;
+                        else
+                            % Otherwise, stop backprop
+                            break;
                         end
                         
                         % Move to parent
@@ -147,8 +170,8 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 obj.tree.nodes(n).data.gstate = gstate;
                 
                 % Run multiple simulations with slightly perturbed initial
-                % states, and take the result with the lowest value
-                for i = 1:10
+                % states, and take the result with the lowest stability
+                for i = 1:1
                     % Simulate a step
                     Xnp = Xn;
                     Xnp.body.x = Xnp.body.x + 1e-3*randn();
@@ -161,31 +184,33 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     
                     % Evaluate the result
                     terrainp = obj.env.getLocalTerrain(Xp{i}.body.x);
-                    vp(i) = obj.state_evaluator.value(Xp{i}, goal, terrainp);
+                    stability(i) = obj.state_evaluator.stability(Xp{i}, terrainp);
+                    goal_value(i) = obj.state_evaluator.goal_value(Xp{i}, goal);
                 end
-                [~, i] = min(vp);
+                [~, i] = min(stability);
                 Xp = Xp{i};
                 cstatep = cstatep{i};
-                vp = vp(i);
+                stability = stability(i);
+                goal_value = goal_value(i);
                 
-                if vp > 0.3
-                    % If the value is reasonably high, add it as a child and
+                if stability > 0.3
+                    % If the stability is reasonably high, add it as a child and
                     % continue the rollout
-                    gs = GeneratorState();
-                    gs.last_cparams = cparams_gen;
-                    ss = SimulationState(Xp, cstatep, cparams_gen, gs, vp, -inf);
+                    gstate = GeneratorState();
+                    gstate.last_cparams = cparams_gen;
+                    ss = SimulationState(Xp, cstatep, cparams_gen, gstate, stability, goal_value, -inf);
                     c = obj.tree.addChild(n, ss);
                     
-                    % If unable to add child node, delete the lowest value child
+                    % If unable to add child node, delete the least stable child
                     if ~c
-                        v_min = inf;
+                        vs_min = inf;
                         c_min = uint32(0);
                         for i = 1:numel(obj.tree.nodes(n).children)
                             ci = obj.tree.nodes(n).children(i);
                             if ci
-                                vc = obj.tree.nodes(ci).data.value;
-                                if vc <= v_min
-                                    v_min = vc;
+                                vsc = obj.tree.nodes(ci).data.stability;
+                                if vsc <= vs_min
+                                    vs_min = vsc;
                                     c_min = ci;
                                 end
                             end
