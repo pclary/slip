@@ -32,7 +32,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     methods (Access = protected)
         function setupImpl(obj)
             obj.rngstate = rng('shuffle');
-            obj.tree = Tree(SimulationState(), 4096, 256);
+            obj.tree = Tree(SimulationState(), 512, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
