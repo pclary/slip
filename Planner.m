@@ -248,6 +248,28 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         end
         
         
+        function s = saveObjectImpl(obj)
+            s = saveObjectImpl@matlab.System(obj);
+            s.tree = obj.tree;
+            s.rollout_node = obj.rollout_node;
+            s.env = obj.env;
+            s.state_evaluator = obj.state_evaluator;
+            s.t = obj.t;
+            s.action_stack = obj.action_stack;
+        end
+        
+        
+        function loadObjectImpl(obj, s, wasLocked)
+            obj.tree = s.tree;
+            obj.rollout_node = s.rollout_node;
+            obj.env = s.env;
+            obj.state_evaluator = s.state_evaluator;
+            obj.t = s.t;
+            obj.action_stack = s.action_stack;
+            loadObjectImpl@matlab.System(obj, s, wasLocked);
+        end
+        
+        
         function [sz1] = getOutputSizeImpl(~)
             sz1 = [1 1];
         end

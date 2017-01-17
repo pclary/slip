@@ -36,6 +36,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         pan_anchor = [0; 0];
         fall_indicator
         state_evaluator
+        X_last;
     end
     
     
@@ -52,6 +53,8 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
         
         
         function v = stepImpl(obj, X)
+            obj.X_last = X;
+            
             if ~obj.isAlive()
                 v = [0; 0];
                 return
@@ -86,6 +89,25 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.ground_shading.XData = obj.ground_data(:, 1);
             obj.ground_shading.YData = obj.ground_data(:, 2);
         end
+        
+        
+        function s = saveObjectImpl(obj)
+            s = saveObjectImpl@matlab.System(obj);
+            [s.bt.x, s.bt.y] = obj.body_trace.getpoints();
+            [s.ttr.x, s.ttr.y] = obj.toe_trace_right.getpoints();
+            [s.ttl.x, s.ttl.y] = obj.toe_trace_left.getpoints();
+            s.X = obj.X_last;
+        end
+        
+        
+        function loadObjectImpl(obj, s, wasLocked)
+            loadObjectImpl@matlab.System(obj, s, wasLocked);
+            obj.setup(s.X);
+            obj.body_trace.addpoints(s.bt.x, s.bt.y);
+            obj.toe_trace_right.addpoints(s.ttr.x, s.ttr.y);
+            obj.toe_trace_left.addpoints(s.ttl.x, s.ttl.y);
+        end
+        
         
         function out = getOutputSizeImpl(~)
             out = [2 1];
@@ -164,9 +186,9 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.ax.YRuler.Visible = 'off';
             
             % Traces
-            obj.body_trace = animatedline('Parent', ax, 'Color', 'green');
-            obj.toe_trace_right = animatedline('Parent', ax, 'Color', 'blue');
-            obj.toe_trace_left = animatedline('Parent', ax, 'Color', 'red');
+            obj.body_trace = animatedline('Parent', ax, 'Color', 'green', 'MaximumNumPoints', 90);
+            obj.toe_trace_right = animatedline('Parent', ax, 'Color', 'blue', 'MaximumNumPoints', 90);
+            obj.toe_trace_left = animatedline('Parent', ax, 'Color', 'red', 'MaximumNumPoints', 90);
             
             % ground
             obj.ground = line('Parent', ax);

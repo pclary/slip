@@ -32,6 +32,20 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         end
         
         
+        function s = saveObjectImpl(obj)
+            s = saveObjectImpl@matlab.System(obj);
+            s.cstate = obj.cstate;
+            s.reset_flag = obj.reset_flag;
+        end
+        
+        
+        function loadObjectImpl(obj, s, wasLocked)
+            obj.cstate = s.cstate;
+            obj.reset_flag = s.reset_flag;
+            loadObjectImpl@matlab.System(obj, s, wasLocked);
+        end
+        
+        
         function [sz1, sz2] = getOutputSizeImpl(~)
             sz1 = [1 1];
             sz2 = [1 1];
