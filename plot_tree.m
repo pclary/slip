@@ -24,6 +24,13 @@ index = index(~unused);
 
 [x, y] = treelayout(p);
 
+% Make sure all nodes are drawn at the correct level
+maxdepth = double(max([nodes.depth]));
+yvals = 1 - ((0:maxdepth) + 1) / (maxdepth + 2);
+for i = index
+    y(i) = yvals(nodes(i).depth + 1);
+end
+
 figure;
 
 for i = 1:length(p)

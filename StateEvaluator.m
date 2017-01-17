@@ -70,7 +70,7 @@ classdef StateEvaluator < handle
             % Percent-based velocity error score
             saturation = 2; % Less than this (multiplicative) difference treated as zero error
             deadband = 1.1; % Full error
-            em = max(abs(log(min(max(X.body.dx / goal.dx, 1/saturation), saturation))) - log(deadband), 0) * log(saturation);
+            em = max(abs(log(min(max(X.body.dx / goal.dx, 1/saturation), saturation))) - log(deadband), 0) / log(saturation / deadband);
             
             % Difference-based velocity error score
             saturation = 1;
@@ -87,9 +87,4 @@ classdef StateEvaluator < handle
         
     end
     
-end
-
-
-function out = clamp(x, l, h)
-out = min(max(x, l), h);
 end
