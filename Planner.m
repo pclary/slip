@@ -25,11 +25,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         state_evaluator
         t
         action_stack
+        rngstate
     end
     
     
     methods (Access = protected)
         function setupImpl(obj)
+            obj.rngstate = rng('shuffle');
             obj.tree = Tree(SimulationState(), 4096, 256);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
@@ -46,6 +48,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
 %             cparams.max_stride = obj.max_stride;
 %             cparams.step_height = obj.step_height;
 %             cparams.phase_stretch = obj.phase_stretch;
+            % Set rng state to value from previous step
+            rng(obj.rngstate);
+
             goal = Goal();
             goal.dx = obj.target_dx;
             
@@ -236,6 +241,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             
             % Increment tree timestep clock
             obj.t = mod(obj.t + obj.Ts, obj.Ts_tree);
+            
+            % Save rng state
+            obj.rngstate = rng;
         end
         
         
@@ -251,21 +259,29 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         function s = saveObjectImpl(obj)
             s = saveObjectImpl@matlab.System(obj);
             s.tree = obj.tree;
+            s.tree_nodes = obj.tree.nodes;
             s.rollout_node = obj.rollout_node;
             s.env = obj.env;
             s.state_evaluator = obj.state_evaluator;
             s.t = obj.t;
             s.action_stack = obj.action_stack;
+            s.action_stack_stack = obj.action_stack.stack;
+            s.action_stack_head = obj.action_stack.head;
+            s.rngstate = obj.rngstate;
         end
         
         
         function loadObjectImpl(obj, s, wasLocked)
             obj.tree = s.tree;
+            obj.tree.nodes = s.tree_nodes;
             obj.rollout_node = s.rollout_node;
             obj.env = s.env;
             obj.state_evaluator = s.state_evaluator;
             obj.t = s.t;
             obj.action_stack = s.action_stack;
+            obj.action_stack.stack = s.action_stack_stack;
+            obj.action_stack.head = s.action_stack_head;
+            obj.rngstate = s.rngstate;
             loadObjectImpl@matlab.System(obj, s, wasLocked);
         end
         

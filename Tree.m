@@ -2,9 +2,6 @@ classdef Tree < handle
     
     properties
         nodes
-    end
-    
-    properties (Access = private)
         stack
     end
     

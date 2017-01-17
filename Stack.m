@@ -1,6 +1,6 @@
 classdef Stack < handle
     
-    properties% (Access = private)
+    properties
         stack
         head
     end

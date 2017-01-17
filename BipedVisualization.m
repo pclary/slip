@@ -106,6 +106,7 @@ classdef BipedVisualization < matlab.System & matlab.system.mixin.Propagates
             obj.body_trace.addpoints(s.bt.x, s.bt.y);
             obj.toe_trace_right.addpoints(s.ttr.x, s.ttr.y);
             obj.toe_trace_left.addpoints(s.ttl.x, s.ttl.y);
+            obj.step(s.X);
         end
         
         
