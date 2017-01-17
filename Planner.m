@@ -146,13 +146,27 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate, obj.action_stack);
                 obj.tree.nodes(n).data.gstate = gstate;
                 
-                % Simulate a step
-                [Xp, cstatep] = biped_sim_mex(Xn, obj.tree.nodes(n).data.cstate, ...
-                    obj.robot, cparams_gen, terrain, obj.Ts_tree, obj.Ts_sim);
-                
-                % Evaluate the result
-                terrainp = obj.env.getLocalTerrain(Xp.body.x);
-                vp = obj.state_evaluator.value(Xp, goal, terrainp);
+                % Run multiple simulations with slightly perturbed initial
+                % states, and take the result with the lowest value
+                for i = 1:10
+                    % Simulate a step
+                    Xnp = Xn;
+                    Xnp.body.x = Xnp.body.x + 1e-3*randn();
+                    Xnp.body.y = Xnp.body.y + 1e-3*randn();
+                    Xnp.body.dx = Xnp.body.dx + 1e-2*randn();
+                    Xnp.body.dy = Xnp.body.dy + 1e-2*randn();
+                    
+                    [Xp{i}, cstatep{i}] = biped_sim_mex(Xnp, obj.tree.nodes(n).data.cstate, ...
+                        obj.robot, cparams_gen, terrain, obj.Ts_tree, obj.Ts_sim);
+                    
+                    % Evaluate the result
+                    terrainp = obj.env.getLocalTerrain(Xp{i}.body.x);
+                    vp(i) = obj.state_evaluator.value(Xp{i}, goal, terrainp);
+                end
+                [~, i] = min(vp);
+                Xp = Xp{i};
+                cstatep = cstatep{i};
+                vp = vp(i);
                 
                 if vp > 0.3
                     % If the value is reasonably high, add it as a child and
