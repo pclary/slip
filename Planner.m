@@ -31,7 +31,8 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     
     methods (Access = protected)
         function setupImpl(obj)
-            obj.rngstate = rng('shuffle');
+%             obj.rngstate = rng('shuffle');
+            obj.rngstate = rng(0);
             obj.tree = Tree(SimulationState(), 512, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
@@ -97,9 +98,25 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     obj.action_stack.push(temp_stack.pop());
                 end
                 
-                % Head is the next action to take, remaining actions are first
-                % guesses for next planning cycle
-                cparams = obj.action_stack.pop();
+                if ~obj.action_stack.isempty()
+                    % Head is the next action to take, remaining actions are
+                    % first guesses for next planning cycle
+                    cparams = obj.action_stack.pop();
+                else
+                    % If no full paths exist, choose the immediate child with
+                    % the highest stability instead
+                    stability_max = -inf;
+                    for i = 1:numel(obj.tree.nodes(n).children)
+                        c = obj.tree.nodes(1).children(i);
+                        if c
+                            stability = obj.tree.nodes(c).data.stability;
+                            if stability > stability_max
+                                cparams = obj.tree.nodes(c).data.cparams;
+                                stability_max = stability;
+                            end
+                        end
+                    end
+                end
                 
                 % Simulate the upcoming tree timestep
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
@@ -176,13 +193,16 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Run multiple simulations with slightly perturbed initial
                 % states, and take the result with the lowest stability
-                for i = 1:1
+                for i = 1:4
                     % Simulate a step
                     Xnp = Xn;
-                    Xnp.body.x = Xnp.body.x + 1e-3*randn();
-                    Xnp.body.y = Xnp.body.y + 1e-3*randn();
-                    Xnp.body.dx = Xnp.body.dx + 1e-2*randn();
-                    Xnp.body.dy = Xnp.body.dy + 1e-2*randn();
+                    if i > 1
+                        % Perturb initial conditions
+                        Xnp.body.x = Xnp.body.x + 1e-3*randn();
+                        Xnp.body.y = Xnp.body.y + 1e-3*randn();
+                        Xnp.body.dx = Xnp.body.dx + 1e-2*randn();
+                        Xnp.body.dy = Xnp.body.dy + 1e-2*randn();
+                    end
                     
                     [Xp{i}, cstatep{i}] = biped_sim_mex(Xnp, obj.tree.nodes(n).data.cstate, ...
                         obj.robot, cparams_gen, terrain, obj.Ts_tree, obj.Ts_sim);
@@ -192,11 +212,12 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     stability(i) = obj.state_evaluator.stability(Xp{i}, terrainp);
                     goal_value(i) = obj.state_evaluator.goal_value(Xp{i}, goal);
                 end
-                [~, i] = min(stability);
-                Xp = Xp{i};
-                cstatep = cstatep{i};
-                stability = stability(i);
-                goal_value = goal_value(i);
+                % Choose nominal result for everything except stability, which
+                % uses the minimum value
+                Xp = Xp{1};
+                cstatep = cstatep{1};
+                goal_value = goal_value(1);
+                stability = min(stability);
                 
                 if stability > 0.3
                     % If the stability is reasonably high, add it as a child and
