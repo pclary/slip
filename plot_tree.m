@@ -6,9 +6,11 @@ unused = ~[nodes.index];
 % Get list of parents
 p = double([nodes.parent]);
 p = p(~unused);
+offset = zeros(size(p));
 for u = find(unused)
-    p(p > u) = p(p > u) - 1;
+    offset(p > u) = offset(p > u) - 1;
 end
+p = p + offset;
 
 % Get node values
 data = [nodes.data];
