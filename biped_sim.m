@@ -1,28 +1,39 @@
-function [X, cstate] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts)
+function [X, cstate, X_delay, u] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts)
 
+% Dynamics steps per controller step
+ratio = 8;
+
+% X value delayed by 1 controller cycle
+X_delay = X;
+u = controller_step(X_delay, cstate, cparams, Ts * ratio);
+
+% No external forces
+ext0 = ExternalForces();
 
 t = 0;
 
-ext0 = ExternalForces();
-
 % Fixed-step RK4 integration
 while t < tstop
-    [u, cstate] = controller_step(X, cstate, cparams, Ts);
     
-    X1 = X;
-    dX1 = biped_dynamics(X1, u, ext0, robot, terrain);
+    for i = 1:ratio
+        X1 = X;
+        dX1 = biped_dynamics(X1, u, ext0, robot, terrain);
+        
+        X2 = rs_add(X1, rs_smul(dX1, Ts/2));
+        dX2 = biped_dynamics(X2, u, ext0, robot, terrain);
+        
+        X3 = rs_add(X1, rs_smul(dX2, Ts/2));
+        dX3 = biped_dynamics(X3, u, ext0, robot, terrain);
+        
+        X4 = rs_add(X1, rs_smul(dX3, Ts));
+        dX4 = biped_dynamics(X4, u, ext0, robot, terrain);
+        
+        X = rs_add(X1, rs_smul(rs_add(rs_add(dX1, rs_smul(dX2, 2)), rs_add(rs_smul(dX3, 2), dX4)), Ts/6));
+        t = t + Ts;
+    end
     
-    X2 = rs_add(X1, rs_smul(dX1, Ts/2));
-    dX2 = biped_dynamics(X2, u, ext0, robot, terrain);
-    
-    X3 = rs_add(X1, rs_smul(dX2, Ts/2));
-    dX3 = biped_dynamics(X3, u, ext0, robot, terrain);
-    
-    X4 = rs_add(X1, rs_smul(dX3, Ts));
-    dX4 = biped_dynamics(X4, u, ext0, robot, terrain);
-    
-    X = rs_add(X1, rs_smul(rs_add(rs_add(dX1, rs_smul(dX2, 2)), rs_add(rs_smul(dX3, 2), dX4)), Ts/6));
-    t = t + Ts;
+    [u, cstate] = controller_step(X_delay, cstate, cparams, Ts * ratio);
+    X_delay = X;
     
     % Stop if crashed
     if X.body.y < min(terrain.height)

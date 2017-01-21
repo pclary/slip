@@ -33,7 +33,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         function setupImpl(obj)
 %             obj.rngstate = rng('shuffle');
             obj.rngstate = rng(0);
-            obj.tree = Tree(SimulationState(), 512, 32);
+            obj.tree = Tree(SimulationState(), 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
@@ -58,7 +58,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             cparams = obj.tree.nodes(1).data.cparams;
             
             % Check whether next planner timestep will start a new tree timestep
-            if obj.t + obj.Ts >= obj.Ts_tree || obj.t == 0
+            if obj.t - obj.Ts < 0
                 % Project one planner timestep forward with current parameters
                 % for delay compensation
                 terrain = obj.env.getLocalTerrain(X.body.x);
@@ -120,7 +120,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Simulate the upcoming tree timestep
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
-                [Xp, cstatep] = biped_sim_mex(Xp, cstatep, obj.robot, cparams, terrain, obj.Ts_tree, obj.Ts_sim);
+                [Xp, cstatep] = biped_sim_mex(Xp, cstatep, obj.robot, cparams, terrain, obj.Ts_tree - obj.Ts, obj.Ts_sim);
                 
                 % Reset tree with predicted state as root
                 terrain = obj.env.getLocalTerrain(Xp.body.x);
@@ -156,7 +156,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                         stability = obj.tree.nodes(i).data.stability;
                         goal_value = obj.tree.nodes(i).data.goal_value;
                         
-                        decay = 0.5;
+                        decay = 0.75;
                         new_path_value = (goal_value + 1) / 2;
                         new_path_value = path_value * decay + new_path_value * (1 - decay);
                         new_path_value = min(new_path_value, path_value);
@@ -193,7 +193,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Run multiple simulations with slightly perturbed initial
                 % states, and take the result with the lowest stability
-                for i = 1:4
+                for i = 1:1
                     % Simulate a step
                     Xnp = Xn;
                     if i > 1
