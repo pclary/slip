@@ -156,13 +156,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                         stability = obj.tree.nodes(i).data.stability;
                         goal_value = obj.tree.nodes(i).data.goal_value;
                         
-                        decay = 0.75;
+                        decay = 0.8;
                         new_path_value = (goal_value + 1) / 2;
                         new_path_value = path_value * decay + new_path_value * (1 - decay);
-                        new_path_value = min(new_path_value, path_value);
-                        if stability < 0.5
-                            new_path_value = min(path_value, stability);
-                        end
+%                         new_path_value = min(new_path_value, path_value);
+%                         if stability < 0.5
+%                             new_path_value = min(path_value, stability);
+%                         end
                         
                         % Set node value if greater than previous value
                         if obj.tree.nodes(i).data.path_value < new_path_value

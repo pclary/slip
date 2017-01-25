@@ -1,7 +1,7 @@
 function [X, cstate, X_delay, u] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts)
 
 % Dynamics steps per controller step
-ratio = 8;
+ratio = 1;
 
 % X value delayed by 1 controller cycle
 X_delay = X;
