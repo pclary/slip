@@ -13,6 +13,13 @@ classdef StateEvaluator < handle
         end
         
         
+        function [v, vs, vg] = value(obj, X, terrain, goal)
+            vs = obj.stability(X, terrain);
+            vg = obj.goal_value(X, goal);
+            v = obj.combine_value(vs, vg);
+        end
+        
+        
         function vs = stability(obj, X, terrain)
             % Construct input vector
             X.body.theta = mod(X.body.theta + pi, 2*pi) - pi;
@@ -68,6 +75,15 @@ classdef StateEvaluator < handle
             
             % Error is the minimum of the two error scores, and score is inverted
             vg = 1 - min(em, ed);
+        end
+        
+        
+        function v = combine_value(~, vs, vg)
+            if vs < 0.5
+                v = vs;
+            else
+                v = (vg + 1) / 2;
+            end
         end
         
     end

@@ -1,19 +1,24 @@
-function ss = SimulationState(X, cstate, cparams, gstate, stability, goal_value, path_value)
+function ss = SimulationState(varargin)
 
-if nargin == 0
-    X       = RobotState();
-    cstate  = ControllerState();
-    cparams = ControllerParams();
-    gstate  = GeneratorState();
-    stability  = 0;
-    goal_value = 0;
-    path_value = 0;
+nsamples = 1;
+if nargin == 1
+    nsamples = varargin{1};
 end
 
-ss.X       = X;
-ss.cstate  = cstate;
-ss.cparams = cparams;
-ss.gstate  = gstate;
-ss.stability  = stability;
-ss.goal_value = goal_value;
-ss.path_value = path_value;
+if nargin <= 1
+    ss.X       = repmat(RobotState(), nsamples, 1);
+    ss.cstate  = repmat(ControllerState(), nsamples, 1);
+    ss.cparams = ControllerParams();
+    ss.gstate  = GeneratorState();
+    ss.stability  = 0;
+    ss.goal_value = 0;
+    ss.path_value = 0;
+else
+    ss.X       = varargin{1};
+    ss.cstate  = varargin{2};
+    ss.cparams = varargin{3};
+    ss.gstate  = varargin{4};
+    ss.stability  = varargin{5};
+    ss.goal_value = varargin{6};
+    ss.path_value = varargin{7};
+end

@@ -28,10 +28,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
     methods (Access = protected)
         function setupImpl(obj)
             obj.rngstate = rng('shuffle');
-            ss = SimulationState();
-            ss.X = repmat(RobotState(), 1, obj.transition_samples);
-            ss.cstate = repmat(ControllerState(), 1, obj.transition_samples);
-            obj.tree = Tree(ss, 1024, 32);
+            obj.tree = Tree(SimulationState(obj.transition_samples), 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
@@ -57,14 +54,14 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
                 
                 % Store the highest value path in the action stack
-                pathnodes = zeros(obj.rollout_depth + 1, 1);
-                pathnodes(1) = 1;
+                pathnodes = uint32(zeros(obj.rollout_depth + 1, 1));
+                pathnodes(1) = uint32(1);
                 obj.action_queue.clear();
-                n = 1;
+                n = uint32(1);
                 while any(obj.tree.nodes(n).children)
                     % Find child with highest rollout value
                     v_max = -inf;
-                    n_new = 0;
+                    n_new = uint32(0);
                     for i = 1:numel(obj.tree.nodes(n).children)
                         c = obj.tree.nodes(n).children(i);
                         if c
@@ -118,11 +115,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     % Evaluate leaf node   
                     stability = obj.tree.nodes(obj.rollout_node).data.stability;
                     goal_value = obj.tree.nodes(obj.rollout_node).data.goal_value;
-                    
-                    path_value = (goal_value + 1) / 2;
-                    if stability < 0.5
-                        path_value = min(path_value, stability);
-                    end
+                    path_value = obj.state_evaluator.combine_value(stability, goal_value);
                     obj.tree.nodes(obj.rollout_node).data.path_value = path_value;
                     
                     % Propogate value to parents
@@ -132,10 +125,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                         % path_value retained from child
                         stability = obj.tree.nodes(i).data.stability;
                         goal_value = obj.tree.nodes(i).data.goal_value;
-                        
-                        decay = 0.8;
-                        new_path_value = (goal_value + 1) / 2;
-                        new_path_value = path_value * decay + new_path_value * (1 - decay);
+                        new_path_value = obj.state_evaluator.combine_value(stability, goal_value) + path_value;
                         
                         % Set node value if greater than previous value
                         if obj.tree.nodes(i).data.path_value < new_path_value
@@ -157,18 +147,16 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Expand on current rollout node
                 n = obj.rollout_node;
                 
-                % Sample a starting state from the parent node's distribution
-                [Xn, cstaten] = obj.sample_node_state(n);
-                
                 % Generate a set of parameters to try
                 gstate = obj.tree.nodes(n).data.gstate;
-                terrain = obj.env.getLocalTerrain(Xn.body.x);
-                [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate, obj.action_queue);
+                Xnom = obj.tree.nodes(n).data.X(1);
+                terrain = obj.env.getLocalTerrain(Xnom.body.x);
+                [cparams_gen, gstate] = generate_params(Xnom, goal, terrain, gstate, obj.action_queue);
                 obj.tree.nodes(n).data.gstate = gstate;
                 
                 % Simulate the transition multiple times to estimate
                 % stochasticity
-                ss = obj.simulate_transition(Xn, cstaten, cparams_gen, goal, obj.Ts_tree);
+                ss = obj.simulate_transition(n, cparams_gen, goal, obj.Ts_tree);
                 
                 if ss.stability > 0.3
                     % If the stability is reasonably high, add it as a child and
@@ -218,7 +206,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         
         function resetImpl(obj)
             obj.rngstate = rng('shuffle');
-            obj.tree.reset(SimulationState());
+            obj.tree.reset(SimulationState(obj.transition_samples));
             obj.rollout_node = uint32(1);
             obj.env.ground_data = obj.ground_data;
             obj.t = 0;
@@ -283,13 +271,32 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         end
         
         
-        function ss = simulate_transition(obj, X, cstate, cparams, goal, tstop)
+        function ss = simulate_transition(obj, varargin)
             
-            % Get local terrain
-            terrain = obj.env.getLocalTerrain(X.body.x);
+            % Initialize result vectors
+            Xp = repmat(RobotState(), obj.transition_samples, 1);
+            cstatep = repmat(ControllerState(), obj.transition_samples, 1);
+            stability = zeros(obj.transition_samples, 1);
+            goal_value = zeros(obj.transition_samples, 1);
             
             % Run several simulations
             for i = 1:obj.transition_samples
+                if isa(varargin{1}, 'uint32')
+                    [X, cstate] = obj.sample_node_state(varargin{1});
+                    cparams = varargin{2};
+                    goal = varargin{3};
+                    tstop = varargin{4};
+                else
+                    X = varargin{1};
+                    cstate = varargin{2};
+                    cparams = varargin{3};
+                    goal = varargin{4};
+                    tstop = varargin{5};
+                end
+                
+                % Get local terrain
+                terrain = obj.env.getLocalTerrain(X.body.x);
+                
                 % Simulate a step
                 Xi = X;
                 if i > 1
