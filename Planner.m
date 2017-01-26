@@ -7,15 +7,11 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         robot = RobotParams();
         ground_data = zeros(2, 5);
         rollout_depth = 4;
+        transition_samples = 4;
     end
 
     properties
         target_dx = 0;
-        energy_injection = 0;
-        phase_rate = 1.5;
-        max_stride = 1;
-        step_height = 0.1;
-        phase_stretch = 0;
     end
     
     properties (Access = private)
@@ -24,31 +20,27 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         env
         state_evaluator
         t
-        action_stack
+        action_queue
         rngstate
     end
     
     
     methods (Access = protected)
         function setupImpl(obj)
-%             obj.rngstate = rng('shuffle');
-            obj.rngstate = rng(0);
-            obj.tree = Tree(SimulationState(), 1024, 32);
+            obj.rngstate = rng('shuffle');
+            ss = SimulationState();
+            ss.X = repmat(RobotState(), 1, obj.transition_samples);
+            ss.cstate = repmat(ControllerState(), 1, obj.transition_samples);
+            obj.tree = Tree(ss, 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
-            obj.action_stack = Stack(ControllerParams(), obj.rollout_depth);
+            obj.action_queue = Queue(ControllerParams(), obj.rollout_depth);
         end
         
         
-        function [cparams] = stepImpl(obj, X, cstate)
-%             cparams = ControllerParams();
-%             cparams.target_dx = obj.target_dx;
-%             cparams.energy_injection = obj.energy_injection;
-%             cparams.phase_rate = obj.phase_rate;
-%             cparams.max_stride = obj.max_stride;
-%             cparams.step_height = obj.step_height;
-%             cparams.phase_stretch = obj.phase_stretch;
+        function cparams = stepImpl(obj, X, cstate)
+            
             % Set rng state to value from previous step
             rng(obj.rngstate);
 
@@ -67,7 +59,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Store the highest value path in the action stack
                 pathnodes = zeros(obj.rollout_depth + 1, 1);
                 pathnodes(1) = 1;
-                temp_stack = Stack(ControllerParams(), obj.rollout_depth);
+                obj.action_queue.clear();
                 n = 1;
                 while any(obj.tree.nodes(n).children)
                     % Find child with highest rollout value
@@ -89,19 +81,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     end
                     n = n_new;
                     pathnodes(find(~pathnodes, 1)) = n;
-                    temp_stack.push(cparams);
+                    obj.action_queue.push(cparams);
                 end
                 
-                % Reverse the temporary stack into the action stack
-                obj.action_stack.clear();
-                while ~temp_stack.isempty()
-                    obj.action_stack.push(temp_stack.pop());
-                end
-                
-                if ~obj.action_stack.isempty()
+                if ~obj.action_queue.isempty()
                     % Head is the next action to take, remaining actions are
                     % first guesses for next planning cycle
-                    cparams = obj.action_stack.pop();
+                    cparams = obj.action_queue.pop();
                 else
                     % If no full paths exist, choose the immediate child with
                     % the highest stability instead
@@ -119,22 +105,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 end
                 
                 % Simulate the upcoming tree timestep
-                terrain = obj.env.getLocalTerrain(Xp.body.x);
-                [Xp, cstatep] = biped_sim_mex(Xp, cstatep, obj.robot, cparams, terrain, obj.Ts_tree - obj.Ts, obj.Ts_sim);
+                ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
                 
                 % Reset tree with predicted state as root
-                terrain = obj.env.getLocalTerrain(Xp.body.x);
-                stability = obj.state_evaluator.stability(Xp, terrain);
-                goal_value = obj.state_evaluator.goal_value(Xp, goal);
-                gstate = GeneratorState();
-                gstate.last_cparams = cparams;
-                ss = SimulationState(Xp, cstatep, cparams, gstate, stability, goal_value, -inf);
                 obj.tree.reset(ss);
                 obj.rollout_node = uint32(1);
             else
                 % Otherwise, grow the tree
-                
-                % TODO: only pick nodes with no high-value child
                 
                 % Check whether max depth on current rollout has been reached
                 if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
@@ -159,10 +136,6 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                         decay = 0.8;
                         new_path_value = (goal_value + 1) / 2;
                         new_path_value = path_value * decay + new_path_value * (1 - decay);
-%                         new_path_value = min(new_path_value, path_value);
-%                         if stability < 0.5
-%                             new_path_value = min(path_value, stability);
-%                         end
                         
                         % Set node value if greater than previous value
                         if obj.tree.nodes(i).data.path_value < new_path_value
@@ -184,47 +157,22 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Expand on current rollout node
                 n = obj.rollout_node;
                 
+                % Sample a starting state from the parent node's distribution
+                [Xn, cstaten] = obj.sample_node_state(n);
+                
                 % Generate a set of parameters to try
                 gstate = obj.tree.nodes(n).data.gstate;
-                Xn = obj.tree.nodes(n).data.X;
                 terrain = obj.env.getLocalTerrain(Xn.body.x);
-                [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate, obj.action_stack);
+                [cparams_gen, gstate] = generate_params(Xn, goal, terrain, gstate, obj.action_queue);
                 obj.tree.nodes(n).data.gstate = gstate;
                 
-                % Run multiple simulations with slightly perturbed initial
-                % states, and take the result with the lowest stability
-                for i = 1:1
-                    % Simulate a step
-                    Xnp = Xn;
-                    if i > 1
-                        % Perturb initial conditions
-                        Xnp.body.x = Xnp.body.x + 1e-3*randn();
-                        Xnp.body.y = Xnp.body.y + 1e-3*randn();
-                        Xnp.body.dx = Xnp.body.dx + 1e-2*randn();
-                        Xnp.body.dy = Xnp.body.dy + 1e-2*randn();
-                    end
-                    
-                    [Xp{i}, cstatep{i}] = biped_sim_mex(Xnp, obj.tree.nodes(n).data.cstate, ...
-                        obj.robot, cparams_gen, terrain, obj.Ts_tree, obj.Ts_sim);
-                    
-                    % Evaluate the result
-                    terrainp = obj.env.getLocalTerrain(Xp{i}.body.x);
-                    stability(i) = obj.state_evaluator.stability(Xp{i}, terrainp);
-                    goal_value(i) = obj.state_evaluator.goal_value(Xp{i}, goal);
-                end
-                % Choose nominal result for everything except stability, which
-                % uses the minimum value
-                Xp = Xp{1};
-                cstatep = cstatep{1};
-                goal_value = goal_value(1);
-                stability = min(stability);
+                % Simulate the transition multiple times to estimate
+                % stochasticity
+                ss = obj.simulate_transition(Xn, cstaten, cparams_gen, goal, obj.Ts_tree);
                 
-                if stability > 0.3
+                if ss.stability > 0.3
                     % If the stability is reasonably high, add it as a child and
                     % continue the rollout
-                    gstate = GeneratorState();
-                    gstate.last_cparams = cparams_gen;
-                    ss = SimulationState(Xp, cstatep, cparams_gen, gstate, stability, goal_value, -inf);
                     c = obj.tree.addChild(n, ss);
                     
                     % If unable to add child node, delete the least stable child
@@ -269,11 +217,12 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         
         
         function resetImpl(obj)
+            obj.rngstate = rng('shuffle');
             obj.tree.reset(SimulationState());
             obj.rollout_node = uint32(1);
             obj.env.ground_data = obj.ground_data;
             obj.t = 0;
-            obj.action_stack.clear();
+            obj.action_queue.clear();
         end
         
         
@@ -285,9 +234,10 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             s.env = obj.env;
             s.state_evaluator = obj.state_evaluator;
             s.t = obj.t;
-            s.action_stack = obj.action_stack;
-            s.action_stack_stack = obj.action_stack.stack;
-            s.action_stack_head = obj.action_stack.head;
+            s.action_queue = obj.action_queue;
+            s.action_queue_queue = obj.action_queue.queue;
+            s.action_queue_head = obj.action_queue.head;
+            s.action_queue_size = obj.action_queue.size;
             s.rngstate = obj.rngstate;
         end
         
@@ -299,9 +249,10 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.env = s.env;
             obj.state_evaluator = s.state_evaluator;
             obj.t = s.t;
-            obj.action_stack = s.action_stack;
-            obj.action_stack.stack = s.action_stack_stack;
-            obj.action_stack.head = s.action_stack_head;
+            obj.action_queue = s.action_queue;
+            obj.action_queue.queue = s.action_queue_queue;
+            obj.action_queue.head = s.action_queue_head;
+            obj.action_queue.size = s.action_queue_size;
             obj.rngstate = s.rngstate;
             loadObjectImpl@matlab.System(obj, s, wasLocked);
         end
@@ -319,5 +270,56 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         function [fs1] = isOutputFixedSizeImpl(~)
             fs1 = true;
         end
+        
     end
+    
+    
+    methods (Access = private)
+        
+        function [Xn, cstaten] = sample_node_state(obj, n)
+            isample = randi(obj.transition_samples);
+            Xn = obj.tree.nodes(n).data.X(isample);
+            cstaten = obj.tree.nodes(n).data.cstate(isample);
+        end
+        
+        
+        function ss = simulate_transition(obj, X, cstate, cparams, goal, tstop)
+            
+            % Get local terrain
+            terrain = obj.env.getLocalTerrain(X.body.x);
+            
+            % Run several simulations
+            for i = 1:obj.transition_samples
+                % Simulate a step
+                Xi = X;
+                if i > 1
+                    % Perturb initial conditions
+                    Xi.body.x = Xi.body.x + 1e-3*randn();
+                    Xi.body.y = Xi.body.y + 1e-3*randn();
+                    Xi.body.dx = Xi.body.dx + 1e-2*randn();
+                    Xi.body.dy = Xi.body.dy + 1e-2*randn();
+                end
+                
+                [Xp(i), cstatep(i)] = biped_sim_mex(Xi, cstate, obj.robot, ...
+                    cparams, terrain, tstop, obj.Ts_sim);
+                
+                % Evaluate the result
+                terrainp = obj.env.getLocalTerrain(Xp(i).body.x);
+                stability(i) = obj.state_evaluator.stability(Xp(i), terrainp);
+                goal_value(i) = obj.state_evaluator.goal_value(Xp(i), goal);
+            end
+            
+            % Average the goal value and take the minimum stability score
+            goal_value = mean(goal_value);
+            stability = min(stability);
+            
+            % Create simulation state structure
+            gstate = GeneratorState();
+            gstate.last_cparams = cparams;
+            ss = SimulationState(Xp, cstatep, cparams, gstate, stability, goal_value, -inf);
+        end
+        
+    end
+    
 end
+

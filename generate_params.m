@@ -1,7 +1,7 @@
-function [cparams, gstate] = generate_params(X, goal, terrain, gstate, action_stack)
+function [cparams, gstate] = generate_params(X, goal, terrain, gstate, action_queue)
 
-if ~action_stack.isempty()
-    cparams = action_stack.pop();
+if ~action_queue.isempty()
+    cparams = action_queue.pop();
     return;
 end
 
