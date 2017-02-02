@@ -49,7 +49,7 @@ Ts_controller = 1e-3;
 Ts_planner = 1e-3 * 2;
 Ts_dynamics = 1e-3 / 8;
 Ts_visualization = 16e-3;
-Ts_sim = 1e-3;
+Ts_sim = 1e-3 / 8;
 
 % Planner parameters
 transition_samples = 8;
