@@ -82,23 +82,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 end
                 
                 if ~obj.action_queue.isempty()
-                    % Head is the next action to take, remaining actions are
-                    % first guesses for next planning cycle
                     cparams = obj.action_queue.pop();
-                else
-                    % If no full paths exist, choose the immediate child with
-                    % the highest stability instead
-                    stability_max = -inf;
-                    for i = 1:numel(obj.tree.nodes(n).children)
-                        c = obj.tree.nodes(1).children(i);
-                        if c
-                            stability = obj.tree.nodes(c).data.stability;
-                            if stability > stability_max
-                                cparams = obj.tree.nodes(c).data.cparams;
-                                stability_max = stability;
-                            end
-                        end
-                    end
                 end
                 
                 % Simulate the upcoming tree timestep
@@ -107,8 +91,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Reset tree with predicted state as root
                 obj.tree.reset(ss);
                 obj.rollout_node = uint32(1);
-            else
-                % Otherwise, grow the tree
+            elseif obj.tree.nodes(1).data.path_value < 0.9 * (obj.rollout_depth + 1)
                 
                 % Check whether max depth on current rollout has been reached
                 if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
@@ -301,10 +284,11 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 Xi = X;
                 if i > 1
                     % Perturb initial conditions
-                    Xi.body.x = Xi.body.x + 1e-3*randn();
-                    Xi.body.y = Xi.body.y + 1e-3*randn();
-                    Xi.body.dx = Xi.body.dx + 1e-2*randn();
-                    Xi.body.dy = Xi.body.dy + 1e-2*randn();
+                    Xi.body.x = Xi.body.x + 1e-2*(2*rand() - 1);
+                    Xi.body.y = Xi.body.y + 0e-3*(2*rand() - 1);
+                    Xi.body.dx = Xi.body.dx + 1e-1*(2*rand() - 1);
+                    Xi.body.dy = Xi.body.dy + 3e-2*(2*rand() - 1);
+                    terrain.friction = terrain.friction * (0.4*rand() + 0.8);
                 end
                 
                 [Xp(i), cstatep(i)] = biped_sim_mex(Xi, cstate, obj.robot, ...
@@ -316,9 +300,10 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 goal_value(i) = obj.state_evaluator.goal_value(Xp(i), goal);
             end
             
-            % Average the goal value and take the minimum stability score
+            % Average the goal value and take the softmin of the stability score
             goal_value = mean(goal_value);
-            stability = min(stability);
+            smin_weights = exp(1 - stability) ./ sum(exp(1 - stability));
+            stability = dot(stability, smin_weights);
             
             % Create simulation state structure
             gstate = GeneratorState();
