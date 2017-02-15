@@ -33,10 +33,10 @@ kd_f_ext = 2*sqrt(kp_f_ext*robot.body.mass);
 % ground_y = [-1e3; 0; 0; -1e3];
 % ground_x = [-1e3-1; -1e3; 3;  3.01; 3.2; 3.21; 4.7; 4.71; 5.0; 5.01; 8; 8.01; 8.4; 8.41; 11; 11.01; 11.5; 11.51; 1e3; 1e3+1];
 % ground_y = [-1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3; -1e3; 0; 0; -1e3];
-% ground_x = [-1e3-1; -1e3; 2; 2.04; 3.0; 3.04;    4; 4.04; 4.5;  5; 6; 6.04;  6.2; 6.24; 6.4; 6.44;  6.6; 6.64; 6.8; 6.84;    7; 7.04; 8; 8.04; 8.8; 8.84; 1e3; 1e3+1];
+% ground_x = [-1e3-1; -1e3; 2; 2.04; 3.0; 3.04;    4; 4.01; 4.5;  5; 6; 6.01;  6.2; 6.21; 6.4; 6.41;  6.6; 6.61; 6.8; 6.81;    7; 7.01; 8; 8.01; 8.8; 8.81; 1e3; 1e3+1];
 % ground_y = [-1e3;      0; 0;  0.1; 0.1; -0.2; -0.2; -0.1; -0.1; 0; 0; 0.15; 0.15;  0.3; 0.3; 0.45; 0.45;  0.6; 0.6; 0.75; 0.75; 0.9;  0.9; 0.9; 0.9; 0; 0; -1e3];
-% ground_x = [-2e1; (-2e1:0.1:2e1)'; 2e1];
-% ground_y = [-2e1; randn(401, 1)*0.01; -2e1];
+% % ground_x = [-2e1; (-2e1:0.1:2e1)'; 2e1];
+% % ground_y = [-2e1; randn(401, 1)*0.01; -2e1];
 % ground_stiffness = 1e6*ones(size(ground_x));
 % ground_damping = 1.5*2*sqrt(ground_stiffness*robot.foot.mass);
 % ground_friction = 1*ones(size(ground_x));
@@ -52,6 +52,6 @@ Ts_visualization = 16e-3;
 Ts_sim = 1e-3 / 8;
 
 % Planner parameters
-transition_samples = 8;
-rollout_depth = 3;
+transition_samples = 4;
+rollout_depth = 4;
 Ts_tree = 0.5;
