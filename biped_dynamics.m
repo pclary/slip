@@ -2,44 +2,33 @@ function [dX, ext] = biped_dynamics(X, u, ext, robot, terrain)
 % BIPED_DYNAMICS Calculate the biped state derivatives, taking ground contact
 % and external forces into account.
 
-% Transform into motor-side torques and clamp
-u.right.l_eq = clamp(u.right.l_eq / robot.length.motor.ratio, -robot.length.motor.torque, robot.length.motor.torque);
-u.right.theta_eq = clamp(u.right.theta_eq / robot.angle.motor.ratio, -robot.angle.motor.torque, robot.angle.motor.torque);
-u.left.l_eq = clamp(u.left.l_eq / robot.length.motor.ratio, -robot.length.motor.torque, robot.length.motor.torque);
-u.left.theta_eq = clamp(u.left.theta_eq / robot.angle.motor.ratio, -robot.angle.motor.torque, robot.angle.motor.torque);
-
-% Get hardstop torques
-hardstops.right = hardstop_torques(X.right, robot);
-hardstops.left  = hardstop_torques(X.left,  robot);
-
-% Add hardstop torques to control torques
-u.right.l_eq     = u.right.l_eq     + hardstops.right.l_eq;
-u.right.theta_eq = u.right.theta_eq + hardstops.right.theta_eq;
-u.left.l_eq      = u.left.l_eq      + hardstops.left.l_eq;
-u.left.theta_eq  = u.left.theta_eq  + hardstops.left.theta_eq;
-
-% Add forces from ground contact and gravity to any other external forces
-foot_state_right = foot_state(X.right, X.body);
-foot_state_left  = foot_state(X.left,  X.body);
-foot_force_right = ground_contact(foot_state_right, robot, terrain);
-foot_force_left  = ground_contact(foot_state_left,  robot, terrain);
+% Get hardstop forces, gravity, ground contact, etc
 ext.body.y = ext.body.y - robot.gravity * robot.body.mass;
-ext.right.x = ext.right.x + foot_force_right.x;
-ext.right.y = ext.right.y + foot_force_right.y - robot.gravity * robot.foot.mass;
-ext.left.x  = ext.left.x  + foot_force_left.x;
-ext.left.y  = ext.left.y  + foot_force_left.y  - robot.gravity * robot.foot.mass;
-
-% % Body ground contact force (useful for interesting animations, otherwise slows things down)
-% body_state.x = X.body.x;
-% body_state.y = X.body.y;
-% body_state.dx = X.body.dx;
-% body_state.dy = X.body.dy;
-% body_force = ground_contact(body_state, robot, terrain);
-% ext.body.x = ext.body.x + body_force.x;
-% ext.body.y = ext.body.y + body_force.y;
+[u.right, ext.right] = leg_forces(u.right, X.right, ext.right, X.body, robot, terrain);
+[u.left,  ext.left]  = leg_forces(u.left,  X.left,  ext.left,  X.body, robot, terrain);
 
 % Get state derivatives from equations of motion
 dX = biped_eom(X, u, ext, robot);
+
+
+function [u, ext] = leg_forces(u, leg, ext, body, robot, terrain)
+
+% Transform into motor-side torques and clamp
+u.l_eq = clamp(u.l_eq / robot.length.motor.ratio, -robot.length.motor.torque, robot.length.motor.torque);
+u.theta_eq = clamp(u.theta_eq / robot.angle.motor.ratio, -robot.angle.motor.torque, robot.angle.motor.torque);
+
+% Get hardstop torques
+hardstops = hardstop_torques(leg, robot);
+
+% Add hardstop torques to control torques
+u.l_eq     = u.l_eq     + hardstops.l_eq;
+u.theta_eq = u.theta_eq + hardstops.theta_eq;
+
+% Add forces from ground contact and gravity to any other external forces
+foot_state = get_foot_state(leg, body);
+foot_force = ground_contact(foot_state, robot, terrain);
+ext.x = ext.x + foot_force.x;
+ext.y = ext.y + foot_force.y - robot.gravity * robot.foot.mass;
 
 
 function t = hardstop_torques(leg, robot)
@@ -68,8 +57,8 @@ t.l_eq = clamp(t.l_eq, -robot.length.hardstop.fmax, robot.length.hardstop.fmax);
 t.theta_eq = clamp(t.theta_eq, -robot.length.hardstop.fmax, robot.length.hardstop.fmax);
 
 
-function s = foot_state(leg, body)
-% FOOT_STATE Compute the position and velocity of the point foot.
+function s = get_foot_state(leg, body)
+% GET_FOOT_STATE Compute the position and velocity of the point foot.
 
 % Coordinate transformation parameters
 theta_abs = leg.theta + body.theta;
