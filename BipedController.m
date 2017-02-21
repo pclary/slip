@@ -17,8 +17,8 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
         
         function [u, cstate] = stepImpl(obj, X, cparams)
             if obj.reset_flag
-                obj.cstate.foot_x_last.right = X.body.x;
-                obj.cstate.foot_x_last.left  = X.body.x;
+                obj.cstate.right.foot_x_last = X.body.x;
+                obj.cstate.left.foot_x_last  = X.body.x;
                 obj.reset_flag = false;
             end
             [u, obj.cstate] = controller_step(X, obj.cstate, cparams, obj.Ts);
