@@ -1,0 +1,10 @@
+-Isrc
+-Imjpro140/include
+-std=c++14
+-Wall
+-Wextra
+-Wpedantic
+-g
+-O3
+-ffast-math
+-march=native

@@ -9,4 +9,8 @@ slprj/
 *_grt_rtw/
 *.exp
 *.lib
+mjkey.txt
 codegen/
+obj/
+mjpro140/
+cpp/slip
