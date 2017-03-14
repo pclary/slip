@@ -1,0 +1,82 @@
+<mujoco model='planar-biped'>
+  <compiler inertiafromgeom='false' angle='radian'/>
+
+  <default>
+    <joint limited='true'/>
+    <geom contype='0' conaffinity='0' condim='1' material='geom'/>
+    <!-- margin='0.001' solref='.02 1' solimp='.8 .8 .01' -->
+  </default>
+
+  <option timestep='0.002' iterations='50' solver='PGS'>
+  </option>
+
+  <size nuser_geom='1'/>
+
+  <visual>
+    <map fogstart='3' fogend='5' force='0.1' znear='0.5'/>
+    <quality shadowsize='2048' offsamples='8'/>
+    <global offwidth='800' offheight='800'/>
+  </visual>
+
+  <asset>
+    <texture type='skybox' builtin='gradient' width='128' height='128' rgb1='.4 .6 .8' rgb2='0 0 0'/>
+    <texture name='texgeom' type='cube' builtin='flat' mark='cross' width='127' height='1278' rgb1='0.8 0.6 0.4' rgb2='0.8 0.6 0.4' markrgb='1 1 1' random='0.01'/>
+    <material name='ground' rgba='0.2 0.2 0.2 1' reflectance='0.1'/>
+    <material name='geom' rgba='0.8 0.6 0.4 1' texture='texgeom' texuniform='true'/>
+  </asset>
+
+  <worldbody>
+    <!-- <geom name='floor' type='plane' pos='0 0 0' size='5 5 .125' material='MatPlane' condim='3' conaffinity='1'/> -->
+    <geom type='box' pos='0 0 -0.2' size='1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <geom type='box' pos='3 0 -0.2' size='1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <geom type='box' pos='-3 0 -0.2' size='1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <geom type='box' pos='4.1 0 -0.1' size='0.1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <geom type='box' pos='4.3 0 -0.0' size='0.1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <geom type='box' pos='4.5 0 0.1' size='0.1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <geom type='box' pos='4.7 0 0.2' size='0.1 1 0.2' material='ground' condim='3' conaffinity='1' user='1'/>
+    <light mode='fixed' directional='true' diffuse='.8 .8 .8' specular='0.3 0.3 0.3' pos='0 0 100.0' dir='0 0 -1'/>
+	<camera name='targeting' pos='1 1 2' mode='targetbodycom' target='pelvis'/>
+
+    <body name='pelvis' pos='0 0 1'>
+      <camera name='tracking' pos='1 1 2' zaxis='1 2 3' mode='trackcom'/>
+      <joint type='slide' axis='1 0 0' limited='false'/>
+      <joint type='slide' axis='0 0 1' limited='false'/>
+      <joint type='hinge' axis='0 1 0' limited='false'/>
+      <geom type='sphere' size='0.1' contype='1'/>
+      <inertial pos='0 0 0' mass='20' diaginertia='0.3 0.3 0.3'/>
+      <body name='right_thigh' pos='0 -0.1 0'>
+        <inertial pos='0 0 0' mass='5' diaginertia='0.256 0.256 0.256'/>
+        <joint name='right_angle' type='hinge' axis='0 1 0' range='-1.5 1.5' damping='0.1'/>
+        <geom type='capsule' fromto='0 0 0 0 0 -0.3' size='0.05'/>
+        <body name='right_shin' pos='0 0 -1'>
+          <inertial pos='0 0 0' mass='0.4' diaginertia='1e-6 1e-6 1e-6'/>
+          <joint name='right_length' type='slide' axis='0 0 -1' range='-0.7 0' damping='0.1' armature='2.304'/>
+          <geom type='capsule' fromto='0 0 0.025 0 0 0.7' size='0.025' contype='1'/>
+        </body>
+      </body>
+      <body name='left_thigh' pos='0 0.1 0'>
+        <inertial pos='0 0 0' mass='5' diaginertia='0.256 0.256 0.256'/>
+        <joint name='left_angle' type='hinge' axis='0 1 0' range='-1.5 1.5' damping='0'/>
+        <geom type='capsule' fromto='0 0 0 0 0 -0.3' size='0.05'/>
+        <body name='left_shin' pos='0 0 -1'>
+          <inertial pos='0 0 0' mass='0.4' diaginertia='1e-6 1e-6 1e-6'/>
+          <joint name='left_length' type='slide' axis='0 0 -1' range='-0.7 0' damping='0' armature='2.304'/>
+          <geom type='capsule' fromto='0 0 0.025 0 0 0.7' size='0.025' contype='1'/>
+        </body>
+      </body>
+    </body>
+
+  </worldbody>
+
+  <actuator>
+    <position name='right_angle_p' joint='right_angle' kp='0' forcerange='-192 192'/>
+    <velocity name='right_angle_d' joint='right_angle' kv='0' forcerange='-192 192'/>
+    <position name='right_length_p' joint='right_length' kp='0' forcerange='-576 576'/>
+    <velocity name='right_length_d' joint='right_length' kv='0' forcerange='-576 576'/>
+    <position name='left_angle_p' joint='left_angle' kp='0' forcerange='-192 192'/>
+    <velocity name='left_angle_d' joint='left_angle' kv='0' forcerange='-192 192'/>
+    <position name='left_length_p' joint='left_length' kp='0' forcerange='-576 576'/>
+    <velocity name='left_length_d' joint='left_length' kv='0' forcerange='-576 576'/>
+  </actuator>
+
+</mujoco>
