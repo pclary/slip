@@ -1,6 +1,18 @@
 #include "Controller.hpp"
 #include <cmath>
 #include <cstddef>
+#include <complex>
+
+
+#define eval_traj(t, i, p) (t[i] + p * (t[i + 1] - t[i]))
+
+
+// Static controller parameter arrays
+constexpr double controller_params_t::x_pd[];
+constexpr double controller_params_t::y_pd[];
+constexpr double controller_params_t::body_angle_pd_en[];
+constexpr double controller_params_t::weight_ff[];
+constexpr double controller_params_t::energy_ff[];
 
 
 static double clamp(double x, double lower, double upper)
@@ -41,7 +53,7 @@ static leg_control_t leg_step(const robot_state_t& X,
     // Capture foot positions at phase rollover
     if (cstate.phase >= 1)
         cstate.foot_x_last = X.qpos[BODY_X] +
-            X.qpos[leg + LEG_L] * sin(X.qpos[BODY_THETA] +
+            X.qpos[leg + LEG_L] * sin(X_body_theta +
                                       X.qpos[leg + LEG_THETA]);
 
     // Limit phases to [0, 1)
@@ -68,24 +80,66 @@ static leg_control_t leg_step(const robot_state_t& X,
         cstate.foot_x_target = X.qpos[BODY_X] + foot_extension;
     }
 
-    // Get PD controllers for x and y foot position (leg angle and length)
-    leg_pd.y = get_pd(cparams.y_pd, phase);
-    leg_pd.x = get_pd(cparams.x_pd, phase);
+    // Decompose phase into trajectory point index and diff proportion
+    const double n_pd_pts = 10;
+    double id;
+    const double p = std::modf(phase * n_pd_pts, &id);
+    const size_t i = id;
 
-    // Get transformed leg PD output
-    u = eval_leg_pd(leg_pd, body, leg, cparams, cstate.foot_x_last, cstate.foot_x_target);
+    // Get PD controllers for x and y foot position (leg angle and length)
+    const auto x_pd_diff = cparams.x_pd[i + 1] - cparams.x_pd[i];
+    const auto x_setpoint = cparams.x_pd[i] + p * x_pd_diff;
+    const auto x_dsetpoint = n_pd_pts * x_pd_diff;
+    const auto y_pd_diff = cparams.y_pd[i + 1] - cparams.y_pd[i];
+    const auto y_setpoint = cparams.y_pd[i] + p * y_pd_diff;
+    const auto y_dsetpoint = n_pd_pts * y_pd_diff;
+
+    // Get scaled x and y targets
+    const auto x = x_setpoint * (cstate.foot_x_target - cstate.foot_x_last) +
+        cstate.foot_x_last - X.qpos[BODY_X];
+    const auto dx = x_dsetpoint * (cstate.foot_x_target - cstate.foot_x_last) -
+        X.qvel[BODY_DX];
+    const auto y = cparams.l_max - y_setpoint * cparams.step_height;
+    const auto dy = -y_dsetpoint * cparams.step_height;
+
+    // Transform to polar
+    leg_control_t u;
+    u.length_pos = std::sqrt(x*x + y*x);
+    u.length_vel = (x*dx + y*dy) / u.length_pos;
+    const auto xlsin = x / u.length_pos;
+    u.angle_pos = (std::fabs(xlsin) < 1 ?
+                   std::asin(xlsin) :
+                   std::copysign(M_PI_2, xlsin)) - X_body_theta;
+    u.angle_vel = (y*dx - x*dy) / u.length_pos*u.length_pos -
+        X.qvel[BODY_DTHETA];
+
+    // Set gains
+    u.angle_kp = cparams.x_pd_kp;
+    u.angle_kv = cparams.x_pd_kv;
+    u.length_kp = cparams.y_pd_kp;
+    u.length_kv = cparams.y_pd_kv;
 
     // Modulate angle target control with ground contact
-    u.theta_eq = (1 - gc) * u.theta_eq;
+    u.angle_kp *= (1 - gc);
+    u.angle_kv *= (1 - gc);
 
     // Add feedforward terms for weight compensation and energy injection
-    u.l_eq = u.l_eq + ...
-               eval_ff(cparams.weight_ff, phase) * cparams.robot_weight + ...
-               eval_ff(cparams.energy_ff, phase) * energy_injection;
+    const auto ff_length =
+        eval_traj(cparams.weight_ff, i, p) * cparams.robot_weight +
+        eval_traj(cparams.energy_ff, i, p) * energy_injection;
+    u.length_pos += ff_length / u.length_kp;
 
     // Add body angle control, modulated with ground contact
-    u.theta_eq = u.theta_eq - ...
-               gc * eval_pd(cparams.body_angle_pd, phase, body.theta, body.dtheta, 0, 0);
+    const auto angle_en = gc * eval_traj(cparams.body_angle_pd_en, i, p);
+    const auto new_kp = u.angle_kp + angle_en * cparams.body_angle_pd_kp;
+    u.angle_pos = (u.angle_kp * u.angle_pos) / new_kp;
+    u.angle_kp = new_kp;
+    const auto new_kv = u.angle_kv + angle_en * cparams.body_angle_pd_kv;
+    u.angle_pos = (u.angle_kv * u.angle_vel) / new_kp;
+    u.angle_kv = new_kv;
+
+    // Return PD setpoints and gains
+    return u;
 }
 
 

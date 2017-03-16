@@ -21,17 +21,18 @@ struct controller_params_t {
     static constexpr double x_pd[] = {0.0, 0.0, 0.0, 0.0, 0.0,
                                       0.5, 1.0, 1.0, 1.0, 1.0, 1.0};
     static constexpr double x_pd_kp = 1e3;
-    static constexpr double x_pd_kd = 1e2;
+    static constexpr double x_pd_kv = 1e2;
 
     static constexpr double y_pd[] = {0.0, 0.0, 0.0, 0.5, 1.0,
                                       1.0, 1.0, 1.0, 0.0, 0.0, 0.0};
     static constexpr double y_pd_kp = 4e3;
-    static constexpr double y_pd_kd = 1e2;
+    static constexpr double y_pd_kv = 1e2;
 
-    static constexpr double body_angle_pd[] = {0.0, 0.0, 0.0, 0.0, 0.0,
-                                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    static constexpr double body_angle_kp = 2e3;
-    static constexpr double body_angle_kd = 1e2;
+    static constexpr double body_angle_pd = 0;
+    static constexpr double body_angle_pd_en[] = {1.0, 1.0, 1.0, 0.0, 0.0,
+                                               0.0, 0.0, 0.0, 1.0, 1.0, 1.0};
+    static constexpr double body_angle_pd_kp = 2e3;
+    static constexpr double body_angle_pd_kv = 1e2;
 
     static constexpr double weight_ff[] = {1.0, 1.0, 1.0, 0.5, 0.0,
                                            0.0, 0.0, 0.5, 1.0, 1.0, 1.0};
@@ -60,6 +61,11 @@ struct leg_control_t {
     double angle_vel;
     double length_pos;
     double length_vel;
+
+    double angle_kp;
+    double angle_kv;
+    double length_kp;
+    double length_kv;
 };
 
 
