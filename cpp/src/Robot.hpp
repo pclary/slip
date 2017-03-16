@@ -41,7 +41,7 @@ enum {
     LEG_DTHETA    = RIGHT_DTHETA - RIGHT_LEG,
     LEG_DL_EQ     = RIGHT_DL_EQ - RIGHT_LEG,
     LEG_DL        = RIGHT_DL - RIGHT_LEG,
-    
+
     RIGHT_THETA_POS = 0,
     RIGHT_THETA_VEL,
     RIGHT_L_POS,
@@ -57,5 +57,9 @@ struct robot_state_t {
     mjtNum time;
     mjtNum qpos[POS_COUNT];
     mjtNum qvel[VEL_COUNT];
-    mjtNum act;
+    // mjtNum act;
 };
+
+
+robot_state_t get_robot_state(const mjData* d);
+void set_robot_state(const robot_state_t& X, mjData* d);

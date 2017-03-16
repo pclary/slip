@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstddef>
 #include <complex>
+#include <iostream>
 
 
 #define eval_traj(t, i, p) (t[i] + p * (t[i + 1] - t[i]))
@@ -30,7 +31,7 @@ static leg_control_t leg_step(const robot_state_t& X,
                               mjtNum Ts)
 {
     // Get singleturn body angle to allow for flips
-    auto X_body_theta = std::fmod(X.qpos[BODY_THETA] + M_PI, M_2_PI) - M_PI;
+    auto X_body_theta = std::fmod(X.qpos[BODY_THETA] + M_PI, 2 * M_PI) - M_PI;
 
     // Above some speed, increase step rate instead of increasing stride length
     const auto fbdx2 = std::fabs(X.qvel[BODY_DX]) / 2;
@@ -54,6 +55,7 @@ static leg_control_t leg_step(const robot_state_t& X,
     if (cstate.phase >= 1)
         cstate.foot_x_last = X.qpos[BODY_X] +
             X.qpos[leg + LEG_L] * sin(X_body_theta +
+                                      X.qpos[leg + LEG_THETA_EQ] +
                                       X.qpos[leg + LEG_THETA]);
 
     // Limit phases to [0, 1)
@@ -64,18 +66,19 @@ static leg_control_t leg_step(const robot_state_t& X,
     const auto phase = cstate.phase;
 
     // Detect ground contact
-    const auto gc = clamp((X.qpos[leg + LEG_L_EQ] - X.qpos[leg + LEG_L]) /
+    const auto gc = clamp(-X.qpos[leg + LEG_L] /
                           cparams.contact_threshold, 0, 1);
 
     // Update leg targets
-    const auto stride_eq =
-        (0.92 / std::pow(phase_rate_eq, 0.3) +
-         0.1*std::fmax(std::fabs(X.qvel[BODY_DX]) - 1, 0) +
-         0.2*std::fmax(std::fabs(X.qvel[BODY_DX]) - 1.8, 0)) * X.qvel[BODY_DX];
+    // const auto stride_eq =
+    //     (0.92 / std::pow(phase_rate_eq, 0.3) +
+    //      0.1*std::fmax(std::fabs(X.qvel[BODY_DX]) - 1, 0) +
+         // 0.2*std::fmax(std::fabs(X.qvel[BODY_DX]) - 1.8, 0)) * X.qvel[BODY_DX];
+    const auto stride_eq = 1 * X.qvel[BODY_DX];
     if (phase < cparams.step_lock_phase) {
         const auto foot_extension = (1 - phase) * stride_eq +
-            0.15 * clamp(X.qvel[BODY_DX] - cparams.target_dx, -0.5, 0.5) +
-            (0.02 + 0.01 * std::fmax(std::fabs(X.qvel[BODY_DX]) - 1, 0)) *
+            0.1 * clamp(X.qvel[BODY_DX] - cparams.target_dx, -0.5, 0.5) +
+            0*(0.02 + 0.01 * std::fmax(std::fabs(X.qvel[BODY_DX]) - 1, 0)) *
             body_ddx;
         cstate.foot_x_target = X.qpos[BODY_X] + foot_extension;
     }
@@ -104,7 +107,7 @@ static leg_control_t leg_step(const robot_state_t& X,
 
     // Transform to polar
     leg_control_t u;
-    u.length_pos = std::sqrt(x*x + y*x);
+    u.length_pos = std::sqrt(x*x + y*y);
     u.length_vel = (x*dx + y*dy) / u.length_pos;
     const auto xlsin = x / u.length_pos;
     u.angle_pos = (std::fabs(xlsin) < 1 ?
@@ -129,14 +132,14 @@ static leg_control_t leg_step(const robot_state_t& X,
         eval_traj(cparams.energy_ff, i, p) * energy_injection;
     u.length_pos += ff_length / u.length_kp;
 
-    // Add body angle control, modulated with ground contact
-    const auto angle_en = gc * eval_traj(cparams.body_angle_pd_en, i, p);
-    const auto new_kp = u.angle_kp + angle_en * cparams.body_angle_pd_kp;
-    u.angle_pos = (u.angle_kp * u.angle_pos) / new_kp;
-    u.angle_kp = new_kp;
-    const auto new_kv = u.angle_kv + angle_en * cparams.body_angle_pd_kv;
-    u.angle_pos = (u.angle_kv * u.angle_vel) / new_kp;
-    u.angle_kv = new_kv;
+    // // Add body angle control, modulated with ground contact
+    // const auto angle_en = gc * eval_traj(cparams.body_angle_pd_en, i, p);
+    // const auto new_kp = u.angle_kp - angle_en * cparams.body_angle_pd_kp;
+    // u.angle_pos = (u.angle_kp * u.angle_pos) / (new_kp + 1e-3);
+    // u.angle_kp = new_kp;
+    // const auto new_kv = u.angle_kv - angle_en * cparams.body_angle_pd_kv;
+    // u.angle_pos = (u.angle_kv * u.angle_vel) / (new_kp + 1e-3);
+    // u.angle_kv = new_kv;
 
     // Return PD setpoints and gains
     return u;
@@ -151,7 +154,8 @@ control_t step(const robot_state_t& X,
     // Estimate body acceleration
     auto body_ddx_est = (X.qvel[BODY_DX] - cstate.body_dx_last) / Ts;
     cstate.body_ddx += cparams.ddx_filter * (body_ddx_est - cstate.body_ddx);
-    cstate.body_dx_last = X.qpos[BODY_DX];
+    cstate.body_dx_last = X.qvel[BODY_DX];
+    std::cout << cstate.body_ddx << std::endl;
 
     // Controller step for each leg
     return {leg_step(X, RIGHT_LEG, cstate.right, cstate.body_ddx, cparams, Ts),

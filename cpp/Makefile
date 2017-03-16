@@ -4,7 +4,7 @@ LD      := $(CXX)
 INC     := -Isrc -Imjpro140/include
 CFLAGS  := -std=c++14 -Wall -Wextra -Wpedantic -g -O3 -ffast-math -march=native
 LDFLAGS := -g -O3 -L./mjpro140/bin -Wl,-rpath,"./mjpro140/bin"
-LIBS    := -lmujoco140nogl
+LIBS    := -lmujoco140 -lglew -lGL -l:libglfw.so.3
 OUT     := slip
 
 MODULES :=
