@@ -25,6 +25,9 @@ while true
     toc
     
     for i = 1:npar
+        if out(i).ErrorMessage
+            disp(out(i).ErrorMessage);
+        end
         scores_total = [scores_total; out(i).scores(2:end, :)];
         rs_total = [rs_total; out(i).rs(2:end, :)];
         cs_total = [cs_total; out(i).cs(2:end, :)];
