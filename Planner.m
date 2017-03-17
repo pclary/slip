@@ -79,7 +79,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     c = obj.tree.nodes(1).children(i);
                     if c
                         j = obj.tree.nodes(c).data.cparams.n + 1;
-                        scores(j) = max(scores(j), obj.tree.nodes(c).data.path_value);
+                        if j > 0 && j <= numel(scores)
+                            scores(j) = max(scores(j), obj.tree.nodes(c).data.path_value);
+                        end
                     end
                 end
                 
