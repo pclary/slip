@@ -12,6 +12,7 @@ cparams.target_dx = 0;
 cparams.step_offset = 0;
 cparams.energy_injection = 0;
 cparams.phase_stretch = 0;
+cparams.n = 0;
 
 cparams.x_pd = struct(...
     'target', {0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0}, ...

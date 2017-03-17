@@ -8,6 +8,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         ground_data = zeros(2, 5);
         rollout_depth = 4;
         transition_samples = 4;
+        cstate_num = 11;
     end
 
     properties
@@ -22,27 +23,44 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         t
         action_queue
         rngstate
+        rs_out
+        cs_out
+        tr_out
     end
     
     
     methods (Access = protected)
         function setupImpl(obj)
-            obj.rngstate = rng('shuffle');
+            if coder.target('MATLAB')
+                obj.rngstate = rng('shuffle');
+            else
+                sd = 0;
+                sd = coder.ceval('time',[]);
+                obj.rngstate = rng(sd, 'twister');
+            end
             obj.tree = Tree(SimulationState(obj.transition_samples), 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
             obj.t = 0;
             obj.action_queue = Queue(ControllerParams(), obj.rollout_depth);
+            obj.rs_out = nan(1, 20);
+            obj.cs_out = nan(1, 8);
+            obj.tr_out = nan(1, 201);
         end
         
         
-        function cparams = stepImpl(obj, X, cstate)
+        function [cparams, scores, rs_out, cs_out, tr_out] = stepImpl(obj, X, cstate)
             
             % Set rng state to value from previous step
             rng(obj.rngstate);
 
             goal = Goal();
             goal.dx = obj.target_dx;
+            
+            scores = -inf(1, obj.cstate_num);
+            rs_out = nan(1, 20);
+            cs_out = nan(1, 8);
+            tr_out = nan(1, 201);
             
             cparams = obj.tree.nodes(1).data.cparams;
             
@@ -51,7 +69,19 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % Project one planner timestep forward with current parameters
                 % for delay compensation
                 terrain = obj.env.getLocalTerrain(X.body.x);
-                [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
+                if coder.target('MATLAB')
+                    [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
+                else
+                    [Xp, cstatep] = biped_sim(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
+                end
+                
+                for i = 1:numel(obj.tree.nodes(1).children)
+                    c = obj.tree.nodes(1).children(i);
+                    if c
+                        j = obj.tree.nodes(c).data.cparams.n + 1;
+                        scores(j) = max(scores(j), obj.tree.nodes(c).data.path_value);
+                    end
+                end
                 
                 % Store the highest value path in the action stack
                 pathnodes = uint32(zeros(obj.rollout_depth + 1, 1));
@@ -85,13 +115,50 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     cparams = obj.action_queue.pop();
                 end
                 
+                
+                rs_out = obj.rs_out;
+                cs_out = obj.cs_out;
+                tr_out = obj.tr_out;
+                obj.rs_out = [...
+                    mod(Xp.body.theta + pi, 2*pi) - pi;
+                    Xp.body.dx;
+                    Xp.body.dy;
+                    Xp.body.dtheta;
+                    Xp.right.l;
+                    Xp.right.l_eq;
+                    Xp.right.theta;
+                    Xp.right.theta_eq;
+                    Xp.right.dl;
+                    Xp.right.dl_eq;
+                    Xp.right.dtheta;
+                    Xp.right.dtheta_eq;
+                    Xp.left.l;
+                    Xp.left.l_eq;
+                    Xp.left.theta;
+                    Xp.left.theta_eq;
+                    Xp.left.dl;
+                    Xp.left.dl_eq;
+                    Xp.left.dtheta;
+                    Xp.left.dtheta_eq]';
+                obj.cs_out = [cstatep.right.phase;
+                    cstatep.right.foot_x_last;
+                    cstatep.right.foot_x_target;
+                    cstatep.left.phase;
+                    cstatep.left.foot_x_last;
+                    cstatep.left.foot_x_target;
+                    cstatep.body_ddx;
+                    cstatep.body_dx_last]';
+                terrainp = obj.env.getLocalTerrain(Xp.body.x);
+                obj.tr_out = terrainp.height';
+                
                 % Simulate the upcoming tree timestep
                 ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
                 
                 % Reset tree with predicted state as root
                 obj.tree.reset(ss);
                 obj.rollout_node = uint32(1);
-            elseif obj.tree.nodes(1).data.path_value < 0.9 * (obj.rollout_depth + 1)
+            elseif obj.tree.nodes(1).data.gstate.n < obj.cstate_num || ...
+                    obj.tree.nodes(1).data.path_value < 0.8 * (obj.rollout_depth + 1)
                 
                 % Check whether max depth on current rollout has been reached
                 if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
@@ -124,7 +191,21 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     end
                     
                     % Start new rollout
-                    obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                    if obj.tree.nodes(1).data.gstate.n < obj.cstate_num
+                        obj.rollout_node = uint32(1);
+                    else
+                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                    end
+                end
+                
+                % If a node has already had all discrete options expanded, pick
+                % a different node
+                for i = 1:100
+                    if obj.tree.nodes(obj.rollout_node).data.gstate.n >= obj.cstate_num
+                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                    else
+                        break;
+                    end
                 end
                 
                 % Expand on current rollout node
@@ -175,7 +256,11 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     end
                 else
                     % If the value is too low, start a new rollout
-                    obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                    if obj.tree.nodes(1).data.gstate.n < obj.cstate_num
+                        obj.rollout_node = uint32(1);
+                    else
+                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+                    end
                 end
             end
             
@@ -188,12 +273,21 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         
         
         function resetImpl(obj)
-            obj.rngstate = rng('shuffle');
+            if coder.target('MATLAB')
+                obj.rngstate = rng('shuffle');
+            else
+                sd = 0;
+                sd = coder.ceval('time',[]);
+                obj.rngstate = rng(sd, 'twister');
+            end
             obj.tree.reset(SimulationState(obj.transition_samples));
             obj.rollout_node = uint32(1);
             obj.env.ground_data = obj.ground_data;
             obj.t = 0;
             obj.action_queue.clear();
+            obj.rs_out = nan(1, 20);
+            obj.cs_out = nan(1, 8);
+            obj.tr_out = nan(1, 201);
         end
         
         
@@ -229,17 +323,33 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         end
         
         
-        function [sz1] = getOutputSizeImpl(~)
+        function [sz1 sz2 sz3 sz4 sz5] = getOutputSizeImpl(obj)
             sz1 = [1 1];
+            sz2 = [1 obj.cstate_num];
+            sz3 = [1 20];
+            sz4 = [1 8];
+            sz5 = [1 201];
         end
-        function [dt1] = getOutputDataTypeImpl(~)
+        function [dt1 dt2 dt3 dt4 dt5] = getOutputDataTypeImpl(~)
             dt1 = 'controller_params_bus';
+            dt2 = 'double';
+            dt3 = 'double';
+            dt4 = 'double';
+            dt5 = 'double';
         end
-        function [cm1] = isOutputComplexImpl(~)
+        function [cm1 cm2 cm3 cm4 cm5] = isOutputComplexImpl(~)
             cm1 = false;
+            cm2 = false;
+            cm3 = false;
+            cm4 = false;
+            cm5 = false;
         end
-        function [fs1] = isOutputFixedSizeImpl(~)
+        function [fs1 fs2 fs3 fs4 fs5] = isOutputFixedSizeImpl(~)
             fs1 = true;
+            fs2 = true;
+            fs3 = true;
+            fs4 = true;
+            fs5 = true;
         end
         
     end
@@ -291,8 +401,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     terrain.friction = terrain.friction * (0.4*rand() + 0.8);
                 end
                 
-                [Xp(i), cstatep(i)] = biped_sim_mex(Xi, cstate, obj.robot, ...
+                if coder.target('MATLAB')
+                    [Xp(i), cstatep(i)] = biped_sim_mex(Xi, cstate, obj.robot, ...
+                        cparams, terrain, tstop, obj.Ts_sim);
+                else
+                    [Xp(i), cstatep(i)] = biped_sim(Xi, cstate, obj.robot, ...
                     cparams, terrain, tstop, obj.Ts_sim);
+                end
                 
                 % Evaluate the result
                 terrainp = obj.env.getLocalTerrain(Xp(i).body.x);

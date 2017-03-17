@@ -3,7 +3,7 @@ function biped_playback(varargin)
 % Input parsing
 p = inputParser;
 p.addOptional('rate', 1, @(x) isnumeric(x) && isscalar(x) && x > 0);
-p.addOptional('t0', 0, @(x) isnumeric(x) && isscalar(x) && x >= 0);
+p.addOptional('t0', 0, @(x) isnumeric(x) && all(x >= 0));
 p.addOptional('filename', '', @ischar);
 p.parse(varargin{:});
 
@@ -29,12 +29,17 @@ Time = X.body.x.Time;
 
 tic;
 framecount = 0;
-t = t0;
-while t < Time(end) && vis.isAlive()
+t = t0(1);
+
+tend = Time(end);
+if numel(t0) > 1
+    tend = min(tend, t0(2));
+end
+while t < tend && vis.isAlive()
     if p.Results.filename
-        t = t0 + framecount*rate/framerate;
+        t = t0(1) + framecount*rate/framerate;
     else
-        t = t0 + toc*rate;
+        t = t0(1) + toc*rate;
     end
     i = find(Time <= t, 1, 'last');
     

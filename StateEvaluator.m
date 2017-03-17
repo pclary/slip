@@ -8,7 +8,7 @@ classdef StateEvaluator < handle
     methods
         
         function obj = StateEvaluator()
-            w = load('state_eval_weights.mat');
+            w = coder.load('state_eval_weights.mat');
             obj.weights = w;
         end
         
