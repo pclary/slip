@@ -410,26 +410,26 @@ double StateEvaluator::stability(robot_state_t X,
 {
     // Construct input vector
     mjtNum input[] = {
-        std::fmod(X.qpos[BODY_THETA] + M_PI, M_2_PI) - M_PI,
+        std::fmod(X.qpos[BODY_ANGLE] + M_PI, M_2_PI) - M_PI,
         X.qvel[BODY_DX],
         X.qvel[BODY_DY],
-        X.qvel[BODY_DTHETA],
-        X.qpos[RIGHT_L],
-        X.qpos[RIGHT_L_EQ],
-        X.qpos[RIGHT_THETA],
-        X.qpos[RIGHT_THETA_EQ],
-        X.qvel[RIGHT_DL],
-        X.qvel[RIGHT_DL_EQ],
-        X.qvel[RIGHT_DTHETA],
-        X.qvel[RIGHT_DTHETA_EQ],
-        X.qpos[LEFT_L],
-        X.qpos[LEFT_L_EQ],
-        X.qpos[LEFT_THETA],
-        X.qpos[LEFT_THETA_EQ],
-        X.qvel[LEFT_DL],
-        X.qvel[LEFT_DL_EQ],
-        X.qvel[LEFT_DTHETA],
-        X.qvel[LEFT_DTHETA_EQ],
+        X.qvel[BODY_DANGLE],
+        X.qpos[RIGHT_LENGTH_SPRING],
+        X.qpos[RIGHT_LENGTH],
+        X.qpos[RIGHT_ANGLE_SPRING],
+        X.qpos[RIGHT_ANGLE],
+        X.qvel[RIGHT_DLENGTH_SPRING],
+        X.qvel[RIGHT_DLENGTH],
+        X.qvel[RIGHT_DANGLE_SPRING],
+        X.qvel[RIGHT_DANGLE],
+        X.qpos[LEFT_LENGTH_SPRING],
+        X.qpos[LEFT_LENGTH],
+        X.qpos[LEFT_ANGLE_SPRING],
+        X.qpos[LEFT_ANGLE],
+        X.qvel[LEFT_DLENGTH_SPRING],
+        X.qvel[LEFT_DLENGTH],
+        X.qvel[LEFT_DANGLE_SPRING],
+        X.qvel[LEFT_DANGLE],
     };
 
     // Layer sizes
@@ -465,8 +465,9 @@ double StateEvaluator::stability(robot_state_t X,
     double vs = std::exp(out[0]) / sumexp;
 
     // Absolute crash check
-    if (X.qpos[BODY_Y] || std::fabs(X.qpos[BODY_THETA]) > M_PI_2 ||
-        std::fabs(X.qpos[RIGHT_THETA] - X.qpos[LEFT_THETA]) > 0.8 * M_PI)
+    if (X.qpos[BODY_Y] || std::fabs(X.qpos[BODY_ANGLE]) > M_PI_2 ||
+        std::fabs(X.qpos[RIGHT_ANGLE] + X.qpos[RIGHT_ANGLE_SPRING] -
+                  (X.qpos[LEFT_ANGLE] + X.qpos[LEFT_ANGLE_SPRING])) > 0.8 * M_PI)
         vs = 0;
 
     return vs;

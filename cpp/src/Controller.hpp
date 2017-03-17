@@ -57,15 +57,8 @@ struct controller_state_t {
 
 
 struct leg_control_t {
-    double angle_pos;
-    double angle_vel;
-    double length_pos;
-    double length_vel;
-
-    double angle_kp;
-    double angle_kv;
-    double length_kp;
-    double length_kv;
+    double angle;
+    double length;
 };
 
 

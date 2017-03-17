@@ -20,13 +20,6 @@ mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
-// mouse interaction
-bool button_left = false;
-bool button_middle = false;
-bool button_right =  false;
-double lastx = 0;
-double lasty = 0;
-
 
 // keyboard callback
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
@@ -79,7 +72,7 @@ int main(void)
 
     controller_state_t cstate;
     controller_params_t cparams;
-    cparams.target_dx = 0.4;
+    cparams.target_dx = 1;
 
     // run main loop, target real-time simulation and 60 fps rendering
     while( !glfwWindowShouldClose(window) )
@@ -91,39 +84,23 @@ int main(void)
         //  and exit this loop when it is time to render.
         mjtNum simstart = d->time;
         while(d->time - simstart < 1.0/60.0) {
-
-            // Apply control inputs
-            // d->ctrl[0] = u.right.angle_pos*0;
-            // d->ctrl[1] = u.right.angle_vel*0;
-            // d->ctrl[2] = u.right.length_pos*0;
-            // d->ctrl[3] = u.right.length_vel*0;
-            // d->ctrl[4] = u.left.angle_pos*0;
-            // d->ctrl[5] = u.left.angle_vel*0;
-            // d->ctrl[6] = u.left.length_pos*0;
-            // d->ctrl[7] = u.left.length_vel*0;
-
+            // Simulation half-update
             mj_step1(m, d);
 
             // Update controller
             auto X = get_robot_state(d);
             // printf("[%7.4g %7.4g %7.4g %7.4g %7.4g %7.4g %7.4g]\n", X.qpos[0], X.qpos[1], X.qpos[2], X.qpos[3], X.qpos[4], X.qpos[5], X.qpos[6]);
             auto u = step(X, cstate, cparams, m->opt.timestep);
-            d->ctrl[0] =
-                u.right.angle_kp * (u.right.angle_pos - X.qpos[RIGHT_THETA_EQ]) +
-                u.right.angle_kv * (u.right.angle_vel - X.qvel[RIGHT_DTHETA_EQ]);
-            d->ctrl[1] =
-                u.right.length_kp * (u.right.length_pos - X.qpos[RIGHT_L_EQ]) +
-                u.right.length_kv * (u.right.length_vel - X.qvel[RIGHT_DL_EQ]);
-            d->ctrl[2] =
-                u.left.angle_kp * (u.left.angle_pos - X.qpos[LEFT_THETA_EQ]) +
-                u.left.angle_kv * (u.left.angle_vel - X.qvel[LEFT_DTHETA_EQ]);
-            d->ctrl[3] =
-                u.left.length_kp * (u.left.length_pos - X.qpos[LEFT_L_EQ]) +
-                u.left.length_kv * (u.left.length_vel - X.qvel[LEFT_DL_EQ]);
+
+            // Apply control inputs
+            d->ctrl[0] = u.right.angle;
+            d->ctrl[1] = u.right.length;
+            d->ctrl[2] = u.left.angle;
+            d->ctrl[3] = u.left.length;
             printf("t %9.4f\n", d->time);
-            printf("X [%7.4g %7.4g %7.4g %7.4g]\n", X.qpos[RIGHT_THETA_EQ], X.qpos[RIGHT_L_EQ], X.qpos[LEFT_THETA_EQ], X.qpos[LEFT_L_EQ]);
-            printf("dX [%7.4g %7.4g %7.4g]\n", X.qvel[BODY_DX], X.qvel[BODY_DY], X.qvel[BODY_DTHETA]);
-            printf("r [%7.4g %7.4g %7.4g %7.4g]\n", u.right.angle_pos, u.right.length_pos, u.left.angle_pos, u.left.length_pos);
+            printf("X [%7.4g %7.4g %7.4g %7.4g]\n", X.qpos[RIGHT_ANGLE], X.qpos[RIGHT_LENGTH], X.qpos[LEFT_ANGLE], X.qpos[LEFT_LENGTH]);
+            printf("dX [%7.4g %7.4g %7.4g]\n", X.qvel[BODY_DX], X.qvel[BODY_DY], X.qvel[BODY_DANGLE]);
+            printf("r [%7.4g %7.4g %7.4g %7.4g]\n", u.right.angle, u.right.length, u.left.angle, u.left.length);
             printf("u [%7.4g %7.4g %7.4g %7.4g]\n", d->ctrl[0], d->ctrl[1], d->ctrl[2], d->ctrl[3]);
 
             // Update simulation
