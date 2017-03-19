@@ -153,7 +153,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     cstatep.body_ddx;
                     cstatep.body_dx_last]';
                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
-                obj.tr_out = terrainp.height';
+                obj.tr_out = terrainp.height' - Xp.body.y;
                 
                 % Simulate the upcoming tree timestep
                 ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
