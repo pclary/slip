@@ -8,7 +8,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         ground_data = zeros(2, 5);
         rollout_depth = 4;
         transition_samples = 4;
-        cstate_num = 11;
+        cstate_num = 10;
     end
 
     properties
@@ -20,6 +20,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         rollout_node
         env
         state_evaluator
+        action_predictor
         t
         action_queue
         rngstate
@@ -41,6 +42,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.tree = Tree(SimulationState(obj.transition_samples), 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
+            obj.action_predictor = ActionPredictor();
             obj.t = 0;
             obj.action_queue = Queue(ControllerParams(), obj.rollout_depth);
             obj.rs_out = nan(1, 20);
@@ -78,7 +80,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 for i = 1:numel(obj.tree.nodes(1).children)
                     c = obj.tree.nodes(1).children(i);
                     if c
-                        j = obj.tree.nodes(c).data.cparams.n + 1;
+                        j = obj.tree.nodes(c).data.cparams.n;
                         if j > 0 && j <= numel(scores)
                             scores(j) = max(scores(j), obj.tree.nodes(c).data.path_value);
                         end
@@ -265,7 +267,36 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     end
                 end
             end
-            
+
+%             terrain = obj.env.getLocalTerrain(X.body.x);
+%             actions = obj.action_predictor.predict(X, cstate, terrain, goal);
+%             
+%             cparams = ControllerParams();
+%             cparams.target_dx = goal.dx;
+%             
+%             switch actions(end)
+%                 case 1 % Stop
+%                     cparams.target_dx = 0;
+%                 case 2 % Standard walk
+%                     
+%                 case 3 % Short step
+%                     cparams.step_offset = -0.1;
+%                 case 4 % Shorter step
+%                     cparams.step_offset = -0.2;
+%                 case 5 % Long step
+%                     cparams.step_offset = 0.1;
+%                 case 6 % Longer step
+%                     cparams.step_offset = 0.2;
+%                 case 7 % Jump
+%                     cparams.energy_injection = 400;
+%                 case 8 % Big jump
+%                     cparams.energy_injection = 800;
+%                 case 9 % High step
+%                     cparams.step_height = cparams.step_height + 0.1;
+%                 case 10 % Higher step
+%                     cparams.step_height = cparams.step_height + 0.2;
+%             end
+
             % Increment tree timestep clock
             obj.t = mod(obj.t + obj.Ts, obj.Ts_tree);
             
@@ -300,6 +331,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             s.rollout_node = obj.rollout_node;
             s.env = obj.env;
             s.state_evaluator = obj.state_evaluator;
+            s.action_predictor = obj.action_predictor;
             s.t = obj.t;
             s.action_queue = obj.action_queue;
             s.action_queue_queue = obj.action_queue.queue;
@@ -315,6 +347,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.rollout_node = s.rollout_node;
             obj.env = s.env;
             obj.state_evaluator = s.state_evaluator;
+            obj.action_predictor = s.action_predictor;
             obj.t = s.t;
             obj.action_queue = s.action_queue;
             obj.action_queue.queue = s.action_queue_queue;

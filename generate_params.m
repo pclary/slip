@@ -39,7 +39,13 @@ switch gstate.n
 %         cparams.target_dx = goal.dx * (rand + 0.5);
 end
 
-cparams.n = gstate.n;
+if gstate.n > 0
+    if gstate.n <= 10
+        cparams.n = gstate.n;
+    else
+        cparams.n = 2;
+    end
+end
 
 gstate.n = gstate.n + 1;
 
