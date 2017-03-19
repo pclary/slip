@@ -43,7 +43,7 @@ for i = 1:length(p)
     if p(i)
         line([x(p(i)), x(i)], [y(p(i)), y(i)], 'Color', color);
     end
-    text(x(i), y(i), sprintf('%d\n%.2f\n%.2f\n%.2f', index(i), path_values(i), stabilities(i), goal_values(i)));
+    text(x(i), y(i), sprintf('%d\n%.2f\n%.2f\n%.2f', nodes(index(i)).data.cparams.n, path_values(i), stabilities(i), goal_values(i)));
 end
 
 axis([0 1 0 1]);

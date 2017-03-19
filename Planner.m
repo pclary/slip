@@ -274,7 +274,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
 %             cparams = ControllerParams();
 %             cparams.target_dx = goal.dx;
 %             
-%             switch actions(end)
+%             switch actions(1)
 %                 case 1 % Stop
 %                     cparams.target_dx = 0;
 %                 case 2 % Standard walk

@@ -4,7 +4,7 @@ nholes = 10;
 
 gaps = rand(nholes, 1) + 1;
 holes = 0.15*(rand(nholes, 1) + 1);
-heights = 0.1*(rand(nholes, 1) - 0.5) - holes / 2;
+heights = 0*(0.1*(rand(nholes, 1) - 0.5) - holes / 2);
 
 terrain = Terrain();
 tdx = (terrain.xend - terrain.xstart) / (numel(terrain.height) - 1);

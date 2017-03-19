@@ -61,7 +61,7 @@ if phase < cparams.step_lock_phase
     foot_extension = (1 - phase) * stride_eq + ...
         0.15 * clamp(body.dx - cparams.target_dx, -0.5, 0.5) + ...
         (0.02 + 0.01 * max(abs(body.dx) - 1, 0)) * body_ddx;
-    cstate.foot_x_target = body.x + foot_extension;
+    cstate.foot_x_target = body.x + foot_extension + cparams.step_offset;
 end
 
 % Get PD controllers for x and y foot position (leg angle and length)
