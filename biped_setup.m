@@ -53,5 +53,5 @@ Ts_sim = 1e-3 / 8;
 
 % Planner parameters
 transition_samples = 1;
-rollout_depth = 3;
-Ts_tree = 0.5;
+rollout_depth = 7;
+Ts_tree = 0.25;

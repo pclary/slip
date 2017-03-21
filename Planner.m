@@ -27,6 +27,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
         rs_out
         cs_out
         tr_out
+        predicted
     end
     
     
@@ -42,12 +43,13 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.tree = Tree(SimulationState(obj.transition_samples), 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
-            obj.action_predictor = ActionPredictor();
+%             obj.action_predictor = ActionPredictor();
             obj.t = 0;
             obj.action_queue = Queue(ControllerParams(), obj.rollout_depth);
             obj.rs_out = nan(1, 20);
             obj.cs_out = nan(1, 8);
             obj.tr_out = nan(1, 201);
+            obj.predicted = 0;
         end
         
         
@@ -119,7 +121,34 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                     cparams = obj.action_queue.pop();
                 end
                 
+%                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
+%                 actions = obj.action_predictor.predict(Xp, cstatep, terrainp, goal);
+%                 obj.predicted = actions(1);
+%                 cparams = ControllerParams();
+%                 cparams.target_dx = goal.dx;
+%                 switch actions(1)
+%                     case 1
+%                         cparams.step_offset = -0.2;
+%                     case 2
+%                         cparams.step_offset = -0.1;
+%                     case 3
+%                         cparams.step_offset = -0.05;
+%                     case 4
+%                         cparams.step_offset = 0;
+%                     case 5
+%                         cparams.step_offset = 0.05;
+%                     case 6
+%                         cparams.step_offset = 0.1;
+%                     case 7
+%                         cparams.step_offset = 0.2;
+%                 end
                 
+                
+                % Simulate the upcoming tree timestep
+                ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
+                
+                Xp = ss.X(1);
+                cstatep = ss.cstate(1);
                 rs_out = obj.rs_out;
                 cs_out = obj.cs_out;
                 tr_out = obj.tr_out;
@@ -155,8 +184,6 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
                 obj.tr_out = terrainp.height' - Xp.body.y;
                 
-                % Simulate the upcoming tree timestep
-                ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
                 
                 % Reset tree with predicted state as root
                 obj.tree.reset(ss);
@@ -275,26 +302,20 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
 %             cparams.target_dx = goal.dx;
 %             
 %             switch actions(1)
-%                 case 1 % Stop
-%                     cparams.target_dx = 0;
-%                 case 2 % Standard walk
-%                     
-%                 case 3 % Short step
-%                     cparams.step_offset = -0.1;
-%                 case 4 % Shorter step
+%                 case 1
 %                     cparams.step_offset = -0.2;
-%                 case 5 % Long step
+%                 case 2
+%                     cparams.step_offset = -0.1;
+%                 case 3
+%                     cparams.step_offset = -0.05;
+%                 case 4
+%                     cparams.step_offset = 0;
+%                 case 5
+%                     cparams.step_offset = 0.05;
+%                 case 6
 %                     cparams.step_offset = 0.1;
-%                 case 6 % Longer step
+%                 case 7
 %                     cparams.step_offset = 0.2;
-%                 case 7 % Jump
-%                     cparams.energy_injection = 400;
-%                 case 8 % Big jump
-%                     cparams.energy_injection = 800;
-%                 case 9 % High step
-%                     cparams.step_height = cparams.step_height + 0.1;
-%                 case 10 % Higher step
-%                     cparams.step_height = cparams.step_height + 0.2;
 %             end
 
             % Increment tree timestep clock

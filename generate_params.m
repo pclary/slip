@@ -14,16 +14,20 @@ switch gstate.n
     case 1
         cparams.step_offset = -0.2;
     case 2
-        cparams.step_offset = -0.1;
+        cparams.step_offset = -0.15;
     case 3
-        cparams.step_offset = -0.05;
+        cparams.step_offset = -0.1;
     case 4
-        cparams.step_offset = 0;
+        cparams.step_offset = -0.05;
     case 5
-        cparams.step_offset = 0.05;
+        cparams.step_offset = 0;
     case 6
-        cparams.step_offset = 0.1;
+        cparams.step_offset = 0.05;
     case 7
+        cparams.step_offset = 0.1;
+    case 8
+        cparams.step_offset = 0.15;
+    case 9
         cparams.step_offset = 0.2;
 %     case 1 % Stop
 %         cparams.target_dx = 0;
