@@ -38,10 +38,10 @@ while true
     fprintf('%d data points\n', size(scores_total, 1));
     save planner_data.mat scores_total rs_total cs_total tr_total
     
-    j = j + 1;
-    if j > 50
-        delete(gcp('nocreate'))
-        j = 0;
-    end
+%     j = j + 1;
+%     if j > 50
+%         delete(gcp('nocreate'))
+%         j = 0;
+%     end
 end
 

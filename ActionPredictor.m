@@ -74,9 +74,10 @@ classdef ActionPredictor < handle
             ld1 = max(obj.w.ld1_b + obj.w.ld1_w * lcat, 0);
             ld2 = max(obj.w.ld2_b + obj.w.ld2_w * ld1, 0);
             ld3 = max(obj.w.ld3_b + obj.w.ld3_w * ld2, 0);
+            ld4 = max(obj.w.ld4_b + obj.w.ld4_w * ld3, 0);
             
             % Output
-            [~, out] = sort(obj.w.ld4_b + obj.w.ld4_w * ld3, 'descend');
+            [~, out] = sort(obj.w.ld5_b + obj.w.ld5_w * ld4, 'descend');
         end
         
     end

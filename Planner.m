@@ -43,7 +43,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             obj.tree = Tree(SimulationState(obj.transition_samples), 1024, 32);
             obj.env = Environment(obj.ground_data);
             obj.state_evaluator = StateEvaluator();
-%             obj.action_predictor = ActionPredictor();
+            obj.action_predictor = ActionPredictor();
             obj.t = 0;
             obj.action_queue = Queue(ControllerParams(), obj.rollout_depth);
             obj.rs_out = nan(1, 20);
@@ -68,256 +68,260 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
             
             cparams = obj.tree.nodes(1).data.cparams;
             
-            % Check whether next planner timestep will start a new tree timestep
-            if obj.t - obj.Ts < 0
-                % Project one planner timestep forward with current parameters
-                % for delay compensation
-                terrain = obj.env.getLocalTerrain(X.body.x);
-                if coder.target('MATLAB')
-                    [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
-                else
-                    [Xp, cstatep] = biped_sim(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
-                end
-                
-                for i = 1:numel(obj.tree.nodes(1).children)
-                    c = obj.tree.nodes(1).children(i);
-                    if c
-                        j = obj.tree.nodes(c).data.cparams.n;
-                        if j > 0 && j <= numel(scores)
-                            scores(j) = max(scores(j), obj.tree.nodes(c).data.path_value);
-                        end
-                    end
-                end
-                
-                % Store the highest value path in the action stack
-                pathnodes = uint32(zeros(obj.rollout_depth + 1, 1));
-                pathnodes(1) = uint32(1);
-                obj.action_queue.clear();
-                n = uint32(1);
-                while any(obj.tree.nodes(n).children)
-                    % Find child with highest rollout value
-                    v_max = -inf;
-                    n_new = uint32(0);
-                    for i = 1:numel(obj.tree.nodes(n).children)
-                        c = obj.tree.nodes(n).children(i);
-                        if c
-                            v = obj.tree.nodes(c).data.path_value;
-                            if v > v_max
-                                cparams = obj.tree.nodes(c).data.cparams;
-                                v_max = v;
-                                n_new = c;
-                            end
-                        end
-                    end
-                    if ~n_new
-                        break;
-                    end
-                    n = n_new;
-                    pathnodes(find(~pathnodes, 1)) = n;
-                    obj.action_queue.push(cparams);
-                end
-                
-                if ~obj.action_queue.isempty()
-                    cparams = obj.action_queue.pop();
-                end
-                
-%                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
-%                 actions = obj.action_predictor.predict(Xp, cstatep, terrainp, goal);
-%                 obj.predicted = actions(1);
-%                 cparams = ControllerParams();
-%                 cparams.target_dx = goal.dx;
-%                 switch actions(1)
-%                     case 1
-%                         cparams.step_offset = -0.2;
-%                     case 2
-%                         cparams.step_offset = -0.1;
-%                     case 3
-%                         cparams.step_offset = -0.05;
-%                     case 4
-%                         cparams.step_offset = 0;
-%                     case 5
-%                         cparams.step_offset = 0.05;
-%                     case 6
-%                         cparams.step_offset = 0.1;
-%                     case 7
-%                         cparams.step_offset = 0.2;
+%             % Check whether next planner timestep will start a new tree timestep
+%             if obj.t - obj.Ts < 0
+%                 % Project one planner timestep forward with current parameters
+%                 % for delay compensation
+%                 terrain = obj.env.getLocalTerrain(X.body.x);
+%                 if coder.target('MATLAB')
+%                     [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
+%                 else
+%                     [Xp, cstatep] = biped_sim(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
 %                 end
-                
-                
-                % Simulate the upcoming tree timestep
-                ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
-                
-                Xp = ss.X(1);
-                cstatep = ss.cstate(1);
-                rs_out = obj.rs_out;
-                cs_out = obj.cs_out;
-                tr_out = obj.tr_out;
-                obj.rs_out = [...
-                    mod(Xp.body.theta + pi, 2*pi) - pi;
-                    Xp.body.dx;
-                    Xp.body.dy;
-                    Xp.body.dtheta;
-                    Xp.right.l;
-                    Xp.right.l_eq;
-                    Xp.right.theta;
-                    Xp.right.theta_eq;
-                    Xp.right.dl;
-                    Xp.right.dl_eq;
-                    Xp.right.dtheta;
-                    Xp.right.dtheta_eq;
-                    Xp.left.l;
-                    Xp.left.l_eq;
-                    Xp.left.theta;
-                    Xp.left.theta_eq;
-                    Xp.left.dl;
-                    Xp.left.dl_eq;
-                    Xp.left.dtheta;
-                    Xp.left.dtheta_eq]';
-                obj.cs_out = [cstatep.right.phase;
-                    cstatep.right.foot_x_last;
-                    cstatep.right.foot_x_target;
-                    cstatep.left.phase;
-                    cstatep.left.foot_x_last;
-                    cstatep.left.foot_x_target;
-                    cstatep.body_ddx;
-                    cstatep.body_dx_last]';
-                terrainp = obj.env.getLocalTerrain(Xp.body.x);
-                obj.tr_out = terrainp.height' - Xp.body.y;
-                
-                
-                % Reset tree with predicted state as root
-                obj.tree.reset(ss);
-                obj.rollout_node = uint32(1);
-            elseif obj.tree.nodes(1).data.gstate.n < obj.cstate_num || ...
-                    obj.tree.nodes(1).data.path_value < 0.8 * (obj.rollout_depth + 1)
-                
-                % Check whether max depth on current rollout has been reached
-                if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
-                    % Evaluate leaf node   
-                    stability = obj.tree.nodes(obj.rollout_node).data.stability;
-                    goal_value = obj.tree.nodes(obj.rollout_node).data.goal_value;
-                    path_value = obj.state_evaluator.combine_value(stability, goal_value);
-                    obj.tree.nodes(obj.rollout_node).data.path_value = path_value;
-                    
-                    % Propogate value to parents
-                    i = obj.tree.nodes(obj.rollout_node).parent;
-                    while (i > 0)
-                        % Compute potential new path value
-                        % path_value retained from child
-                        stability = obj.tree.nodes(i).data.stability;
-                        goal_value = obj.tree.nodes(i).data.goal_value;
-                        new_path_value = obj.state_evaluator.combine_value(stability, goal_value) + path_value;
-                        
-                        % Set node value if greater than previous value
-                        if obj.tree.nodes(i).data.path_value < new_path_value
-                            path_value = new_path_value;
-                            obj.tree.nodes(i).data.path_value = path_value;
-                        else
-                            % Otherwise, stop backprop
-                            break;
-                        end
-                        
-                        % Move to parent
-                        i = obj.tree.nodes(i).parent;
-                    end
-                    
-                    % Start new rollout
-                    if obj.tree.nodes(1).data.gstate.n < obj.cstate_num
-                        obj.rollout_node = uint32(1);
-                    else
-                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
-                    end
-                end
-                
-                % If a node has already had all discrete options expanded, pick
-                % a different node
-                for i = 1:100
-                    if obj.tree.nodes(obj.rollout_node).data.gstate.n >= obj.cstate_num
-                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
-                    else
-                        break;
-                    end
-                end
-                
-                % Expand on current rollout node
-                n = obj.rollout_node;
-                
-                % Generate a set of parameters to try
-                gstate = obj.tree.nodes(n).data.gstate;
-                Xnom = obj.tree.nodes(n).data.X(1);
-                terrain = obj.env.getLocalTerrain(Xnom.body.x);
-                [cparams_gen, gstate] = generate_params(Xnom, goal, terrain, gstate, obj.action_queue);
-                obj.tree.nodes(n).data.gstate = gstate;
-                
-                % Simulate the transition multiple times to estimate
-                % stochasticity
-                ss = obj.simulate_transition(n, cparams_gen, goal, obj.Ts_tree);
-                
-                if ss.stability > 0.3
-                    % If the stability is reasonably high, add it as a child and
-                    % continue the rollout
-                    c = obj.tree.addChild(n, ss);
-                    
-                    % If unable to add child node, delete the least stable child
-                    if ~c
-                        vs_min = inf;
-                        c_min = uint32(0);
-                        for i = 1:numel(obj.tree.nodes(n).children)
-                            ci = obj.tree.nodes(n).children(i);
-                            if ci
-                                vsc = obj.tree.nodes(ci).data.stability;
-                                if vsc <= vs_min
-                                    vs_min = vsc;
-                                    c_min = ci;
-                                end
-                            end
-                        end
-                        if c_min
-                            obj.tree.deleteNode(c_min);
-                            c = obj.tree.addChild(n, ss);
-                        end
-                    end
-                    
-                    % Child is next parent for the rollout
-                    if c
-                        obj.rollout_node = c;
-                    else
-                        % Adding child failed; tree is probably full
-                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
-                    end
-                else
-                    % If the value is too low, start a new rollout
-                    if obj.tree.nodes(1).data.gstate.n < obj.cstate_num
-                        obj.rollout_node = uint32(1);
-                    else
-                        obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
-                    end
-                end
-            end
-
-%             terrain = obj.env.getLocalTerrain(X.body.x);
-%             actions = obj.action_predictor.predict(X, cstate, terrain, goal);
-%             
-%             cparams = ControllerParams();
-%             cparams.target_dx = goal.dx;
-%             
-%             switch actions(1)
-%                 case 1
-%                     cparams.step_offset = -0.2;
-%                 case 2
-%                     cparams.step_offset = -0.1;
-%                 case 3
-%                     cparams.step_offset = -0.05;
-%                 case 4
-%                     cparams.step_offset = 0;
-%                 case 5
-%                     cparams.step_offset = 0.05;
-%                 case 6
-%                     cparams.step_offset = 0.1;
-%                 case 7
-%                     cparams.step_offset = 0.2;
+%                 
+%                 for i = 1:numel(obj.tree.nodes(1).children)
+%                     c = obj.tree.nodes(1).children(i);
+%                     if c
+%                         j = obj.tree.nodes(c).data.cparams.n;
+%                         if j > 0 && j <= numel(scores)
+%                             scores(j) = max(scores(j), obj.tree.nodes(c).data.path_value);
+%                         end
+%                     end
+%                 end
+%                 
+%                 % Store the highest value path in the action stack
+%                 pathnodes = uint32(zeros(obj.rollout_depth + 1, 1));
+%                 pathnodes(1) = uint32(1);
+%                 obj.action_queue.clear();
+%                 n = uint32(1);
+%                 while any(obj.tree.nodes(n).children)
+%                     % Find child with highest rollout value
+%                     v_max = -inf;
+%                     n_new = uint32(0);
+%                     for i = 1:numel(obj.tree.nodes(n).children)
+%                         c = obj.tree.nodes(n).children(i);
+%                         if c
+%                             v = obj.tree.nodes(c).data.path_value;
+%                             if v > v_max
+%                                 cparams = obj.tree.nodes(c).data.cparams;
+%                                 v_max = v;
+%                                 n_new = c;
+%                             end
+%                         end
+%                     end
+%                     if ~n_new
+%                         break;
+%                     end
+%                     n = n_new;
+%                     pathnodes(find(~pathnodes, 1)) = n;
+%                     obj.action_queue.push(cparams);
+%                 end
+%                 
+%                 if ~obj.action_queue.isempty()
+%                     cparams = obj.action_queue.pop();
+%                 end
+%                 
+% %                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
+% %                 actions = obj.action_predictor.predict(Xp, cstatep, terrainp, goal);
+% %                 obj.predicted = actions(1);
+% %                 cparams = ControllerParams();
+% %                 cparams.target_dx = goal.dx;
+% %                 switch actions(1)
+% %                     case 1
+% %                         cparams.step_offset = -0.2;
+% %                     case 2
+% %                         cparams.step_offset = -0.1;
+% %                     case 3
+% %                         cparams.step_offset = -0.05;
+% %                     case 4
+% %                         cparams.step_offset = 0;
+% %                     case 5
+% %                         cparams.step_offset = 0.05;
+% %                     case 6
+% %                         cparams.step_offset = 0.1;
+% %                     case 7
+% %                         cparams.step_offset = 0.2;
+% %                 end
+%                 
+%                 
+%                 % Simulate the upcoming tree timestep
+%                 ss = obj.simulate_transition(Xp, cstatep, cparams, goal, obj.Ts_tree - obj.Ts);
+%                 
+%                 Xp = ss.X(1);
+%                 cstatep = ss.cstate(1);
+%                 rs_out = obj.rs_out;
+%                 cs_out = obj.cs_out;
+%                 tr_out = obj.tr_out;
+%                 obj.rs_out = [...
+%                     mod(Xp.body.theta + pi, 2*pi) - pi;
+%                     Xp.body.dx;
+%                     Xp.body.dy;
+%                     Xp.body.dtheta;
+%                     Xp.right.l;
+%                     Xp.right.l_eq;
+%                     Xp.right.theta;
+%                     Xp.right.theta_eq;
+%                     Xp.right.dl;
+%                     Xp.right.dl_eq;
+%                     Xp.right.dtheta;
+%                     Xp.right.dtheta_eq;
+%                     Xp.left.l;
+%                     Xp.left.l_eq;
+%                     Xp.left.theta;
+%                     Xp.left.theta_eq;
+%                     Xp.left.dl;
+%                     Xp.left.dl_eq;
+%                     Xp.left.dtheta;
+%                     Xp.left.dtheta_eq]';
+%                 obj.cs_out = [cstatep.right.phase;
+%                     cstatep.right.foot_x_last;
+%                     cstatep.right.foot_x_target;
+%                     cstatep.left.phase;
+%                     cstatep.left.foot_x_last;
+%                     cstatep.left.foot_x_target;
+%                     cstatep.body_ddx;
+%                     cstatep.body_dx_last]';
+%                 terrainp = obj.env.getLocalTerrain(Xp.body.x);
+%                 obj.tr_out = terrainp.height' - Xp.body.y;
+%                 
+%                 
+%                 % Reset tree with predicted state as root
+%                 obj.tree.reset(ss);
+%                 obj.rollout_node = uint32(1);
+%             elseif obj.tree.nodes(1).data.gstate.n < obj.cstate_num || ...
+%                     obj.tree.nodes(1).data.path_value < 0.8 * (obj.rollout_depth + 1)
+%                 
+%                 % Check whether max depth on current rollout has been reached
+%                 if obj.tree.nodes(obj.rollout_node).depth >= obj.rollout_depth
+%                     % Evaluate leaf node   
+%                     stability = obj.tree.nodes(obj.rollout_node).data.stability;
+%                     goal_value = obj.tree.nodes(obj.rollout_node).data.goal_value;
+%                     path_value = obj.state_evaluator.combine_value(stability, goal_value);
+%                     obj.tree.nodes(obj.rollout_node).data.path_value = path_value;
+%                     
+%                     % Propogate value to parents
+%                     i = obj.tree.nodes(obj.rollout_node).parent;
+%                     while (i > 0)
+%                         % Compute potential new path value
+%                         % path_value retained from child
+%                         stability = obj.tree.nodes(i).data.stability;
+%                         goal_value = obj.tree.nodes(i).data.goal_value;
+%                         new_path_value = obj.state_evaluator.combine_value(stability, goal_value) + path_value;
+%                         
+%                         % Set node value if greater than previous value
+%                         if obj.tree.nodes(i).data.path_value < new_path_value
+%                             path_value = new_path_value;
+%                             obj.tree.nodes(i).data.path_value = path_value;
+%                         else
+%                             % Otherwise, stop backprop
+%                             break;
+%                         end
+%                         
+%                         % Move to parent
+%                         i = obj.tree.nodes(i).parent;
+%                     end
+%                     
+%                     % Start new rollout
+%                     if obj.tree.nodes(1).data.gstate.n < obj.cstate_num
+%                         obj.rollout_node = uint32(1);
+%                     else
+%                         obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+%                     end
+%                 end
+%                 
+%                 % If a node has already had all discrete options expanded, pick
+%                 % a different node
+%                 for i = 1:100
+%                     if obj.tree.nodes(obj.rollout_node).data.gstate.n >= obj.cstate_num
+%                         obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+%                     else
+%                         break;
+%                     end
+%                 end
+%                 
+%                 % Expand on current rollout node
+%                 n = obj.rollout_node;
+%                 
+%                 % Generate a set of parameters to try
+%                 gstate = obj.tree.nodes(n).data.gstate;
+%                 Xnom = obj.tree.nodes(n).data.X(1);
+%                 terrain = obj.env.getLocalTerrain(Xnom.body.x);
+%                 [cparams_gen, gstate] = generate_params(Xnom, goal, terrain, gstate, obj.action_queue);
+%                 obj.tree.nodes(n).data.gstate = gstate;
+%                 
+%                 % Simulate the transition multiple times to estimate
+%                 % stochasticity
+%                 ss = obj.simulate_transition(n, cparams_gen, goal, obj.Ts_tree);
+%                 
+%                 if ss.stability > 0.3
+%                     % If the stability is reasonably high, add it as a child and
+%                     % continue the rollout
+%                     c = obj.tree.addChild(n, ss);
+%                     
+%                     % If unable to add child node, delete the least stable child
+%                     if ~c
+%                         vs_min = inf;
+%                         c_min = uint32(0);
+%                         for i = 1:numel(obj.tree.nodes(n).children)
+%                             ci = obj.tree.nodes(n).children(i);
+%                             if ci
+%                                 vsc = obj.tree.nodes(ci).data.stability;
+%                                 if vsc <= vs_min
+%                                     vs_min = vsc;
+%                                     c_min = ci;
+%                                 end
+%                             end
+%                         end
+%                         if c_min
+%                             obj.tree.deleteNode(c_min);
+%                             c = obj.tree.addChild(n, ss);
+%                         end
+%                     end
+%                     
+%                     % Child is next parent for the rollout
+%                     if c
+%                         obj.rollout_node = c;
+%                     else
+%                         % Adding child failed; tree is probably full
+%                         obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+%                     end
+%                 else
+%                     % If the value is too low, start a new rollout
+%                     if obj.tree.nodes(1).data.gstate.n < obj.cstate_num
+%                         obj.rollout_node = uint32(1);
+%                     else
+%                         obj.rollout_node = obj.tree.randDepth(obj.rollout_depth - 1);
+%                     end
+%                 end
 %             end
 
+            terrain = obj.env.getLocalTerrain(X.body.x);
+            actions = obj.action_predictor.predict(X, cstate, terrain, goal);
+            
+            cparams = ControllerParams();
+            cparams.target_dx = goal.dx;
+            
+            switch actions(1)
+                case 1
+                    cparams.step_offset = -0.2;
+                case 2
+                    cparams.step_offset = -0.15;
+                case 3
+                    cparams.step_offset = -0.1;
+                case 4
+                    cparams.step_offset = -0.05;
+                case 5
+                    cparams.step_offset = 0;
+                case 6
+                    cparams.step_offset = 0.05;
+                case 7
+                    cparams.step_offset = 0.1;
+                case 8
+                    cparams.step_offset = 0.15;
+                case 9
+                    cparams.step_offset = 0.2;
+            end
+            
             % Increment tree timestep clock
             obj.t = mod(obj.t + obj.Ts, obj.Ts_tree);
             
@@ -450,7 +454,7 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 Xi = X;
                 if i > 1
                     % Perturb initial conditions
-                    Xi.body.x = Xi.body.x + 1e-2*(2*rand() - 1);
+                    Xi.body.x = Xi.body.x + 3e-2*(2*rand() - 1);
                     Xi.body.y = Xi.body.y + 0e-3*(2*rand() - 1);
                     Xi.body.dx = Xi.body.dx + 1e-1*(2*rand() - 1);
                     Xi.body.dy = Xi.body.dy + 3e-2*(2*rand() - 1);
