@@ -2,11 +2,13 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
     
     properties (Nontunable)
         Ts = 1e-3;
+        noise = 0;
     end
     
     properties (Access = private)
         cstate;
         reset_flag;
+        noiseval;
     end
     
     
@@ -23,12 +25,22 @@ classdef BipedController < matlab.System & matlab.system.mixin.Propagates
             end
             [u, obj.cstate] = controller_step(X, obj.cstate, cparams, obj.Ts);
             cstate = obj.cstate;
+            
+            f = 1e-2;
+            obj.noiseval = (1 - f) * obj.noiseval + f * obj.noise * randn(4, 1);
+            
+            u.right.l_eq     = u.right.l_eq + obj.noiseval(1);
+            u.right.theta_eq = u.right.theta_eq + obj.noiseval(2);
+            u.left.l_eq      = u.left.l_eq + obj.noiseval(3);
+            u.left.theta_eq  = u.left.theta_eq + obj.noiseval(4);
+
         end
         
         
         function resetImpl(obj)
             obj.cstate = ControllerState();
             obj.reset_flag = true;
+            obj.noiseval = zeros(4, 1);
         end
         
         

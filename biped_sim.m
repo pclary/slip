@@ -1,4 +1,6 @@
-function [X, cstate, X_delay, u] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts)
+function [X, cstate, X_delay, u] = biped_sim(X, cstate, robot, cparams, terrain, tstop, Ts, noise)
+
+noiseval = zeros(4, 1);
 
 % Dynamics steps per controller step
 ratio = 8;
@@ -33,6 +35,15 @@ while t < tstop
     end
     
     [u, cstate] = controller_step(X_delay, cstate, cparams, Ts * ratio);
+    
+    f = 1e-2;
+    noiseval = (1 - f) * noiseval + f * noise * randn(4, 1);
+    
+    u.right.l_eq     = u.right.l_eq + noiseval(1);
+    u.right.theta_eq = u.right.theta_eq + noiseval(2);
+    u.left.l_eq      = u.left.l_eq + noiseval(3);
+    u.left.theta_eq  = u.left.theta_eq + noiseval(4);
+    
     X_delay = X;
     
     % Stop if crashed

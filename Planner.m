@@ -76,9 +76,9 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 % for delay compensation
                 terrain = obj.env.getLocalTerrain(X.body.x);
                 if coder.target('MATLAB')
-                    [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
+                    [Xp, cstatep] = biped_sim_mex(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim, 0);
                 else
-                    [Xp, cstatep] = biped_sim(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim);
+                    [Xp, cstatep] = biped_sim(X, cstate, obj.robot, cparams, terrain, obj.Ts, obj.Ts_sim, 0);
                 end
                 
                 for i = 1:numel(obj.tree.nodes(1).children)
@@ -458,21 +458,23 @@ classdef Planner < matlab.System & matlab.system.mixin.Propagates
                 
                 % Simulate a step
                 Xi = X;
+                noise = 0;
                 if i > 1
-                    % Perturb initial conditions
-                    Xi.body.x = Xi.body.x + 3e-2*(2*rand() - 1);
-                    Xi.body.y = Xi.body.y + 0e-3*(2*rand() - 1);
-                    Xi.body.dx = Xi.body.dx + 1e-1*(2*rand() - 1);
-                    Xi.body.dy = Xi.body.dy + 3e-2*(2*rand() - 1);
-                    terrain.friction = terrain.friction * (0.4*rand() + 0.8);
+                    noise = 2e2;
+%                     % Perturb initial conditions
+%                     Xi.body.x = Xi.body.x + 3e-2*(2*rand() - 1);
+%                     Xi.body.y = Xi.body.y + 0e-3*(2*rand() - 1);
+%                     Xi.body.dx = Xi.body.dx + 1e-1*(2*rand() - 1);
+%                     Xi.body.dy = Xi.body.dy + 3e-2*(2*rand() - 1);
+%                     terrain.friction = terrain.friction * (0.4*rand() + 0.8);
                 end
                 
                 if coder.target('MATLAB')
                     [Xp(i), cstatep(i)] = biped_sim_mex(Xi, cstate, obj.robot, ...
-                        cparams, terrain, tstop, obj.Ts_sim);
+                        cparams, terrain, tstop, obj.Ts_sim, noise);
                 else
                     [Xp(i), cstatep(i)] = biped_sim(Xi, cstate, obj.robot, ...
-                    cparams, terrain, tstop, obj.Ts_sim);
+                    cparams, terrain, tstop, obj.Ts_sim, noise);
                 end
                 
                 % Evaluate the result
