@@ -42,7 +42,7 @@ kd_f_ext = 2*sqrt(kp_f_ext*robot.body.mass);
 % ground_friction = 1*ones(size(ground_x));
 % env = Environment([ground_x, ground_y, ground_stiffness, ground_damping, ground_friction]);
 % clear ground_x ground_y ground_stiffness ground_damping ground_friction
-env = Environment(generate_environment_holes());
+env = Environment(generate_environment_gapsteps());
 
 % Timesteps
 Ts_controller = 1e-3;
@@ -52,6 +52,6 @@ Ts_visualization = 16e-3;
 Ts_sim = 1e-3 / 8;
 
 % Planner parameters
-transition_samples = 4;
+transition_samples = 1;
 rollout_depth = 3;
 Ts_tree = 0.5;

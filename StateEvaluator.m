@@ -64,13 +64,13 @@ classdef StateEvaluator < handle
         
         function vg = goal_value(~, X, goal)
             % Percent-based velocity error score
-            saturation = 3; % Full error
-            deadband = 1.2; % Less than this (multiplicative) difference treated as zero error
+            saturation = 2; % Full error
+            deadband = 1.1; % Less than this (multiplicative) difference treated as zero error
             em = max(abs(log(min(max(X.body.dx / goal.dx, 1/saturation), saturation))) - log(deadband), 0) / log(saturation / deadband);
             
             % Difference-based velocity error score
-            saturation = 2;
-            deadband = 0.3;
+            saturation = 1;
+            deadband = 0.1;
             ed = min(max(abs(X.body.dx - goal.dx) - deadband, 0) / (saturation - deadband), 1);
             
             % Error is the minimum of the two error scores, and score is inverted
