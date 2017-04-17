@@ -4,7 +4,6 @@
 #include <cstddef>
 #include "mujoco.h"
 #include "cassie_system_types.h"
-#include "Visualization.hpp"
 
 
 class Simulator
@@ -17,14 +16,11 @@ public:
     Simulator& operator=(Simulator&&) = default;
     ~Simulator();
 
-    void step(ethercat_data_t* ethercat);
+    static mjModel* m;
+    mjData* d;
 
 private:
     static size_t instances;
-    static mjModel* m;
-
-    mjData* d;
-    Visualization* vis;
 
 };
 

@@ -15,7 +15,7 @@ public:
     Visualization& operator=(Visualization&&) = default;
     ~Visualization();
 
-    void update(mjData* d);
+    bool update(mjData* d);
 
 private:
     static size_t instances;

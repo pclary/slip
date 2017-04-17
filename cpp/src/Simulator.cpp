@@ -22,8 +22,6 @@ Simulator::Simulator()
     // Take a half-update to prepare for stepping through simulation
     mj_step1(m, d);
 
-    vis = new Visualization(m);
-
     // Count instances for mujoco initialization/termination
     ++instances;
 }
@@ -34,10 +32,6 @@ Simulator::~Simulator()
     // Count instances for mujoco initialization/termination
     --instances;
 
-    // Delete visualization object if it exists
-    if (vis)
-        delete vis;
-
     // Free mjData
     mj_deleteData(d);
 
@@ -46,15 +40,4 @@ Simulator::~Simulator()
         mj_deleteModel(m);
         mj_deactivate();
     }
-}
-
-
-void Simulator::step(ethercat_data_t* ethercat)
-{
-    mj_step2(m, d);
-
-    if (vis)
-        vis->update(d);
-
-    mj_step1(m, d);
 }

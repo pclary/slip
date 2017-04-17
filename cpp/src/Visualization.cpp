@@ -17,7 +17,7 @@ Visualization::Visualization(const mjModel* m)
     this->m = m;
 
     // Create window
-    GLFWwindow* window = glfwCreateWindow(1200, 900, "Cassie", NULL, NULL);
+    window = glfwCreateWindow(1200, 900, "Cassie", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
@@ -49,16 +49,17 @@ Visualization::~Visualization()
 }
 
 
-void Visualization::update(mjData* d)
+bool Visualization::update(mjData* d)
 {
     // Return early if window is closed
     if (!window)
-        return;
+        return false;
 
     // Handle closing window
     if (glfwWindowShouldClose(window)) {
         glfwDestroyWindow(window);
         window = nullptr;
+        return false;
     }
 
     // Set up for rendering
@@ -73,4 +74,6 @@ void Visualization::update(mjData* d)
     // Show updated scene
     glfwSwapBuffers(window);
     glfwPollEvents();
+
+    return true;
 }
