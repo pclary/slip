@@ -1,6 +1,6 @@
 <mujoco model='cassie'>
   <compiler inertiafromgeom='false' angle='degree' meshdir='cassie-stl-meshes'/>
-  <size nuser_actuator='1' nuser_sensor='2'/>
+  <size nuser_actuator='1' nuser_sensor='1'/>
 
   <default>
     <joint limited='true'/>
@@ -8,7 +8,7 @@
     <motor ctrllimited='true'/>
   </default>
 
-  <option timestep='0.002' iterations='50' solver='PGS' gravity='0 0 -9.81'>
+  <option timestep='0.0005' iterations='50' solver='PGS' gravity='0 0 -9.81'>
     <flag energy='enable' fwdinv='enable'/>
   </option>
 
@@ -52,39 +52,39 @@
   <worldbody>
     <geom name='floor' pos='0 0 0' size='5 5 .125' type='plane' material='MatPlane' rgba='0.8 0.6 0.4 1' condim='3' conaffinity='7'/>
     <light mode='targetbodycom' target='pelvis' directional='false' diffuse='.8 .8 .8' specular='0.3 0.3 0.3' pos='0 0 4.0' dir='0 0 -1'/>
-	<camera name='targeting' pos='1 1 2' mode='targetbodycom' target='pelvis'/>
+    <camera name='trackcom' pos='0 -3 2' zaxis='0 -1 0.5' mode='trackcom'/>
 
-    <body name='pelvis' pos='0 0 1.1'>
+    <body name='pelvis' pos='0 0 1.4'>
       <inertial pos='0.0507 0 0.0284' mass='10.33' fullinertia='0.094158 0.084066 0.11277 0.000169 0.015026 0.000516'/>
-      <joint name='pelvis' type='free' limited='false'/>
+      <!-- <joint name='pelvis' type='free' limited='false'/> -->
       <geom type='mesh' mesh='pelvis'/>
       <geom type='sphere' size='0.15' pos='0.02 0 0.02' rgba='0.9 0.5 0.1 0.2' contype='1'/>
-      <camera name='tracking' pos='1 1 2' zaxis='1 2 3' mode='trackcom'/>
+      <site name='imu' size='0.01'/>
       <body name='left_yaw' pos='-0.049 0.135 0'>
         <inertial pos='0.0257 0.0001 0.0179' mass='1.82' fullinertia='0.002722 0.005586 0.004638 7e-07 1.5e-06 2.6e-06'/>
-        <joint name='left_yaw' type='hinge' axis='1 0 0' range='-15 22.5' damping='3' armature='0.038125'/>
+        <joint name='left_yaw' type='hinge' axis='1 0 0' range='-15 22.5' damping='1' armature='0.038125'/>
         <geom type='mesh' mesh='left_yaw'/>
         <body name='left_hip' pos='0 0 -0.09' xyaxes='0 0 -1 1 0 0'>
           <inertial pos='-0.0557 0 0' mass='1.17' fullinertia='0.000842 0.006076 0.006436 2e-07 -6e-07 0'/>
-          <joint name='left_hip' type='hinge' axis='-1 0 0' range='-22.5 22.5' damping='3' armature='0.038125'/>
+          <joint name='left_hip' type='hinge' axis='-1 0 0' range='-22.5 22.5' damping='1' armature='0.038125'/>
           <geom type='mesh' mesh='left_hip'/>
           <body name='left_thigh' pos='0 0 0'>
             <inertial pos='0.0595 0.0001 -0.0358' mass='5.52' fullinertia='0.017969 0.056284 0.049756 0.000284 -0.011685 -1.9e-05'/>
-            <joint name='left_thigh' type='hinge' range='-50 80' damping='3'/>
+            <joint name='left_thigh' type='hinge' range='-50 80' damping='1'/>
             <geom type='mesh' mesh='left_thigh'/>
             <geom type='capsule' size='0.08' fromto='0 0 -0.04 0.12 0 -0.0355' rgba='0.9 0.5 0.1 0.2' contype='1'/>
             <body name='left_knee' pos='0.12 0 0.0045' xyaxes='0.70711 -0.70711 0 0.70711 0.70711 0'>
               <inertial pos='0.023 0.0321 -0.0022' mass='0.758' fullinertia='0.002159 0.001438 0.003344 0.000956 2.8e-06 7e-07'/>
-              <joint name='left_knee' type='hinge' ref='-45' range='-164 -37' damping='3' armature='0.09344'/>
+              <joint name='left_knee' type='hinge' ref='-45' range='-164 -37' damping='1' armature='0.09344'/>
               <geom type='mesh' mesh='left_knee'/>
               <body name='left_shin' pos='0.06068 0.04741 0'>
                 <inertial pos='0.1834 0.0012 0.0002' mass='0.577' fullinertia='0.00036 0.034132 0.034111 0.000334 0 0'/>
-                <joint name='left_shin' type='hinge' range='-20 20' stiffness='2300' damping='0.3'/>
+                <joint name='left_shin' type='hinge' range='-20 20' stiffness='2300' damping='0.1'/>
                 <geom type='mesh' mesh='left_shin'/>
                 <geom type='capsule' size='0.04' fromto='0 0 0 0.43476 0.02 0' rgba='0.9 0.5 0.1 0.2' contype='2' conaffinity='4'/>
                 <body name='left_tarsus' pos='0.43476 0.02 0' xyaxes='0.52992 0.84805 0 -0.84805 0.52992 0'>
                   <inertial pos='0.1105 -0.0306 -0.0013' mass='0.782' fullinertia='0.001125 0.023138 0.023947 -0.002878 -6.3e-05 3.6e-05'/>
-                  <joint name='left_tarsus' type='hinge' ref='58' range='50 170' damping='0.3'/>
+                  <joint name='left_tarsus' type='hinge' ref='58' range='50 170' damping='0.1'/>
                   <geom type='mesh' mesh='left_tarsus'/>
                   <geom type='capsule' size='0.04' fromto='-0.01269 -0.03059 0.00092 0.408 -0.04 0' rgba='0.9 0.5 0.1 0.2' contype='2' conaffinity='4'/>
                   <body name='left_toe' pos='0.408 -0.04 0' xyaxes='0.64279 -0.76604 0 0.76604 0.64279 0'>
@@ -95,7 +95,7 @@
                   </body>
                   <body name='left_toe_output_crank' pos='0.058 -0.034 0.02275' xyaxes='0.64279 -0.76604 0 0.76604 0.64279 0'>
                     <inertial pos='0.0048 0 -0.0029' mass='0.129' fullinertia='3.07e-05 5.71e-05 6.64e-05 0 2.6e-06 0'/>
-                    <joint name='left_toe_output_crank' type='hinge' ref='-50' range='-140 -30' damping='0.3'/>
+                    <joint name='left_toe_output_crank' type='hinge' ref='-50' range='-140 -30' damping='0.1'/>
                     <geom type='mesh' mesh='left_toe_output_crank'/>
                     <body name='left_plantar_rod' pos='0.055 0 -0.00791' xyaxes='0.64279 0.76604 0 -0.76604 0.64279 0'>
                       <inertial pos='0.1779 0 0' mass='0.119' fullinertia='2.8e-06 0.00553 0.00553 0 0 0'/>
@@ -125,29 +125,29 @@
       </body>
       <body name='right_yaw' pos='-0.049 -0.135 0'>
         <inertial pos='0.0257 0.0001 0.0179' mass='1.82' fullinertia='0.002722 0.005586 0.004638 -7e-07 1.5e-06 -2.6e-06'/>
-        <joint name='right_yaw' type='hinge' axis='-1 0 0' range='-15 22.5' damping='3' armature='0.038125'/>
+        <joint name='right_yaw' type='hinge' axis='-1 0 0' range='-15 22.5' damping='1' armature='0.038125'/>
         <geom type='mesh' mesh='right_yaw'/>
         <body name='right_hip' pos='0 0 -0.09' xyaxes='0 0 -1 1 0 0'>
           <inertial pos='-0.0557 0 0' mass='1.17' fullinertia='0.000842 0.006076 0.006436 -2e-07 -6e-07 0'/>
-          <joint name='right_hip' type='hinge' axis='1 0 0' range='-22.5 22.5' damping='3' armature='0.038125'/>
+          <joint name='right_hip' type='hinge' axis='1 0 0' range='-22.5 22.5' damping='1' armature='0.038125'/>
           <geom type='mesh' mesh='right_hip'/>
           <body name='right_thigh' pos='0 0 0'>
             <inertial pos='0.0595 0.0001 -0.0358' mass='5.52' fullinertia='0.017969 0.056284 0.049756 0.000284 0.011685 1.9e-05'/>
-            <joint name='right_thigh' type='hinge' range='-50 80' damping='3'/>
+            <joint name='right_thigh' type='hinge' range='-50 80' damping='1'/>
             <geom type='mesh' mesh='right_thigh'/>
             <geom type='capsule' size='0.08' fromto='0 0 0.04 0.12 0 0.0355' rgba='0.9 0.5 0.1 0.2' contype='1'/>
             <body name='right_knee' pos='0.12 0 -0.0045' xyaxes='0.70711 -0.70711 0 0.70711 0.70711 0'>
               <inertial pos='0.023 0.0321 -0.0022' mass='0.758' fullinertia='0.002159 0.001438 0.003344 0.000956 -2.8e-06 -7e-07'/>
-              <joint name='right_knee' type='hinge' ref='-45' range='-164 -37' damping='3' armature='0.09344'/>
+              <joint name='right_knee' type='hinge' ref='-45' range='-164 -37' damping='1' armature='0.09344'/>
               <geom type='mesh' mesh='right_knee'/>
               <body name='right_shin' pos='0.06068 0.04741 0'>
                 <inertial pos='0.1834 0.0012 0.0002' mass='0.577' fullinertia='0.00036 0.034132 0.034111 0.000334 0 0'/>
-                <joint name='right_shin' type='hinge' range='-20 20' stiffness='2300' damping='0.3'/>
+                <joint name='right_shin' type='hinge' range='-20 20' stiffness='2300' damping='0.1'/>
                 <geom type='mesh' mesh='right_shin'/>
                 <geom type='capsule' size='0.04' fromto='0 0 0 0.43476 0.02 0' rgba='0.9 0.5 0.1 0.2' contype='4' conaffinity='2'/>
                 <body name='right_tarsus' pos='0.43476 0.02 0' xyaxes='0.52992 0.84805 0 -0.84805 0.52992 0'>
                   <inertial pos='0.1105 -0.0306 -0.0013' mass='0.782' fullinertia='0.001125 0.023138 0.023947 -0.002878 6.3e-05 -3.6e-05'/>
-                  <joint name='right_tarsus' type='hinge' ref='58' range='50 170' damping='0.3'/>
+                  <joint name='right_tarsus' type='hinge' ref='58' range='50 170' damping='0.1'/>
                   <geom type='mesh' mesh='right_tarsus'/>
                   <geom type='capsule' size='0.04' fromto='-0.01269 -0.03059 -0.00092 0.408 -0.04 0' rgba='0.9 0.5 0.1 0.2' contype='4' conaffinity='2'/>
                   <body name='right_toe' pos='0.408 -0.04 0' xyaxes='0.64279 -0.76604 0 0.76604 0.64279 0'>
@@ -158,7 +158,7 @@
                   </body>
                   <body name='right_toe_output_crank' pos='0.058 -0.034 -0.02275' xyaxes='0.64279 -0.76604 0 0.76604 0.64279 0'>
                     <inertial pos='0.0048 0 -0.0029' mass='0.129' fullinertia='3.07e-05 5.71e-05 6.64e-05 0 -2.6e-06 0'/>
-                    <joint name='right_toe_output_crank' type='hinge' ref='-50' range='-140 -30' damping='0.3'/>
+                    <joint name='right_toe_output_crank' type='hinge' ref='-50' range='-140 -30' damping='0.1'/>
                     <geom type='mesh' mesh='right_toe_output_crank'/>
                     <body name='right_plantar_rod' pos='0.055 3.0531e-18 0.00791' xyaxes='0.64279 0.76604 0 -0.76604 0.64279 0'>
                       <inertial pos='0.1779 0 0' mass='0.119' fullinertia='2.8e-06 0.00553 0.00553 -3.0682e-19 0 0'/>
@@ -211,24 +211,27 @@
   </actuator>
 
   <sensor>
-    <framequat name='pelvis_orientation' objtype='body' objname='pelvis'/>
+    <actuatorpos name='left_yaw_input' actuator='left_yaw' user='13'/>
+    <actuatorpos name='left_hip_input' actuator='left_hip' user='13'/>
+    <actuatorpos name='left_thigh_input' actuator='left_thigh' user='13'/>
+    <actuatorpos name='left_knee_input' actuator='left_knee' user='13'/>
+    <jointpos name='left_shin_output' joint='left_shin' user='18'/>
+    <jointpos name='left_tarsus_output' joint='left_tarsus' user='18'/>
+    <actuatorpos name='left_toe_input' actuator='left_toe' user='18'/>
+    <jointpos name='left_toe_output' joint='left_toe' user='13'/>
+    <actuatorpos name='right_yaw_input' actuator='right_yaw' user='13'/>
+    <actuatorpos name='right_hip_input' actuator='right_hip' user='13'/>
+    <actuatorpos name='right_thigh_input' actuator='right_thigh' user='13'/>
+    <actuatorpos name='right_knee_input' actuator='right_knee' user='13'/>
+    <jointpos name='right_shin_output' joint='right_shin' user='18'/>
+    <jointpos name='right_tarsus_output' joint='right_tarsus' user='18'/>
+    <actuatorpos name='right_toe_input' actuator='right_toe' user='18'/>
+    <jointpos name='right_toe_output' joint='right_toe' user='13'/>
 
-    <actuatorpos name='left_yaw_input' actuator='left_yaw' user='13 25'/>
-    <actuatorpos name='left_hip_input' actuator='left_hip' user='13 25'/>
-    <actuatorpos name='left_thigh_input' actuator='left_thigh' user='13 16'/>
-    <actuatorpos name='left_knee_input' actuator='left_knee' user='13 16'/>
-    <jointpos name='left_shin_output' joint='left_shin' user='18 1'/>
-    <jointpos name='left_tarsus_output' joint='left_tarsus' user='18 1'/>
-    <actuatorpos name='left_toe_input' actuator='left_toe' user='18 50'/>
-    <jointpos name='left_toe_output' joint='left_toe' user='13 1'/>
-    <actuatorpos name='right_yaw_input' actuator='right_yaw' user='13 25'/>
-    <actuatorpos name='right_hip_input' actuator='right_hip' user='13 25'/>
-    <actuatorpos name='right_thigh_input' actuator='right_thigh' user='13 16'/>
-    <actuatorpos name='right_knee_input' actuator='right_knee' user='13 16'/>
-    <jointpos name='right_shin_output' joint='right_shin' user='18 1'/>
-    <jointpos name='right_tarsus_output' joint='right_tarsus' user='18 1'/>
-    <actuatorpos name='right_toe_input' actuator='right_toe' user='18 50'/>
-    <jointpos name='right_toe_output' joint='right_toe' user='13 1'/>
+    <framequat name='pelvis_orientation' objtype='xbody' objname='pelvis'/>
+    <gyro name='pelvis_gyro' site='imu'/>
+    <accelerometer name='pelvis_accel' site='imu'/>
+    <magnetometer name='pelvis_mag' site='imu'/>
   </sensor>
 
 </mujoco>

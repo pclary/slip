@@ -11,7 +11,7 @@ Simulator::Simulator()
     if (!instances) {
         mj_activate("mjkey.txt");
         char error[1000] = "Could not load binary model";
-        m = mj_loadXML("cassie-planar.xml", 0, error, 1000);
+        m = mj_loadXML("cassie.xml", 0, error, 1000);
         if (!m)
             mju_error_s("Load model error: %s", error);
     }

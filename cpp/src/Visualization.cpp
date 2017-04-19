@@ -22,7 +22,8 @@ Visualization::Visualization(const mjModel* m)
     glfwSwapInterval(1);
 
     // Set up mujoco visualization objects
-    mjv_defaultCamera(&cam);
+    cam.type = mjCAMERA_FIXED;
+    cam.fixedcamid = 0;
     mjv_defaultOption(&opt);
     mjr_defaultContext(&con);
     mjv_makeScene(&scn, 1000);
