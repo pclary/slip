@@ -58,6 +58,7 @@ static void quatrot(const mjtNum* q, const mjtNum* v, mjtNum* dst)
 
 System::System()
 {
+    ethercat = {};
     system = cassie_system_alloc();
     cassie_system_init(system);
 }
@@ -137,6 +138,6 @@ void System::step(const mjModel* m, mjData* d)
     motor(m, d, i++, ethercat.rightKneeDrive.outputs.torque);
     motor(m, d, i++, ethercat.rightFootDrive.outputs.torque);
 
-    for (int j = 0; j < m->nu; ++j)
-        std::cout << j << " " << d->ctrl[j] << std::endl;
+    // for (int j = 0; j < m->nu; ++j)
+    //     std::cout << j << " " << d->ctrl[j] << std::endl;
 }
