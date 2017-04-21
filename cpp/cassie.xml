@@ -1,5 +1,5 @@
 <mujoco model='cassie'>
-  <compiler inertiafromgeom='false' angle='degree' meshdir='cassie-stl-meshes'/>
+  <compiler inertiafromgeom='false' angle='degree' eulerseq='zyx' meshdir='cassie-stl-meshes'/>
   <size nuser_actuator='1' nuser_sensor='1'/>
 
   <default>
@@ -54,12 +54,16 @@
     <light mode='targetbodycom' target='pelvis' directional='false' diffuse='.8 .8 .8' specular='0.3 0.3 0.3' pos='0 0 4.0' dir='0 0 -1'/>
     <camera name='trackcom' pos='0 -3 2' zaxis='0 -1 0.5' mode='trackcom'/>
 
-    <body name='pelvis' pos='0 0 1.4'>
+    <body name='pelvis' pos='0 0 1.01'>
       <inertial pos='0.0507 0 0.0284' mass='10.33' fullinertia='0.094158 0.084066 0.11277 0.000169 0.015026 0.000516'/>
       <!-- <joint name='pelvis' type='free' limited='false'/> -->
+      <joint type='slide' axis='1 0 0' range='-0.001 0.001'/>
+      <joint type='slide' axis='0 1 0' range='-0.001 0.001'/>
+      <joint type='slide' axis='0 0 1' ref='1.01' range='1.009 1.011'/>
+      <joint name='pelvis' type='ball' range='0 0.0001'/>
       <geom type='mesh' mesh='pelvis'/>
       <geom type='sphere' size='0.15' pos='0.02 0 0.02' rgba='0.9 0.5 0.1 0.2' contype='1'/>
-      <site name='imu' size='0.01'/>
+      <site name='imu' size='0.01' euler='0 -90 0'/>
       <body name='left_yaw' pos='-0.049 0.135 0'>
         <inertial pos='0.0257 0.0001 0.0179' mass='1.82' fullinertia='0.002722 0.005586 0.004638 7e-07 1.5e-06 2.6e-06'/>
         <joint name='left_yaw' type='hinge' axis='1 0 0' range='-15 22.5' damping='1' armature='0.038125'/>
@@ -228,7 +232,7 @@
     <actuatorpos name='right_toe_input' actuator='right_toe' user='18'/>
     <jointpos name='right_toe_output' joint='right_toe' user='13'/>
 
-    <framequat name='pelvis_orientation' objtype='xbody' objname='pelvis'/>
+    <framequat name='pelvis_orientation' objtype='site' objname='imu'/>
     <gyro name='pelvis_gyro' site='imu'/>
     <accelerometer name='pelvis_accel' site='imu'/>
     <magnetometer name='pelvis_mag' site='imu'/>

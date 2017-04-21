@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cmath>
 #include "mujoco.h"
-#include <iostream>
 
 
 static double encoder(const mjModel* m, const mjtNum* sensordata, size_t i)
@@ -11,7 +10,7 @@ static double encoder(const mjModel* m, const mjtNum* sensordata, size_t i)
     size_t bits = m->sensor_user[m->nuser_sensor * i];
     int encoder_value = sensordata[i] / (2 * M_PI) * (1 << bits);
     double ratio = 1;
-    if (m->sensor_objtype[i] == 17)
+    if (m->sensor_objtype[i] == mjOBJ_ACTUATOR)
         ratio = m->actuator_gear[6 * m->sensor_objid[i]];
     return encoder_value * (2 * M_PI) / (1 << bits) / ratio;
 }
@@ -30,29 +29,6 @@ static void motor(const mjModel* m, mjData* d, size_t i, double u)
 
     // Compute motor-side torque
     d->ctrl[i] = std::copysign(std::fmin(std::fabs(u / ratio), tlim), u);
-}
-
-
-static void quatmul(const mjtNum* q, const mjtNum* p, mjtNum* dst)
-{
-    dst[0] = p[0]*q[0] - p[1]*q[1] - p[2]*q[2] - p[3]*q[3];
-    dst[1] = p[0]*q[1] + p[1]*q[0] - p[2]*q[3] + p[3]*q[2];
-    dst[2] = p[0]*q[2] + p[2]*q[0] + p[1]*q[3] - p[3]*q[1];
-    dst[3] = p[0]*q[3] - p[1]*q[2] + p[2]*q[1] + p[3]*q[0];
-}
-
-
-static void quatrot(const mjtNum* q, const mjtNum* v, mjtNum* dst)
-{
-    dst[0] = v[0]*q[0]*q[0] + 2*v[2]*q[0]*q[2] - 2*v[1]*q[0]*q[3] +
-        v[0]*q[1]*q[1] + 2*v[1]*q[1]*q[2] + 2*v[2]*q[1]*q[3] -
-        v[0]*q[2]*q[2] - v[0]*q[3]*q[3];
-    dst[1] = v[1]*q[0]*q[0] - 2*v[2]*q[0]*q[1] + 2*v[0]*q[0]*q[3] -
-        v[1]*q[1]*q[1] + 2*v[0]*q[1]*q[2] + v[1]*q[2]*q[2] +
-        2*v[2]*q[2]*q[3] - v[1]*q[3]*q[3];
-    dst[2] = v[2]*q[0]*q[0] + 2*v[1]*q[0]*q[1] - 2*v[0]*q[0]*q[2] -
-        v[2]*q[1]*q[1] + 2*v[0]*q[1]*q[3] - v[2]*q[2]*q[2] +
-        2*v[1]*q[2]*q[3] + v[2]*q[3]*q[3];
 }
 
 
@@ -93,9 +69,9 @@ void System::step(const mjModel* m, mjData* d)
         encoder(m, d->sensordata, i++);
 
     ethercat.rightAbductionDrive.inputs.position =
-        encoder(m, d->sensordata, i++);
+        -encoder(m, d->sensordata, i++);
     ethercat.rightYawDrive.inputs.position =
-        encoder(m, d->sensordata, i++);
+        -encoder(m, d->sensordata, i++);
     ethercat.rightHipDrive.inputs.position =
         encoder(m, d->sensordata, i++);
     ethercat.rightKneeDrive.inputs.position =
@@ -110,15 +86,14 @@ void System::step(const mjModel* m, mjData* d)
         encoder(m, d->sensordata, i++);
 
     // IMU
-    double rot[] = {-sqrt(2) / 2, 0, sqrt(2) / 2, 0};
-    quatmul(rot, &d->sensordata[i],
-            ethercat.pelvisMedulla.inputs.vnOrientation);
+    mju_copy(ethercat.pelvisMedulla.inputs.vnOrientation,
+             &d->sensordata[i], 4);
     i += 4;
-    quatrot(rot, &d->sensordata[i], ethercat.pelvisMedulla.inputs.vnGyro);
+    mju_copy(ethercat.pelvisMedulla.inputs.vnGyro, &d->sensordata[i], 3);
     i += 3;
-    quatrot(rot, &d->sensordata[i], ethercat.pelvisMedulla.inputs.vnAccel);
+    mju_copy(ethercat.pelvisMedulla.inputs.vnAccel, &d->sensordata[i], 3);
     i += 3;
-    quatrot(rot, &d->sensordata[i], ethercat.pelvisMedulla.inputs.vnMag);
+    mju_copy(ethercat.pelvisMedulla.inputs.vnMag, &d->sensordata[i], 3);
     i += 3;
 
     // Run control system
@@ -132,12 +107,9 @@ void System::step(const mjModel* m, mjData* d)
     motor(m, d, i++, ethercat.leftKneeDrive.outputs.torque);
     motor(m, d, i++, ethercat.leftFootDrive.outputs.torque);
 
-    motor(m, d, i++, ethercat.rightAbductionDrive.outputs.torque);
-    motor(m, d, i++, ethercat.rightYawDrive.outputs.torque);
+    motor(m, d, i++, -ethercat.rightAbductionDrive.outputs.torque);
+    motor(m, d, i++, -ethercat.rightYawDrive.outputs.torque);
     motor(m, d, i++, ethercat.rightHipDrive.outputs.torque);
     motor(m, d, i++, ethercat.rightKneeDrive.outputs.torque);
     motor(m, d, i++, ethercat.rightFootDrive.outputs.torque);
-
-    // for (int j = 0; j < m->nu; ++j)
-    //     std::cout << j << " " << d->ctrl[j] << std::endl;
 }
