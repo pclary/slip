@@ -66,7 +66,7 @@
           <geom type='mesh' mesh='left_hip'/>
           <body name='left_thigh' pos='0 0 0'>
             <inertial pos='0.0595 0.0001 -0.0358' mass='5.52' fullinertia='0.017969 0.056284 0.049756 0.000284 -0.011685 -1.9e-05'/>
-            <joint name='left_hip' type='hinge' range='-50 80' damping='2' armature='0.09344'/>1
+            <joint name='left_hip' type='hinge' range='-50 80' damping='2' armature='0.09344'/>
             <geom type='mesh' mesh='left_thigh'/>
             <geom type='capsule' size='0.08' fromto='0 0 -0.04 0.12 0 -0.0355' rgba='0.9 0.5 0.1 0.2' contype='1'/>
             <body name='left_knee' pos='0.12 0 0.0045' xyaxes='0.70711 -0.70711 0 0.70711 0.70711 0'>
