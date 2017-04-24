@@ -11,14 +11,14 @@ int main(void)
     Visualization vis(sim.m);
     System system;
 
-    double qpos_init[] = {0, 0, 1.01, 1, 0, 0, 0, -0.0305, 0, 0.4973,
-                          -1.1997, 0, 1.4267, -1.5968, -1.5244, 0.6472,
-                          0, 0.9785, -0.0164, 0.01787, -0.2049, -0.0305,
-                          0, 0.4973, -1.1997, 0, 1.4267, -1.5968, -1.5244,
-                          0.6472, 0, 0.9786, 0.00386, -0.01524, -0.2051};
+    double qpos_init[] =
+        {0, 0, 1.01, 1, 0, 0, 0,
+         -0.0305, 0, 0.4973, -1.1997, 0, 1.4267, -1.5968,
+         -1.5244, 0.6472, 0, 0.9785, -0.0164, 0.01787, -0.2049,
+         -0.0305, 0, 0.4973, -1.1997, 0, 1.4267, -1.5968,
+         -1.5244, 0.6472, 0, 0.9786, 0.00386, -0.01524, -0.2051};
 
     mju_copy(sim.d->qpos, qpos_init, 35);
-    std::memset(sim.m->jnt_limited, 0, 4);
 
     do {
         mjtNum tstart = sim.d->time;
@@ -26,13 +26,6 @@ int main(void)
             mj_step1(sim.m, sim.d);
             system.step(sim.m, sim.d);
             mj_step2(sim.m, sim.d);
-        }
-        if (sim.d->time > 8 && sim.m->jnt_limited[0]) {
-            // std::memset(sim.m->jnt_limited, 0, 4);
-            sim.m->jnt_limited[0] = 0;
-            sim.m->jnt_limited[1] = 0;
-            sim.m->jnt_limited[2] = 0;
-            // sim.m->jnt_limited[3] = 0;
         }
     } while (vis.update(sim.d));
 

@@ -86,8 +86,12 @@ void System::step(const mjModel* m, mjData* d)
         encoder(m, d->sensordata, i++);
 
     // IMU
-    mju_copy(ethercat.pelvisMedulla.inputs.vnOrientation,
-             &d->sensordata[i], 4);
+    // mju_copy(ethercat.pelvisMedulla.inputs.vnOrientation,
+    //          &d->sensordata[i], 4);
+    ethercat.pelvisMedulla.inputs.vnOrientation[0] = d->sensordata[i + 2];
+    ethercat.pelvisMedulla.inputs.vnOrientation[1] = d->sensordata[i + 3];
+    ethercat.pelvisMedulla.inputs.vnOrientation[2] = d->sensordata[i + 0];
+    ethercat.pelvisMedulla.inputs.vnOrientation[3] = d->sensordata[i + 1];
     i += 4;
     mju_copy(ethercat.pelvisMedulla.inputs.vnGyro, &d->sensordata[i], 3);
     i += 3;
