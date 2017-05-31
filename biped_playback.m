@@ -27,6 +27,16 @@ timedisp.Position = [60 20 60 20];
 X = evalin('base', 'X');
 Time = X.body.x.Time;
 
+grab = evalin('base', 'grab');
+grabline = line('Parent', vis.getFig().Children(end).Children(3));
+grabline.Color = [1 0 1];
+grabline.LineWidth = 4;
+grabline.Marker = '.';
+grabline.MarkerSize = 12;
+grabline.XData = [0 0];
+grabline.YData = [0 0];
+grabline.Visible = 'off';
+
 tic;
 framecount = 0;
 t = t0(1);
@@ -58,10 +68,19 @@ while t < tend && vis.isAlive()
     
     vis.step(Xi);
     
+    ig = find(grab.Time <= t, 1, 'last');
+    if any(grab.Data(:, 1, ig))
+        grabline.Visible = 'on';
+    else
+        grabline.Visible = 'off';
+    end
+    grabline.XData = [0 grab.Data(1, 1, ig) * 2];
+    grabline.YData = [0 grab.Data(2, 1, ig) * 2];
+    
     if p.Results.filename
         [imind, cm] = rgb2ind(frame2im(getframe(vis.getFig)), 256);
         if framecount == 0
-            imwrite(imind, cm, p.Results.filename, 'gif', 'DelayTime', 1/framerate);
+            imwrite(imind, cm, p.Results.filename, 'gif', 'DelayTime', 1/framerate, 'LoopCount', 65534);
         else
             imwrite(imind, cm, p.Results.filename, 'gif', 'DelayTime', 1/framerate, 'WriteMode', 'append');
         end
